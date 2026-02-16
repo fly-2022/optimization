@@ -1,6 +1,6 @@
-let currentMode = "arrival";
-let currentShift = "morning";
-let currentColor = "#4CAF50";
+let currentMode = localStorage.getItem("currentMode") || "arrival";
+let currentShift = localStorage.getItem("currentShift") || "morning";
+let currentColor = currentMode==="arrival"?"#4CAF50":"#FF9800";
 let isMouseDown = false;
 let lastCell = null;
 
@@ -44,6 +44,7 @@ document.getElementById("clearGridBtn").addEventListener("click", ()=>{
     td.classList.remove("active");
   });
   updateSummary();
+  localStorage.removeItem("gridData");
 });
 
 // ---------------- GENERATE TIME SLOTS -----------------
@@ -70,14 +71,24 @@ function renderTable(){
     zoneCell.innerText = zone.name;
     zoneCell.style.background = "#eeeeee";
     zoneCell.style.fontWeight = "bold";
-    table.appendChild(zoneRow); table.appendChild(zoneCell);
+    table.appendChild(zoneRow);
+    table.appendChild(zoneCell);
 
     zone.counters.forEach(counter=>{
       const row = document.createElement("tr");
-      const label = document.createElement("td"); label.innerText = counter; label.style.fontWeight="bold"; row.appendChild(label);
-      timeSlots.forEach(()=>{ 
+      const label = document.createElement("td");
+      label.innerText = counter;
+      label.style.fontWeight="bold";
+      row.appendChild(label);
+      timeSlots.forEach((_,i)=>{ 
         const cell = document.createElement("td"); 
         attachCellEvents(cell);
+        // Load from localStorage
+        const saved = JSON.parse(localStorage.getItem("gridData")||"{}");
+        if(saved[currentMode] && saved[currentMode][counter] && saved[currentMode][counter][i]){
+          cell.style.background = saved[currentMode][counter][i];
+          cell.classList.add("active");
+        }
         row.appendChild(cell);
       });
       table.appendChild(row);
@@ -114,12 +125,29 @@ function toggleCell(cell, action){
   if(action==="apply"){ cell.style.background=currentColor; cell.classList.add("active"); }
   else{ cell.style.background=""; cell.classList.remove("active"); }
   updateSummary();
+  saveGridData();
+}
+
+// ---------------- SAVE/LOAD GRID -----------------
+function saveGridData(){
+  const data = {};
+  zones[currentMode].forEach(zone=>{
+    zone.counters.forEach(counter=>{
+      const row = Array.from(table.rows).find(r=>r.cells[0].innerText===counter);
+      if(row){
+        data[counter] = Array.from(row.cells).slice(1).map(c=>c.style.background);
+      }
+    });
+  });
+  const saved = JSON.parse(localStorage.getItem("gridData")||"{}");
+  saved[currentMode] = data;
+  localStorage.setItem("gridData", JSON.stringify(saved));
 }
 
 // ---------------- UPDATE SUMMARY -----------------
 function updateSummary(){
   let count = 0;
-  document.querySelectorAll("#rosterTable td").forEach(td=>{ if(td.style.background) count++; });
+  document.querySelectorAll("#rosterTable td.active").forEach(td=> count++);
   summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
 
@@ -136,6 +164,7 @@ function initSegmented(){
       currentColor = currentMode==="arrival"?"#4CAF50":"#FF9800";
       modeHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
       modeHighlight.style.background = currentColor;
+      localStorage.setItem("currentMode", currentMode);
       renderTable();
     });
   });
@@ -147,6 +176,7 @@ function initSegmented(){
       currentShift = btn.id==="morningBtn"?"morning":"night";
       shiftHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
       shiftHighlight.style.background = currentShift==="morning"?"#b0bec5":"#9e9e9e";
+      localStorage.setItem("currentShift", currentShift);
       renderTable();
     });
   });
@@ -155,3 +185,6 @@ function initSegmented(){
 // ---------------- INIT -----------------
 initSegmented();
 renderTable();
+
+// Optional: re-render on resize to adjust table for small screens
+window.addEventListener('resize', ()=>{ renderTable(); });
