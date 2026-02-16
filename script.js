@@ -2,14 +2,16 @@ let currentMode = "arrival";
 let currentShift = "morning";
 let currentColor = "#4CAF50";
 
-let isTouchDragging = false; 
-let isMouseDragging = false;
+let isMouseDown = false;
+let isTouchDragging = false;
 let dragAction = "apply";
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
 
-// ==================== COLOR SELECTION ====================
+// ------------------
+// COLOR SELECTION
+// ------------------
 document.querySelectorAll(".color-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     currentColor = btn.dataset.color;
@@ -19,7 +21,9 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 });
 document.querySelector(".color-btn").classList.add("selected");
 
-// ==================== CLEAR GRID ====================
+// -------------------
+// CLEAR GRID
+// -------------------
 document.getElementById("clearGridBtn").addEventListener("click", () => {
   document.querySelectorAll("#rosterTable td").forEach(td => {
     td.dataset.color = "";
@@ -28,7 +32,9 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
   updateSummary();
 });
 
-// ==================== ZONE CONFIG ====================
+// -------------------
+// ZONES
+// -------------------
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC",1,10) },
@@ -46,16 +52,19 @@ const zones = {
   ]
 };
 
-function range(prefix,start,end) {
+function range(prefix,start,end){
   let arr = [];
-  for(let i=start;i<=end;i++) arr.push(prefix+i);
+  for(let i=start; i<=end; i++) arr.push(prefix+i);
   return arr;
 }
 
-function generateTimeSlots() {
+// -------------------
+// Generate time slots
+// -------------------
+function generateTimeSlots(){
   const slots = [];
   const startHour = currentShift === "morning" ? 10 : 22;
-  for(let i=0;i<48;i++){
+  for(let i=0; i<48; i++){
     const hour = (startHour + Math.floor(i/4)) % 24;
     const minute = (i % 4)*15;
     slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
@@ -63,12 +72,13 @@ function generateTimeSlots() {
   return slots;
 }
 
-// ==================== RENDER TABLE ====================
+// -------------------
+// RENDER TABLE
+// -------------------
 function renderTable(){
   table.innerHTML = "";
   const timeSlots = generateTimeSlots();
 
-  // Header
   const headerRow = document.createElement("tr");
   headerRow.appendChild(document.createElement("th"));
   timeSlots.forEach(t => {
@@ -78,12 +88,11 @@ function renderTable(){
   });
   table.appendChild(headerRow);
 
-  // Body
   zones[currentMode].forEach(zone => {
     const zoneRow = document.createElement("tr");
     const zoneCell = document.createElement("td");
     zoneCell.innerText = zone.name;
-    zoneCell.colSpan = timeSlots.length+1;
+    zoneCell.colSpan = timeSlots.length + 1;
     zoneCell.style.backgroundColor = "#eeeeee";
     zoneCell.style.fontWeight = "bold";
     zoneRow.appendChild(zoneCell);
@@ -96,45 +105,50 @@ function renderTable(){
       label.style.fontWeight = "bold";
       row.appendChild(label);
 
-      timeSlots.forEach(()=> {
+      timeSlots.forEach(() => {
         const cell = document.createElement("td");
         cell.dataset.color = "";
 
-        //-----------------------
-        // MOUSE EVENTS (desktop)
-        //-----------------------
+        // ========== DESKTOP DRAG ==========
+
         cell.addEventListener("mousedown", e => {
-          isMouseDragging = true;
+          isMouseDown = true;
           dragAction = (cell.dataset.color === currentColor) ? "remove" : "apply";
           toggleCell(cell, true);
-        });
-        cell.addEventListener("mouseover", () => {
-          if(isMouseDragging) toggleCell(cell, true);
-        });
-        cell.addEventListener("mouseup", () => {
-          isMouseDragging = false;
-        });
-        cell.addEventListener("click", () => {
-          if (!isMouseDragging) toggleCell(cell, false);
         });
 
-        //-----------------------
-        // TOUCH EVENTS (mobile)
-        //-----------------------
-        cell.addEventListener("touchstart", e => {
-          e.preventDefault();
-          isTouchDragging = true;
-          dragAction = (cell.dataset.color === currentColor) ? "remove" : "apply";
-          toggleCell(cell, true);
-        });
-        cell.addEventListener("touchmove", e => {
-          e.preventDefault();
-          const touch = e.touches[0];
-          const target = document.elementFromPoint(touch.clientX, touch.clientY);
-          if(target && target.tagName === "TD") {
-            toggleCell(target, true);
+        cell.addEventListener("mousemove", () => {
+          if(isMouseDown){
+            toggleCell(cell,true);
           }
         });
+
+        cell.addEventListener("mouseup", () => {
+          isMouseDown = false;
+        });
+
+        cell.addEventListener("click", () => {
+          if(!isMouseDown) toggleCell(cell,false);
+        });
+
+        // ========== MOBILE TOUCH DRAG ==========
+
+        cell.addEventListener("touchstart", e => {
+          e.preventDefault();  
+          isTouchDragging = true;
+          dragAction = (cell.dataset.color === currentColor) ? "remove" : "apply";
+          toggleCell(cell,true);
+        });
+
+        cell.addEventListener("touchmove", e => {
+          e.preventDefault();  
+          const touch = e.touches[0];
+          const target = document.elementFromPoint(touch.clientX, touch.clientY);
+          if(target && target.tagName === "TD"){
+            toggleCell(target,true);
+          }
+        });
+
         cell.addEventListener("touchend", () => {
           isTouchDragging = false;
         });
@@ -149,13 +163,15 @@ function renderTable(){
   updateSummary();
 }
 
-// ==================== TOGGLE CELL ====================
-function toggleCell(cell, isDrag) {
+// -------------------
+// TOGGLE CELL
+// -------------------
+function toggleCell(cell, isDrag){
   if(isDrag){
-    if(dragAction==="apply"){ 
+    if(dragAction==="apply"){
       cell.dataset.color = currentColor;
       cell.style.backgroundColor = currentColor;
-    } else { 
+    } else {
       cell.dataset.color = "";
       cell.style.backgroundColor = "";
     }
@@ -171,16 +187,20 @@ function toggleCell(cell, isDrag) {
   updateSummary();
 }
 
-// ==================== SUMMARY ====================
+// -------------------
+// COUNT SELECTED
+// -------------------
 function updateSummary(){
   let count = 0;
-  document.querySelectorAll("#rosterTable td").forEach(td=>{
+  document.querySelectorAll("#rosterTable td").forEach(td => {
     if(td.dataset.color) count++;
   });
   summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
 
-// ==================== MODE / SHIFT BUTTONS ====================
+// -------------------
+// MODE/SHIFT BUTTONS
+// -------------------
 function updateButtons(){
   document.getElementById("arrivalBtn").className="";
   document.getElementById("departureBtn").className="";
@@ -199,8 +219,8 @@ document.getElementById("departureBtn").onclick = () => { currentMode="departure
 document.getElementById("morningBtn").onclick = () => { currentShift="morning"; updateButtons(); renderTable(); };
 document.getElementById("nightBtn").onclick = () => { currentShift="night"; updateButtons(); renderTable(); };
 
-// release mouse drag if pointer leaves
-document.addEventListener("mouseup", () => { isMouseDragging = false; });
+document.addEventListener("mouseup", () => { isMouseDown = false; });
 
+// INITIAL LOAD
 updateButtons();
 renderTable();
