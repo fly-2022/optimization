@@ -1,87 +1,69 @@
-/* =========================
-   GENERAL PAGE STYLING
-========================= */
-
+/* ========================= GENERAL PAGE STYLING ========================= */
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
   background-color: #f7f9fc;
 }
 
-h2 {
-  margin-bottom: 15px;
-}
+h2 { margin-bottom: 15px; }
 
-/* =========================
-   CONTROL BUTTONS
-========================= */
+/* ========================= CONTROL BUTTONS ========================= */
+.controls { margin-bottom: 15px; }
 
-.controls {
-  margin-bottom: 15px;
-}
-
-.mode-group,
-.shift-group {
-  display: inline-block;
+/* Group buttons side by side with no gaps */
+.mode-group, .shift-group {
+  display: flex;
+  position: relative;
+  width: 220px; /* adjust as needed */
   margin-right: 20px;
 }
 
-/* Base button styling */
-button {
+/* Highlight bar */
+.mode-highlight, .shift-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;      /* 2 buttons per group */
+  height: 100%;
+  border-radius: 4px;
+  background-color: #4CAF50; /* default, will be updated via JS */
+  transition: left 0.3s ease, background-color 0.3s ease;
+  z-index: 0;
+}
+
+/* Buttons */
+.mode-group button, .shift-group button {
+  flex: 1;
   padding: 8px 16px;
-  margin: 5px;
   border: none;
   cursor: pointer;
-  border-radius: 4px;
   font-weight: bold;
-  background-color: #ddd;
-  transition: 0.2s ease;
+  position: relative;
+  z-index: 1; /* above highlight */
+  background-color: transparent; /* base handled by highlight */
+  color: black;
+  transition: color 0.3s ease;
+  border-radius: 0;
 }
 
-button:hover {
-  opacity: 0.85;
+/* Rounded edges for first and last buttons */
+.mode-group button:first-child,
+.shift-group button:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
 }
 
-/* ===== MODE BUTTONS ===== */
-
-.mode-btn {
-  background-color: #ddd;
+.mode-group button:last-child,
+.shift-group button:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
 }
 
-/* Arrival Active - GREEN */
-.active-arrival {
-  background-color: #4CAF50 !important;
-  color: white !important;
-}
+/* Active text colors */
+.active-arrival, .active-morning { color: white !important; }
+.active-departure, .active-night { color: white !important; }
 
-/* Departure Active - ORANGE */
-.active-departure {
-  background-color: #ff9800 !important;
-  color: white !important;
-}
-
-/* ===== SHIFT BUTTONS ===== */
-
-.shift-btn {
-  background-color: #ddd;
-}
-
-/* Morning - Shaded */
-.active-morning {
-  background-color: #b0bec5 !important;
-  color: black !important;
-}
-
-/* Night - Neutral but bold */
-.active-night {
-  background-color: #ddd !important;
-  color: black !important;
-}
-
-/* =========================
-   SUMMARY BAR
-========================= */
-
+/* ========================= SUMMARY BAR ========================= */
 #summary {
   margin-top: 10px;
   margin-bottom: 10px;
@@ -91,10 +73,7 @@ button:hover {
   font-size: 14px;
 }
 
-/* =========================
-   TABLE STYLING
-========================= */
-
+/* ========================= TABLE STYLING ========================= */
 .table-container {
   overflow-x: auto;
   border: 1px solid #ccc;
@@ -122,7 +101,6 @@ th {
   z-index: 1;
 }
 
-/* Counter labels */
 td:first-child {
   background-color: #fafafa;
   font-weight: bold;
@@ -132,20 +110,10 @@ td:first-child {
 }
 
 /* Active grid cell */
-td.active {
-  background-color: #4CAF50;
-}
+td.active { background-color: #4CAF50; }
 
 /* Zone header row */
-.zone-row td {
-  background-color: #eeeeee;
-  font-weight: bold;
-  text-align: left;
-  padding-left: 8px;
-}
+.zone-row td { background-color: #eeeeee; font-weight: bold; text-align: left; padding-left: 8px; }
 
 /* Hover effect for cells */
-td:hover {
-  background-color: #dcedc8;
-  cursor: pointer;
-}
+td:hover { background-color: #dcedc8; cursor: pointer; }
