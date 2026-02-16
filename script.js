@@ -10,7 +10,6 @@ const modeHighlight = document.getElementById("modeHighlight");
 const shiftHighlight = document.getElementById("shiftHighlight");
 
 // ---------------- ZONES -----------------
-function range(prefix, start, end){ let arr=[]; for(let i=start;i<=end;i++) arr.push(prefix+i); return arr; }
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -27,6 +26,7 @@ const zones = {
     { name: "BIKES", counters: ["DM37A", "DM37C"] }
   ]
 };
+function range(prefix, start, end){ let arr=[]; for(let i=start;i<=end;i++) arr.push(prefix+i); return arr; }
 
 // ---------------- COLOR PICKER -----------------
 document.querySelectorAll(".color-btn").forEach(btn=>{
@@ -43,7 +43,8 @@ document.getElementById("clearGridBtn").addEventListener("click", ()=>{
     td.style.background="";
     td.classList.remove("active");
   });
-  localStorage.removeItem("gridData");
+  saveGrid();
+  updateSubtotals();
   updateSummary();
 });
 
@@ -59,56 +60,6 @@ function generateTimeSlots(){
   return slots;
 }
 
-// ---------------- CELL EVENTS -----------------
-function attachCellEvents(cell, counter, index){
-  cell.addEventListener("pointerdown", e=>{
-    isMouseDown = true;
-    lastCell = cell;
-    let apply = cell.style.background? "remove":"apply";
-    toggleCell(cell, apply, counter, index);
-  });
-  cell.addEventListener("pointermove", e=>{
-    if(isMouseDown){
-      let el=document.elementFromPoint(e.clientX,e.clientY);
-      if(el && el.tagName==="TD" && el!==lastCell){
-        toggleCell(el, lastCell.style.background? "remove":"apply", counter, index);
-        lastCell = el;
-      }
-    }
-  });
-  cell.addEventListener("pointerup", e=>{ isMouseDown=false; lastCell=null; });
-
-  cell.addEventListener("click", e=>{
-    toggleCell(cell, cell.style.background? "remove":"apply", counter, index);
-  });
-}
-
-// ---------------- TOGGLE CELL -----------------
-function toggleCell(cell, action, counter, index){
-  let saved = JSON.parse(localStorage.getItem("gridData")||"{}");
-  if(!saved[currentMode]) saved[currentMode]={};
-  if(!saved[currentMode][counter]) saved[currentMode][counter]=[];
-
-  if(action==="apply"){
-    cell.style.background=currentColor;
-    cell.classList.add("active");
-    saved[currentMode][counter][index]=currentColor;
-  } else{
-    cell.style.background="";
-    cell.classList.remove("active");
-    saved[currentMode][counter][index]=null;
-  }
-  localStorage.setItem("gridData", JSON.stringify(saved));
-  updateSummary();
-}
-
-// ---------------- UPDATE SUMMARY -----------------
-function updateSummary(){
-  let count = 0;
-  document.querySelectorAll("#rosterTable td").forEach(td=>{ if(td.style.background) count++; });
-  summary.innerHTML = `Mode: <b>${currentMode.toUpperCase()}</b> | Shift: <b>${currentShift.toUpperCase()}</b> | Total Selected: <b>${count}</b>`;
-}
-
 // ---------------- RENDER TABLE -----------------
 function renderTable(){
   table.innerHTML="";
@@ -116,54 +67,127 @@ function renderTable(){
   const saved = JSON.parse(localStorage.getItem("gridData")||"{}");
 
   zones[currentMode].forEach(zone=>{
-    // --- Zone Label Row ---
+    // Zone Label Row
     const zoneRow = document.createElement("tr");
     const zoneCell = document.createElement("td");
     zoneCell.colSpan = timeSlots.length + 1;
     zoneCell.innerText = zone.name;
     zoneCell.classList.add("zone-row");
-    table.appendChild(zoneRow);
-    table.appendChild(zoneCell);
+    table.appendChild(zoneRow); table.appendChild(zoneCell);
 
-    // --- TIME HEADER ROW for this zone (below zone name) ---
+    // Time header row
     const headerRow = document.createElement("tr");
-    const emptyCell = document.createElement("th"); 
-    emptyCell.innerText=""; 
-    headerRow.appendChild(emptyCell);
-
+    const emptyCell = document.createElement("th"); emptyCell.innerText=""; headerRow.appendChild(emptyCell);
     timeSlots.forEach(slot=>{
-      const th = document.createElement("th"); 
-      th.innerText = slot; 
-      headerRow.appendChild(th);
+      const th = document.createElement("th"); th.innerText=slot; headerRow.appendChild(th);
     });
     table.appendChild(headerRow);
 
-    // --- Counters for this zone ---
+    // Counters
     zone.counters.forEach(counter=>{
       const row = document.createElement("tr");
-      const label = document.createElement("td"); 
-      label.innerText = counter; 
-      label.style.fontWeight="bold"; 
-      row.appendChild(label);
-
+      const label = document.createElement("td"); label.innerText = counter; label.style.fontWeight="bold"; row.appendChild(label);
       timeSlots.forEach((_,i)=>{
         const cell = document.createElement("td");
-        attachCellEvents(cell, counter, i);
+        attachCellEvents(cell);
+        // restore from storage
         if(saved[currentMode] && saved[currentMode][counter] && saved[currentMode][counter][i]){
           cell.style.background = saved[currentMode][counter][i];
           cell.classList.add("active");
         }
         row.appendChild(cell);
       });
-
       table.appendChild(row);
     });
+
+    // Subtotal row
+    const subtotalRow = document.createElement("tr");
+    const subtotalLabel = document.createElement("td");
+    subtotalLabel.innerText="Subtotal"; subtotalLabel.style.fontWeight="bold"; subtotalLabel.style.background="#ffffcc";
+    subtotalRow.appendChild(subtotalLabel);
+    timeSlots.forEach(()=>{ const cell = document.createElement("td"); cell.classList.add("subtotal-cell"); subtotalRow.appendChild(cell); });
+    table.appendChild(subtotalRow);
   });
 
+  updateSubtotals();
   updateSummary();
 }
 
+// ---------------- CELL EVENTS -----------------
+function attachCellEvents(cell){
+  cell.addEventListener("pointerdown", e=>{
+    isMouseDown = true; lastCell=cell;
+    toggleCell(cell);
+  });
+  cell.addEventListener("pointermove", e=>{
+    if(isMouseDown){
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      if(el && el.tagName==="TD" && el!==lastCell) { toggleCell(el); lastCell=el; }
+    }
+  });
+  cell.addEventListener("pointerup", e=>{ isMouseDown=false; lastCell=null; });
 
+  // individual tap on mobile
+  cell.addEventListener("click", e=>{ toggleCell(cell); });
+}
+
+function toggleCell(cell){
+  if(cell.classList.contains("active")){ cell.style.background=""; cell.classList.remove("active"); }
+  else{ cell.style.background=currentColor; cell.classList.add("active"); }
+  saveGrid();
+  updateSubtotals();
+  updateSummary();
+}
+
+// ---------------- SUBTOTALS -----------------
+function updateSubtotals(){
+  const rows = table.querySelectorAll("tr");
+  let i=0;
+  while(i<rows.length){
+    if(rows[i].querySelector(".zone-row")){
+      const zoneName = rows[i].querySelector(".zone-row").innerText;
+      const subtotalRow = rows[i+2+zones[currentMode].find(z=>z.name===zoneName).counters.length];
+      const counters = [];
+      for(let j=i+2;j<i+2+zones[currentMode].find(z=>z.name===zoneName).counters.length;j++){ counters.push(rows[j]); }
+      if(!subtotalRow) { i+=1; continue; }
+      const subtotalCells = subtotalRow.querySelectorAll("td.subtotal-cell");
+      subtotalCells.forEach((cell,colIndex)=>{
+        let sum=0;
+        counters.forEach(r=>{
+          const td = r.querySelectorAll("td")[colIndex+1]; if(td && td.classList.contains("active")) sum++;
+        });
+        cell.innerText=sum;
+      });
+      i += counters.length + 3;
+    } else i++;
+  }
+}
+
+// ---------------- SUMMARY -----------------
+function updateSummary(){
+  let count=0; document.querySelectorAll("#rosterTable td.active").forEach(td=>count++);
+  summary.innerHTML = `Mode: <b>${currentMode}</b> | Shift: <b>${currentShift}</b> | Selected Cells: <b>${count}</b>`;
+}
+
+// ---------------- SAVE TO LOCALSTORAGE -----------------
+function saveGrid(){
+  const data = {};
+  zones[currentMode].forEach(zone=>{
+    zone.counters.forEach(counter=>{
+      const row = [...table.querySelectorAll("tr")].find(r=>r.querySelector("td") && r.querySelector("td").innerText===counter);
+      if(row){
+        data[counter] = [];
+        row.querySelectorAll("td").forEach((td,i)=>{
+          if(i===0) return; // skip label
+          data[counter][i-1] = td.classList.contains("active")? td.style.background : null;
+        });
+      }
+    });
+  });
+  const all = JSON.parse(localStorage.getItem("gridData")||"{}");
+  all[currentMode] = data;
+  localStorage.setItem("gridData", JSON.stringify(all));
+}
 
 // ---------------- SEGMENTED BUTTONS -----------------
 function initSegmented(){
@@ -172,23 +196,21 @@ function initSegmented(){
 
   modeBtns.forEach(btn=>{
     btn.addEventListener("click", ()=>{
-      modeBtns.forEach(b=>b.style.color="black");
-      btn.style.color="white";
+      modeBtns.forEach(b=>b.style.color="black"); btn.style.color="white";
       currentMode = btn.id==="arrivalBtn"?"arrival":"departure";
       currentColor = currentMode==="arrival"?"#4CAF50":"#FF9800";
       modeHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
-      modeHighlight.style.background = currentColor;
+      modeHighlight.style.background=currentColor;
       renderTable();
     });
   });
 
   shiftBtns.forEach(btn=>{
     btn.addEventListener("click", ()=>{
-      shiftBtns.forEach(b=>b.style.color="black");
-      btn.style.color="white";
+      shiftBtns.forEach(b=>b.style.color="black"); btn.style.color="white";
       currentShift = btn.id==="morningBtn"?"morning":"night";
       shiftHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
-      shiftHighlight.style.background = currentShift==="morning"?"#b0bec5":"#9e9e9e";
+      shiftHighlight.style.background=currentShift==="morning"?"#b0bec5":"#9e9e9e";
       renderTable();
     });
   });
@@ -197,5 +219,3 @@ function initSegmented(){
 // ---------------- INIT -----------------
 initSegmented();
 renderTable();
-
-
