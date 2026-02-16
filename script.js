@@ -16,10 +16,47 @@ document.querySelectorAll(".segmented").forEach(segment => {
 
   buttons.forEach(btn => {
     btn.addEventListener("click", () => {
-      buttons.forEach(b => b.classList.remove("active"));
+
+      // Reset button states
+      buttons.forEach(b => {
+        b.classList.remove("active");
+        b.style.color = "black";
+      });
+
       btn.classList.add("active");
 
+       // Slide highlight
       highlight.style.transform = `translateX(${btn.dataset.index * 100}%)`;
+
+      // Arrival / Departure colouring
+      if (btn.id === "arrivalBtn") {
+        highlight.style.background = "#4CAF50";
+        btn.style.color = "white";
+        currentMode = "arrival";
+        currentColor = "#4CAF50";
+        renderTable();
+      }
+
+      if (btn.id === "departureBtn") {
+        highlight.style.background = "#ff9800";
+        btn.style.color = "white";
+        currentMode = "departure";
+        currentColor = "#ff9800";
+        renderTable();
+      }
+
+      // Morning / Night
+      if (btn.id === "morningBtn") {
+        highlight.style.background = "#808080";
+        currentShift = "morning";
+        renderTable();
+      }
+
+      if (btn.id === "nightBtn") {
+        highlight.style.background = "#808080";
+        currentShift = "night";
+        renderTable();
+      }
     });
   });
 });
@@ -191,3 +228,4 @@ document.getElementById("nightBtn").onclick = () => {
 /* ================= INIT ================= */
 
 renderTable();
+
