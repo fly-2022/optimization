@@ -1,64 +1,128 @@
-body { font-family: Arial, sans-serif; padding: 20px; background-color: #f7f9fc; }
-h2 { margin-bottom: 15px; }
+/* ========================= GENERAL PAGE STYLING ========================= */
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background-color: #f7f9fc;
+}
 
-/* ===================== COLOR PALETTE ====================== */
-.color-controls {
+h2 {
+  margin-bottom: 15px;
+}
+
+/* ========================= CONTROL BUTTONS ========================= */
+.controls {
   margin-bottom: 15px;
   display: flex;
-  gap: 8px;
-}
-.color-btn {
-  width: 30px;
-  height: 30px;
-  border: 2px solid #bbb;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.color-btn.selected {
-  border: 3px solid black;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
-/* ===================== CONTROLS ====================== */
-.controls { margin-bottom: 15px; display: flex; gap: 20px; }
-.mode-group, .shift-group {
+/* Mode & shift groups */
+.mode-group, .shift-group, .color-group {
   display: flex;
-  position: relative;
-  border: 2px solid #bbb;
-  border-radius: 6px;
-  width: 220px;
-  overflow: hidden;
+  gap: 5px;
+  border: 1px solid #ccc;
+  padding: 5px;
+  border-radius: 5px;
 }
-.mode-highlight, .shift-highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  border-radius: 4px;
-  transition: left 0.3s ease, background-color 0.3s ease;
-  z-index: 0;
-}
-.mode-group button, .shift-group button {
-  flex: 1;
+
+/* Base button styling */
+button {
   padding: 8px 16px;
   border: none;
   cursor: pointer;
+  border-radius: 4px;
   font-weight: bold;
-  position: relative;
-  z-index: 1;
-  background-color: transparent;
-  color: black;
-  transition: color 0.3s ease;
+  transition: 0.2s ease;
 }
 
-/* ===================== TABLE ====================== */
-.table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; }
-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
-th, td { border: 1px solid #ccc; padding: 4px; text-align: center; user-select: none; }
-th { background-color: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
-td:first-child { background-color: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
-td.active { border: 2px solid #000; }
-td:hover { opacity: 0.85; cursor: pointer; }
+/* Hover */
+button:hover {
+  opacity: 0.85;
+}
 
-/* ===================== SUMMARY ====================== */
-#summary { margin-top: 10px; margin-bottom: 10px; padding: 8px; background-color: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
+/* Mode buttons */
+.mode-btn {
+  background-color: #ddd;
+}
+
+/* Active mode */
+.active-arrival { background-color: #4CAF50 !important; color:white; }
+.active-departure { background-color: #ff9800 !important; color:white; }
+
+/* Shift buttons */
+.shift-btn { background-color: #ddd; }
+.active-morning { background-color: #b0bec5 !important; }
+.active-night { background-color: #ddd !important; }
+
+/* Color buttons */
+.color-btn {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  outline: none;
+}
+.color-btn.selected {
+  border: 2px solid #000;
+}
+
+/* Clear button */
+#clearGridBtn {
+  background-color: #f44336;
+  color: white;
+  font-weight: normal;
+}
+
+/* ========================= SUMMARY BAR ========================= */
+#summary {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  font-size: 14px;
+}
+
+/* ========================= TABLE STYLING ========================= */
+.table-container {
+  overflow-x: auto;
+  border: 1px solid #ccc;
+  background: white;
+  padding: 5px;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 4px;
+  text-align: center;
+}
+
+th {
+  background-color: #eeeeee;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+td:first-child {
+  background-color: #fafafa;
+  font-weight: bold;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+/* Hover effect */
+td:hover { cursor: pointer; }
+
+/* Active colored cells - background applied inline via JS */
