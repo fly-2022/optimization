@@ -2,15 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roster Dashboard</title>
+  <title>Roster Optimisation Grid</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Link CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <h2>Roster Optimisation Dashboard</h2>
 
-  <!-- ===================== CONTROL BUTTONS ====================== -->
+  <!-- ===================== COLOR SELECTION ====================== -->
+  <div class="controls">
+    <div class="color-group">
+      <button class="color-btn" data-color="#4CAF50" style="background:#4CAF50"></button>
+      <button class="color-btn" data-color="#ff9800" style="background:#ff9800"></button>
+      <button class="color-btn" data-color="#ffeb3b" style="background:#ffeb3b"></button>
+      <button class="color-btn" data-color="#e91e63" style="background:#e91e63"></button>
+      <button class="color-btn" data-color="#9c27b0" style="background:#9c27b0"></button>
+      <button class="color-btn" data-color="#2196f3" style="background:#2196f3"></button>
+      <button class="color-btn" data-color="#f44336" style="background:#f44336"></button>
+    </div>
+    <button id="clearGridBtn">Clear Grid</button>
+  </div>
+
+  <!-- ===================== MODE & SHIFT CONTROLS ====================== -->
   <div class="controls">
     <div class="mode-group">
       <button id="arrivalBtn" class="mode-btn">Arrival</button>
@@ -21,19 +37,9 @@
       <button id="morningBtn" class="shift-btn">Morning</button>
       <button id="nightBtn" class="shift-btn">Night</button>
     </div>
-
-    <div class="color-group">
-      <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
-      <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
-      <button class="color-btn" data-color="#800080" style="background:#800080"></button>
-      <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
-      <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
-    </div>
-
-    <button id="clearGridBtn">Clear Grid</button>
   </div>
 
-  <!-- ===================== SUMMARY BAR ====================== -->
+  <!-- ===================== SUMMARY ====================== -->
   <div id="summary"></div>
 
   <!-- ===================== TABLE CONTAINER ====================== -->
@@ -41,6 +47,7 @@
     <table id="rosterTable"></table>
   </div>
 
+  <!-- Link JavaScript -->
   <script src="script.js"></script>
 </body>
 </html>
