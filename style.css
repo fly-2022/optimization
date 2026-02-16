@@ -74,7 +74,7 @@ body {
 }
 
 .color-btn.selected {
-    outline: 2px solid black;
+    outline: 2px none black;
 }
 
 #clearGridBtn {
@@ -148,4 +148,5 @@ td.counter-cell.active {
 
 #copySummaryBtn.copied {
     background: #4CAF50;
+
 }
