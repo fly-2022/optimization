@@ -1,38 +1,48 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Roster Optimisation Grid</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+  <meta charset="UTF-8">
+  <title>Roster Optimisation Grid</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Link CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
 
-    <h2>Roster Optimisation Grid</h2>
+  <h2>Roster Optimisation Dashboard</h2>
 
-    <div class="controls">
-    
-        <div class="mode-group">
-            <button id="arrivalBtn" class="mode-btn">Arrival</button>
-            <button id="departureBtn" class="mode-btn">Departure</button>
-        </div>
-    
-        <div class="shift-group">
-            <button id="morningBtn" class="shift-btn">Morning</button>
-            <button id="nightBtn" class="shift-btn">Night</button>
-        </div>
-    
+  <!-- =====================
+       MODE & SHIFT CONTROLS
+  ====================== -->
+  <div class="controls">
+
+    <div class="mode-group">
+      <button id="arrivalBtn" class="mode-btn">Arrival</button>
+      <button id="departureBtn" class="mode-btn">Departure</button>
     </div>
 
-
-    <div id="summary"></div>
-
-    <div class="table-container">
-        <table id="rosterTable"></table>
+    <div class="shift-group">
+      <button id="morningBtn" class="shift-btn">Morning</button>
+      <button id="nightBtn" class="shift-btn">Night</button>
     </div>
 
-    <script src="script.js"></script>
+  </div>
+
+  <!-- =====================
+       SUMMARY BAR
+  ====================== -->
+  <div id="summary"></div>
+
+  <!-- =====================
+       TABLE CONTAINER
+  ====================== -->
+  <div class="table-container">
+    <table id="rosterTable"></table>
+  </div>
+
+  <!-- Link JavaScript -->
+  <script src="script.js"></script>
+
 </body>
-
 </html>
