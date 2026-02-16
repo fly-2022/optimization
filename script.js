@@ -1,6 +1,6 @@
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = "#4CAF50"; // default color
+let currentColor = "#4CAF50"; // default selected color
 let isMouseDown = false;
 let dragMode = true;
 
@@ -11,11 +11,11 @@ const summary = document.getElementById("summary");
 // Color palette selection
 // -----------------------------
 document.querySelectorAll(".color-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        currentColor = btn.dataset.color;
-        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-    });
+  btn.addEventListener("click", () => {
+    currentColor = btn.dataset.color;
+    document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+  });
 });
 document.querySelector(".color-btn").classList.add("selected");
 
@@ -23,153 +23,164 @@ document.querySelector(".color-btn").classList.add("selected");
 // Clear entire grid
 // -----------------------------
 document.getElementById("clearGridBtn").addEventListener("click", () => {
-    document.querySelectorAll("#rosterTable td").forEach(td => td.style.backgroundColor = "");
-    updateSummary();
+  document.querySelectorAll("#rosterTable td").forEach(td => td.style.backgroundColor = "");
+  updateSummary();
 });
 
 // -----------------------------
 // Zones configuration
 // -----------------------------
 const zones = {
-    arrival: [
-        { name: "Zone 1", counters: range("AC", 1, 10) },
-        { name: "Zone 2", counters: range("AC", 11, 20) },
-        { name: "Zone 3", counters: range("AC", 21, 30) },
-        { name: "Zone 4", counters: range("AC", 31, 40) },
-        { name: "BIKES", counters: ["AM41", "AM43"] }
-    ],
-    departure: [
-        { name: "Zone 1", counters: range("DC", 1, 8) },
-        { name: "Zone 2", counters: range("DC", 9, 19) },
-        { name: "Zone 3", counters: range("DC", 20, 29) },
-        { name: "Zone 4", counters: range("DC", 29, 36) },
-        { name: "BIKES", counters: ["DM37A", "DM37C"] }
-    ]
+  arrival: [
+    { name: "Zone 1", counters: range("AC", 1, 10) },
+    { name: "Zone 2", counters: range("AC", 11, 20) },
+    { name: "Zone 3", counters: range("AC", 21, 30) },
+    { name: "Zone 4", counters: range("AC", 31, 40) },
+    { name: "BIKES", counters: ["AM41", "AM43"] }
+  ],
+  departure: [
+    { name: "Zone 1", counters: range("DC", 1, 8) },
+    { name: "Zone 2", counters: range("DC", 9, 19) },
+    { name: "Zone 3", counters: range("DC", 20, 29) },
+    { name: "Zone 4", counters: range("DC", 29, 36) },
+    { name: "BIKES", counters: ["DM37A", "DM37C"] }
+  ]
 };
 
 function range(prefix, start, end) {
-    let arr = [];
-    for (let i = start; i <= end; i++) arr.push(prefix + i);
-    return arr;
+  let arr = [];
+  for (let i = start; i <= end; i++) arr.push(prefix + i);
+  return arr;
 }
 
 // -----------------------------
 // Generate time slots
 // -----------------------------
 function generateTimeSlots() {
-    let slots = [];
-    let startHour = currentShift === "morning" ? 10 : 22;
-    for (let i = 0; i < 48; i++) {
-        let hour = (startHour + Math.floor(i / 4)) % 24;
-        let minute = (i % 4) * 15;
-        slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
-    }
-    return slots;
+  let slots = [];
+  let startHour = currentShift === "morning" ? 10 : 22;
+  for (let i = 0; i < 48; i++) {
+    let hour = (startHour + Math.floor(i / 4)) % 24;
+    let minute = (i % 4) * 15;
+    slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
+  }
+  return slots;
 }
 
 // -----------------------------
 // Render table
 // -----------------------------
 function renderTable() {
-    table.innerHTML = "";
-    const timeSlots = generateTimeSlots();
+  table.innerHTML = "";
+  const timeSlots = generateTimeSlots();
 
-    // Header row
-    let headerRow = document.createElement("tr");
-    headerRow.appendChild(document.createElement("th"));
-    timeSlots.forEach(t => {
-        let th = document.createElement("th");
-        th.innerText = t;
-        headerRow.appendChild(th);
-    });
-    table.appendChild(headerRow);
+  // Header row
+  let headerRow = document.createElement("tr");
+  headerRow.appendChild(document.createElement("th"));
+  timeSlots.forEach(t => {
+    let th = document.createElement("th");
+    th.innerText = t;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
 
-    // Body rows
-    zones[currentMode].forEach(zone => {
-        // Zone row
-        let zoneRow = document.createElement("tr");
-        let zoneCell = document.createElement("td");
-        zoneCell.innerText = zone.name;
-        zoneCell.colSpan = timeSlots.length + 1;
-        zoneCell.style.backgroundColor = "#eeeeee";
-        zoneCell.style.fontWeight = "bold";
-        zoneRow.appendChild(zoneCell);
-        table.appendChild(zoneRow);
+  // Body rows
+  zones[currentMode].forEach(zone => {
+    // Zone row
+    let zoneRow = document.createElement("tr");
+    let zoneCell = document.createElement("td");
+    zoneCell.innerText = zone.name;
+    zoneCell.colSpan = timeSlots.length + 1;
+    zoneCell.style.backgroundColor = "#eeeeee";
+    zoneCell.style.fontWeight = "bold";
+    zoneRow.appendChild(zoneCell);
+    table.appendChild(zoneRow);
 
-        // Counters
-        zone.counters.forEach(counter => {
-            let row = document.createElement("tr");
-            let label = document.createElement("td");
-            label.innerText = counter;
-            label.style.fontWeight = "bold";
-            row.appendChild(label);
+    // Counters
+    zone.counters.forEach(counter => {
+      let row = document.createElement("tr");
+      let label = document.createElement("td");
+      label.innerText = counter;
+      label.style.fontWeight = "bold";
+      row.appendChild(label);
 
-            timeSlots.forEach(() => {
-                let cell = document.createElement("td");
+      timeSlots.forEach(() => {
+        let cell = document.createElement("td");
 
-                // -----------------------------
-                // Mouse events for color/clear
-                // -----------------------------
-                cell.addEventListener("mousedown", e => {
-                    isMouseDown = true;
-                    dragMode = currentColor !== cell.style.backgroundColor;
-                    cell.style.backgroundColor = dragMode ? currentColor : "";
-                    updateSummary();
-                    e.preventDefault();
-                });
-
-                cell.addEventListener("mouseover", () => {
-                    if (!isMouseDown) return;
-                    cell.style.backgroundColor = dragMode ? currentColor : "";
-                    updateSummary();
-                });
-
-                cell.addEventListener("mouseup", () => { isMouseDown = false; });
-
-                row.appendChild(cell);
-            });
-
-            table.appendChild(row);
+        // -----------------------------
+        // Manual click/drag logic
+        // -----------------------------
+        cell.addEventListener("mousedown", e => {
+          isMouseDown = true;
+          toggleCellColor(cell);
+          e.preventDefault();
         });
-    });
 
-    updateSummary();
+        cell.addEventListener("mouseover", () => {
+          if (!isMouseDown) return;
+          toggleCellColor(cell);
+        });
+
+        cell.addEventListener("mouseup", () => { isMouseDown = false; });
+
+        row.appendChild(cell);
+      });
+
+      table.appendChild(row);
+    });
+  });
+
+  updateSummary();
+}
+
+// -----------------------------
+// Toggle cell color manually
+// -----------------------------
+function toggleCellColor(cell) {
+  if (cell.style.backgroundColor === currentColor) {
+    cell.style.backgroundColor = ""; // remove color
+  } else {
+    cell.style.backgroundColor = currentColor; // apply color
+  }
+  updateSummary();
 }
 
 // -----------------------------
 // Update summary
 // -----------------------------
 function updateSummary() {
-    let count = 0;
-    document.querySelectorAll("#rosterTable td").forEach(td => { if (td.style.backgroundColor) count++; });
-    summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
+  let count = 0;
+  document.querySelectorAll("#rosterTable td").forEach(td => {
+    if (td.style.backgroundColor) count++;
+  });
+  summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
 
 // -----------------------------
 // Mode/Shift buttons
 // -----------------------------
 function updateButtons() {
-    document.getElementById("arrivalBtn").className = "";
-    document.getElementById("departureBtn").className = "";
-    document.getElementById("morningBtn").className = "";
-    document.getElementById("nightBtn").className = "";
+  document.getElementById("arrivalBtn").className = "";
+  document.getElementById("departureBtn").className = "";
+  document.getElementById("morningBtn").className = "";
+  document.getElementById("nightBtn").className = "";
 
-    if (currentMode === "arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
-    else document.getElementById("departureBtn").classList.add("active-departure");
+  if (currentMode === "arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
+  else document.getElementById("departureBtn").classList.add("active-departure");
 
-    if (currentShift === "morning") document.getElementById("morningBtn").classList.add("active-morning");
-    else document.getElementById("nightBtn").classList.add("active-night");
+  if (currentShift === "morning") document.getElementById("morningBtn").classList.add("active-morning");
+  else document.getElementById("nightBtn").classList.add("active-night");
 
-    updateHighlight();
+  updateHighlight();
 }
 
 function updateHighlight() {
-    const modeHighlight = document.querySelector(".mode-highlight");
-    const shiftHighlight = document.querySelector(".shift-highlight");
-    modeHighlight.style.left = currentMode === "arrival" ? "0%" : "50%";
-    modeHighlight.style.backgroundColor = currentMode === "arrival" ? "#4CAF50" : "#ff9800";
-    shiftHighlight.style.left = currentShift === "morning" ? "0%" : "50%";
-    shiftHighlight.style.backgroundColor = currentShift === "morning" ? "#b0bec5" : "#ddd";
+  const modeHighlight = document.querySelector(".mode-highlight");
+  const shiftHighlight = document.querySelector(".shift-highlight");
+  modeHighlight.style.left = currentMode === "arrival" ? "0%" : "50%";
+  modeHighlight.style.backgroundColor = currentMode === "arrival" ? "#4CAF50" : "#ff9800";
+  shiftHighlight.style.left = currentShift === "morning" ? "0%" : "50%";
+  shiftHighlight.style.backgroundColor = currentShift === "morning" ? "#b0bec5" : "#ddd";
 }
 
 // -----------------------------
@@ -179,6 +190,7 @@ document.getElementById("arrivalBtn").onclick = () => { currentMode = "arrival";
 document.getElementById("departureBtn").onclick = () => { currentMode = "departure"; updateButtons(); renderTable(); };
 document.getElementById("morningBtn").onclick = () => { currentShift = "morning"; updateButtons(); renderTable(); };
 document.getElementById("nightBtn").onclick = () => { currentShift = "night"; updateButtons(); renderTable(); };
+
 document.addEventListener("mouseup", () => { isMouseDown = false; });
 
 // -----------------------------
