@@ -45,15 +45,6 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 });
 
 // ---------------- CLEAR GRID -----------------
-document.getElementById("clearGridBtn").addEventListener("click", () => {
-    document.querySelectorAll("#rosterTable td").forEach(td => {
-        td.style.background = "";
-        td.classList.remove("active");
-    });
-    updateSummary();
-    updateManningSummary();
-});
-
 function generateTimeSlots() {
     let slots = [];
     let start = currentShift === "morning" ? 10 : 22;
@@ -67,6 +58,7 @@ function generateTimeSlots() {
 }
 
 function renderTable() {
+    historyStack = [];
     table.innerHTML = "";
     const times = generateTimeSlots();
 
@@ -231,13 +223,6 @@ document.getElementById("nightBtn").onclick = () => {
     renderTable();
 };
 
-document.querySelectorAll(".color-btn").forEach(btn => {
-    btn.onclick = () => {
-        currentColor = btn.dataset.color;
-        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-    };
-});
 
 renderTable();
 
@@ -329,39 +314,6 @@ document.getElementById("addOfficerBtn").addEventListener("click", () => {
 });
 
 
-function addOfficersToGrid(count, startTime, endTime) {
-
-    const times = generateTimeSlots();
-
-    let startIndex = times.findIndex(t => t === startTime);
-    let endIndex = times.findIndex(t => t === endTime);
-
-    if (startIndex === -1 || endIndex === -1) {
-        alert("Time range outside current shift grid.");
-        return;
-    }
-
-    zones[currentMode].forEach(zone => {
-
-        if (zone.name === "BIKES") return;
-
-        for (let t = startIndex; t < endIndex; t++) {
-
-            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)];
-
-            for (let i = 0; i < count; i++) {
-                let emptyCell = cells.find(c => !c.classList.contains("active"));
-                if (emptyCell) {
-                    emptyCell.style.background = currentColor;
-                    emptyCell.classList.add("active");
-                }
-            }
-        }
-    });
-
-    updateAll();
-}
-
 let historyStack = [];
 
 function saveState() {
@@ -445,28 +397,33 @@ document.getElementById("removeOfficerBtn").addEventListener("click", () => {
 
     const times = generateTimeSlots();
 
-    zones[currentMode].forEach(zone => {
+    times.forEach((time, tIndex) => {
 
-        if (zone.name === "BIKES") return;
+        let allCells = [];
 
-        times.forEach((time, tIndex) => {
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
 
             let cells = [...document.querySelectorAll(
                 `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
             )];
 
-            let activeCells = cells.filter(c => c.classList.contains("active"));
-
-            for (let i = 0; i < count && activeCells.length > 0; i++) {
-                let last = activeCells.pop();
-                last.classList.remove("active");
-                last.style.background = "";
-            }
+            allCells = allCells.concat(cells);
         });
+
+        let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+        for (let i = 0; i < count && activeCells.length > 0; i++) {
+            let last = activeCells.pop();
+            last.classList.remove("active");
+            last.style.background = "";
+        }
+
     });
 
     updateAll();
 });
+
 
 document.getElementById("undoBtn").addEventListener("click", () => {
     if (historyStack.length === 0) return;
