@@ -1,8 +1,6 @@
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = "#4CAF50"; // default color
-let isMouseDown = false;
-let dragAction = "apply"; // used only during drag
+let currentColor = "#4CAF50"; // default selected color
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -107,24 +105,15 @@ function renderTable() {
         const cell = document.createElement("td");
 
         // -----------------------------
-        // Mouse events
+        // Mobile & desktop click: toggle color
         // -----------------------------
-        cell.addEventListener("mousedown", e => {
-          isMouseDown = true;
-          // Determine drag action based on current color of the cell
-          dragAction = cell.style.backgroundColor === currentColor ? "remove" : "apply";
-          // Also toggle cell immediately for click
-          toggleCell(cell);
-          e.preventDefault();
-        });
-
-        cell.addEventListener("mouseover", () => {
-          if (!isMouseDown) return;
-          toggleCell(cell, true); // drag mode
-        });
-
-        cell.addEventListener("mouseup", () => {
-          isMouseDown = false;
+        cell.addEventListener("click", () => {
+          if (cell.style.backgroundColor === currentColor) {
+            cell.style.backgroundColor = ""; // remove color
+          } else {
+            cell.style.backgroundColor = currentColor; // apply color
+          }
+          updateSummary();
         });
 
         row.appendChild(cell);
@@ -134,22 +123,6 @@ function renderTable() {
     });
   });
 
-  updateSummary();
-}
-
-// -----------------------------
-// Toggle cell color
-// -----------------------------
-function toggleCell(cell, isDrag = false) {
-  if (isDrag) {
-    // during drag, apply/remove according to dragAction
-    if (dragAction === "apply") cell.style.backgroundColor = currentColor;
-    else cell.style.backgroundColor = "";
-  } else {
-    // single click toggles color
-    if (cell.style.backgroundColor === currentColor) cell.style.backgroundColor = "";
-    else cell.style.backgroundColor = currentColor;
-  }
   updateSummary();
 }
 
@@ -185,10 +158,10 @@ function updateButtons() {
 function updateHighlight() {
   const modeHighlight = document.querySelector(".mode-highlight");
   const shiftHighlight = document.querySelector(".shift-highlight");
-  modeHighlight.style.left = currentMode==="arrival" ? "0%" : "50%";
-  modeHighlight.style.backgroundColor = currentMode==="arrival" ? "#4CAF50" : "#ff9800";
-  shiftHighlight.style.left = currentShift==="morning" ? "0%" : "50%";
-  shiftHighlight.style.backgroundColor = currentShift==="morning" ? "#b0bec5" : "#ddd";
+  if (modeHighlight) modeHighlight.style.left = currentMode==="arrival" ? "0%" : "50%";
+  if (modeHighlight) modeHighlight.style.backgroundColor = currentMode==="arrival" ? "#4CAF50" : "#ff9800";
+  if (shiftHighlight) shiftHighlight.style.left = currentShift==="morning" ? "0%" : "50%";
+  if (shiftHighlight) shiftHighlight.style.backgroundColor = currentShift==="morning" ? "#b0bec5" : "#ddd";
 }
 
 // -----------------------------
@@ -198,8 +171,6 @@ document.getElementById("arrivalBtn").onclick = () => { currentMode="arrival"; u
 document.getElementById("departureBtn").onclick = () => { currentMode="departure"; updateButtons(); renderTable(); };
 document.getElementById("morningBtn").onclick = () => { currentShift="morning"; updateButtons(); renderTable(); };
 document.getElementById("nightBtn").onclick = () => { currentShift="night"; updateButtons(); renderTable(); };
-
-document.addEventListener("mouseup", () => { isMouseDown=false; });
 
 // -----------------------------
 // Initial render
