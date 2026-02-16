@@ -113,31 +113,34 @@ function updateSummary(){
 function renderTable(){
   table.innerHTML="";
   const timeSlots = generateTimeSlots();
-
-  // --- HEADER ROW ---
-  const headerRow = document.createElement("tr");
-  const emptyCell = document.createElement("th"); emptyCell.innerText=""; headerRow.appendChild(emptyCell);
-  timeSlots.forEach(slot=>{
-    const th = document.createElement("th"); th.innerText=slot; headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
-
   const saved = JSON.parse(localStorage.getItem("gridData")||"{}");
 
   zones[currentMode].forEach(zone=>{
-    // Zone label row
+    // --- TIME HEADER ROW for this zone ---
+    const headerRow = document.createElement("tr");
+    const emptyCell = document.createElement("th"); emptyCell.innerText=""; headerRow.appendChild(emptyCell);
+    timeSlots.forEach(slot=>{
+      const th = document.createElement("th"); th.innerText=slot; headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
+
+    // --- Zone Label Row ---
     const zoneRow = document.createElement("tr");
     const zoneCell = document.createElement("td");
-    zoneCell.colSpan = timeSlots.length+1;
+    zoneCell.colSpan = timeSlots.length + 1;
     zoneCell.innerText = zone.name;
     zoneCell.classList.add("zone-row");
     table.appendChild(zoneRow);
     table.appendChild(zoneCell);
 
-    // Counters
+    // --- Counters for this zone ---
     zone.counters.forEach(counter=>{
       const row = document.createElement("tr");
-      const label = document.createElement("td"); label.innerText = counter; label.style.fontWeight="bold"; row.appendChild(label);
+      const label = document.createElement("td"); 
+      label.innerText = counter; 
+      label.style.fontWeight="bold"; 
+      row.appendChild(label);
+
       timeSlots.forEach((_,i)=>{
         const cell = document.createElement("td");
         attachCellEvents(cell, counter, i);
@@ -147,12 +150,14 @@ function renderTable(){
         }
         row.appendChild(cell);
       });
+
       table.appendChild(row);
     });
   });
 
   updateSummary();
 }
+
 
 // ---------------- SEGMENTED BUTTONS -----------------
 function initSegmented(){
@@ -186,3 +191,4 @@ function initSegmented(){
 // ---------------- INIT -----------------
 initSegmented();
 renderTable();
+
