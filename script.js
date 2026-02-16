@@ -49,13 +49,20 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
-    { name: "Zone 2", counters: range("AC", 11, 20) }
+    { name: "Zone 2", counters: range("AC", 11, 20) },
+    { name: "Zone 3", counters: range("AC", 21, 30) },
+    { name: "Zone 4", counters: range("AC", 31, 40) },
+    { name: "BIKES", counters: ["AM41", "AM43"] }
   ],
   departure: [
     { name: "Zone 1", counters: range("DC", 1, 8) },
-    { name: "Zone 2", counters: range("DC", 9, 19) }
+    { name: "Zone 2", counters: range("DC", 9, 19) },
+    { name: "Zone 3", counters: range("DC", 20, 29) },
+    { name: "Zone 4", counters: range("DC", 29, 36) },
+    { name: "BIKES", counters: ["DM37A", "DM37C"] }
   ]
 };
+
 
 function range(p, s, e) {
   let arr = [];
@@ -185,3 +192,4 @@ document.getElementById("nightBtn").onclick = () => {
 /* ================= INIT ================= */
 
 renderTable();
+
