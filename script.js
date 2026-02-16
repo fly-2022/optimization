@@ -116,14 +116,6 @@ function renderTable(){
   const saved = JSON.parse(localStorage.getItem("gridData")||"{}");
 
   zones[currentMode].forEach(zone=>{
-    // --- TIME HEADER ROW for this zone ---
-    const headerRow = document.createElement("tr");
-    const emptyCell = document.createElement("th"); emptyCell.innerText=""; headerRow.appendChild(emptyCell);
-    timeSlots.forEach(slot=>{
-      const th = document.createElement("th"); th.innerText=slot; headerRow.appendChild(th);
-    });
-    table.appendChild(headerRow);
-
     // --- Zone Label Row ---
     const zoneRow = document.createElement("tr");
     const zoneCell = document.createElement("td");
@@ -132,6 +124,19 @@ function renderTable(){
     zoneCell.classList.add("zone-row");
     table.appendChild(zoneRow);
     table.appendChild(zoneCell);
+
+    // --- TIME HEADER ROW for this zone (below zone name) ---
+    const headerRow = document.createElement("tr");
+    const emptyCell = document.createElement("th"); 
+    emptyCell.innerText=""; 
+    headerRow.appendChild(emptyCell);
+
+    timeSlots.forEach(slot=>{
+      const th = document.createElement("th"); 
+      th.innerText = slot; 
+      headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
 
     // --- Counters for this zone ---
     zone.counters.forEach(counter=>{
@@ -157,6 +162,7 @@ function renderTable(){
 
   updateSummary();
 }
+
 
 
 // ---------------- SEGMENTED BUTTONS -----------------
@@ -191,4 +197,5 @@ function initSegmented(){
 // ---------------- INIT -----------------
 initSegmented();
 renderTable();
+
 
