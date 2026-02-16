@@ -3,8 +3,8 @@
 // -----------------------------
 let currentMode = "arrival";
 let currentShift = "morning";
-let isMouseDown = false; // for drag selection
-let dragMode = true;      // track whether we're activating or deactivating cells
+let isMouseDown = false; // tracks if mouse is pressed
+let dragMode = true;      // whether we're activating or deactivating during drag
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -91,15 +91,16 @@ function renderTable() {
       timeSlots.forEach(() => {
         let cell = document.createElement("td");
 
-        // Toggle cell individually
+        // Start drag on mousedown
         cell.addEventListener("mousedown", (e) => {
           isMouseDown = true;
-          dragMode = !cell.classList.contains("active");
+          dragMode = !cell.classList.contains("active"); // true = activate, false = deactivate
           cell.classList.toggle("active", dragMode);
           updateSummary();
           e.preventDefault(); // prevent text selection
         });
 
+        // Apply toggle on mouseover while dragging
         cell.addEventListener("mouseover", () => {
           if (isMouseDown) {
             cell.classList.toggle("active", dragMode);
@@ -107,6 +108,7 @@ function renderTable() {
           }
         });
 
+        // Stop dragging on mouseup
         cell.addEventListener("mouseup", () => { isMouseDown = false; });
 
         row.appendChild(cell);
@@ -123,7 +125,7 @@ function renderTable() {
 // UPDATE SUMMARY
 // -----------------------------
 function updateSummary() {
-  let activeCells = document.querySelectorAll("td.active").length;
+  const activeCells = document.querySelectorAll("td.active").length;
   summary.innerHTML =
     `Current Mode: <b>${currentMode.toUpperCase()}</b> |
      Current Shift: <b>${currentShift.toUpperCase()}</b> |
@@ -131,14 +133,16 @@ function updateSummary() {
 }
 
 // -----------------------------
-// UPDATE BUTTONS & HIGHLIGHT
+// BUTTONS & HIGHLIGHT
 // -----------------------------
 function updateButtons() {
-  document.getElementById("arrivalBtn").className = "mode-btn";
-  document.getElementById("departureBtn").className = "mode-btn";
-  document.getElementById("morningBtn").className = "shift-btn";
-  document.getElementById("nightBtn").className = "shift-btn";
+  // Reset buttons
+  document.getElementById("arrivalBtn").className = "";
+  document.getElementById("departureBtn").className = "";
+  document.getElementById("morningBtn").className = "";
+  document.getElementById("nightBtn").className = "";
 
+  // Active buttons
   if (currentMode === "arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
   else document.getElementById("departureBtn").classList.add("active-departure");
 
@@ -186,5 +190,5 @@ document.getElementById("nightBtn").onclick = () => { currentShift = "night"; up
 updateButtons();
 renderTable();
 
-// End mouse drag
+// Stop dragging when mouse leaves the window
 document.addEventListener("mouseup", () => { isMouseDown = false; });
