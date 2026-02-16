@@ -1,6 +1,3 @@
-/* =========================
-   GENERAL PAGE STYLING
-========================= */
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
@@ -11,9 +8,6 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* =========================
-   CONTROL BUTTONS
-========================= */
 .controls {
   margin-bottom: 15px;
   display: flex;
@@ -29,7 +23,6 @@ h2 {
   border-radius: 5px;
 }
 
-/* Base button styling */
 button {
   padding: 8px 16px;
   border: none;
@@ -44,21 +37,14 @@ button:hover {
   opacity: 0.85;
 }
 
-/* Mode buttons */
 .mode-btn.active-arrival { background-color: #4CAF50; color: white; }
 .mode-btn.active-departure { background-color: #ff9800; color: white; }
-
-/* Shift buttons */
 .shift-btn.active-morning { background-color: #b0bec5; color: black; }
 .shift-btn.active-night { background-color: #ddd; color: black; }
 
-/* Color buttons */
 .color-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #999; }
 .color-btn.selected { border: 2px solid black; }
 
-/* =========================
-   SUMMARY BAR
-========================= */
 #summary {
   margin: 10px 0;
   padding: 8px;
@@ -67,15 +53,13 @@ button:hover {
   font-size: 14px;
 }
 
-/* =========================
-   TABLE STYLING
-========================= */
 .table-container {
   overflow-x: auto;
   border: 1px solid #ccc;
   background: white;
   padding: 5px;
-  touch-action: none; /* disables scrolling while dragging on mobile */
+  touch-action: none;   /* important for mobile drag */
+  -ms-touch-action: none;
 }
 
 table {
@@ -98,7 +82,6 @@ th {
   z-index: 1;
 }
 
-/* Counter labels */
 td:first-child {
   background-color: #fafafa;
   font-weight: bold;
@@ -107,12 +90,10 @@ td:first-child {
   z-index: 1;
 }
 
-/* Active grid cell */
 td.active {
   background-color: #4CAF50;
 }
 
-/* Zone header row */
 .zone-row td {
   background-color: #eeeeee;
   font-weight: bold;
@@ -120,14 +101,9 @@ td.active {
   padding-left: 8px;
 }
 
-/* Hover effect for cells */
 td:hover { cursor: pointer; }
 
-/* =========================
-   MOBILE DRAG SUPPORT
-========================= */
 .table-container td {
-  touch-action: none; /* allow drag on mobile */
-  -ms-touch-action: none;
-  user-select: none;   /* prevent text selection while dragging */
+  touch-action: none;
+  user-select: none;
 }
