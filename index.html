@@ -1,52 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Roster Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Counter Management</title>
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+  <h2>Counter Management System</h2>
 
-    <h2>Roster Optimisation Dashboard</h2>
+  <!-- Arrival / Departure segmented tabs -->
+  <div class="segmented">
+    <div class="segment-btn" id="arrivalBtn" data-index="0">Arrival</div>
+    <div class="segment-btn" id="departureBtn" data-index="1">Departure</div>
+    <div class="segment-highlight"></div>
+  </div>
 
-    <div class="controls">
+  <!-- Shift segmented tabs -->
+  <div class="segmented shift-segment">
+    <div class="segment-btn" id="morningBtn" data-index="0">Morning (10:00)</div>
+    <div class="segment-btn" id="nightBtn" data-index="1">Night (22:00)</div>
+    <div class="segment-highlight"></div>
+  </div>
 
-        <!-- Arrival / Departure -->
-        <div class="segmented" id="modeSegment">
-            <div class="segment-highlight"></div>
-            <button class="segment-btn" id="arrivalBtn" data-index="0">Arrival</button>
-            <button class="segment-btn" id="departureBtn" data-index="1">Departure</button>
-        </div>
+  <!-- Clear button -->
+  <button class="clear-button" id="clear-button">Clear All</button>
 
-        <!-- Morning / Night -->
-        <div class="segmented" id="shiftSegment">
-            <div class="segment-highlight"></div>
-            <button class="segment-btn" id="morningBtn" data-index="0">Morning</button>
-            <button class="segment-btn" id="nightBtn" data-index="1">Night</button>
-        </div>
+  <!-- Table container -->
+  <div id="table-wrapper">
+    <div id="table-container"></div>
+  </div>
 
-        <!-- Color picker -->
-        <div class="color-group">
-            <button class="color-btn selected" data-color="#4CAF50" style="background:#4CAF50"></button>
-            <button class="color-btn" data-color="#FF9800" style="background:#FF9800"></button>
-            <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
-            <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
-            <button class="color-btn" data-color="#800080" style="background:#800080"></button>
-            <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
-            <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
-        </div>
-
-        <button id="clearGrid">Clear Grid</button>
+  <!-- Summary -->
+  <div id="summary-container">
+    <div id="summary-header">
+      <h3>Summary</h3>
+      <button id="copy-button">
+        <svg class="copy-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+          <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        </svg>
+        <svg class="check-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
+        </svg>
+        <span id="copy-text">Copy</span>
+      </button>
     </div>
+    <div id="summary-content">
+      <pre id="summary-text"></pre>
+    </div>
+  </div>
 
-    <div id="summary"></div>
-
-    <div id="tableContainer" class="table-container"></div>
-
-    <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
-
 </html>
