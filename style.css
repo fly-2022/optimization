@@ -1,7 +1,7 @@
 body { font-family: Arial, sans-serif; padding: 20px; background-color: #f7f9fc; }
 h2 { margin-bottom: 15px; }
 
-/* Color palette buttons */
+/* ===================== COLOR PALETTE ====================== */
 .color-controls {
   margin-bottom: 15px;
   display: flex;
@@ -18,7 +18,7 @@ h2 { margin-bottom: 15px; }
   border: 3px solid black;
 }
 
-/* Controls styling */
+/* ===================== CONTROLS ====================== */
 .controls { margin-bottom: 15px; display: flex; gap: 20px; }
 .mode-group, .shift-group {
   display: flex;
@@ -51,14 +51,14 @@ h2 { margin-bottom: 15px; }
   transition: color 0.3s ease;
 }
 
-/* Table styling */
+/* ===================== TABLE ====================== */
 .table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; }
 table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
 th, td { border: 1px solid #ccc; padding: 4px; text-align: center; user-select: none; }
 th { background-color: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
 td:first-child { background-color: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
-td.active { border: 2px solid #000; } 
+td.active { border: 2px solid #000; }
 td:hover { opacity: 0.85; cursor: pointer; }
 
-/* Summary bar */
+/* ===================== SUMMARY ====================== */
 #summary { margin-top: 10px; margin-bottom: 10px; padding: 8px; background-color: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
