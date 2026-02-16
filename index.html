@@ -1,43 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Roster Grid</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Roster Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<h2>Roster Grid</h2>
+    <h2>Roster Optimisation Dashboard</h2>
 
-<!-- Arrival / Departure -->
-<div class="segmented" id="typeSegment">
-  <div class="segment-highlight"></div>
-  <button class="segment-btn active" data-value="arrival">Arrival</button>
-  <button class="segment-btn" data-value="departure">Departure</button>
-</div>
+    <div class="controls">
+        <div class="mode-group">
+            <button id="arrivalBtn" class="mode-btn">Arrival</button>
+            <button id="departureBtn" class="mode-btn">Departure</button>
+        </div>
 
-<!-- Morning / Night -->
-<div class="segmented" id="shiftSegment">
-  <div class="segment-highlight"></div>
-  <button class="segment-btn active" data-value="morning">Morning</button>
-  <button class="segment-btn" data-value="night">Night</button>
-</div>
+        <div class="shift-group">
+            <button id="morningBtn" class="shift-btn">Morning</button>
+            <button id="nightBtn" class="shift-btn">Night</button>
+        </div>
 
-<!-- Color Picker -->
-<div class="color-group">
-  <button class="color-btn" data-color="#4CAF50" style="background:#4CAF50"></button>
-  <button class="color-btn" data-color="#FFA500" style="background:#FFA500"></button>
-  <button class="color-btn" data-color="#FFD700" style="background:#FFD700"></button>
-  <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
-  <button class="color-btn" data-color="#800080" style="background:#800080"></button>
-  <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
-  <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
-</div>
+        <div class="color-group">
+            <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
+            <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
+            <button class="color-btn" data-color="#800080" style="background:#800080"></button>
+            <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
+            <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
+        </div>
 
-<button id="clearBtn">Clear Grid</button>
+        <button id="clearGridBtn">Clear Grid</button>
+    </div>
 
-<div id="grid"></div>
+    <div id="summary"></div>
 
-<script src="script.js"></script>
+    <div class="table-container">
+        <table id="rosterTable"></table>
+    </div>
+
+    <script src="script.js"></script>
 </body>
+
 </html>
