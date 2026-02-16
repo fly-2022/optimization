@@ -20,6 +20,8 @@ body { font-family: Arial, sans-serif; margin: 20px; overflow-x: hidden; }
   z-index: 2;
 }
 
+.segment-btn.active { color: white; }
+
 .segment-highlight {
   position: absolute;
   top: 0; bottom: 0;
@@ -28,13 +30,6 @@ body { font-family: Arial, sans-serif; margin: 20px; overflow-x: hidden; }
   z-index: 1;
   border-radius: 6px;
 }
-
-/* Arrival / Departure colors */
-#arrivalBtn.segmented .segment-highlight { background-color: #4CAF50; }
-#departureBtn.segmented .segment-highlight { background-color: #ff9800; }
-
-/* Shift highlight */
-.shift-segment .segment-highlight { background-color: #eee; }
 
 /* Clear button */
 .clear-button {
