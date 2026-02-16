@@ -108,20 +108,21 @@ function renderTable(){
         cell.addEventListener("pointerdown", e => {
           isPointerDown = true;
           dragAction = cell.dataset.color === currentColor ? "remove" : "apply";
+          cell.dataset.dragging = "false"; // reset drag flag
         });
 
         cell.addEventListener("pointermove", e => {
           if (!isPointerDown) return;
           toggleCell(cell, true);
+          cell.dataset.dragging = "true"; // mark as drag
         });
 
         cell.addEventListener("pointerup", e => {
+          if (!cell.dataset.dragging || cell.dataset.dragging === "false") {
+            // treat as tap/click
+            toggleCell(cell, false);
+          }
           isPointerDown = false;
-        });
-
-        // ---------- Click event for individual toggle ----------
-        cell.addEventListener("click", e => {
-          toggleCell(cell, false);
         });
 
         row.appendChild(cell);
