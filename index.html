@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Roster Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roster Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -40,15 +40,17 @@
 
     </div>
 
-    <div id="summary"></div>
-
     <div class="table-container">
         <table id="rosterTable"></table>
     </div>
 
     <h3>Manning Summary</h3>
-    <div id="manningSummary"></div>
-    <button id="copySummaryBtn">Copy Summary</button>
+
+    <div class="summary-controls">
+        <button id="copySummaryBtn">Copy Manning Summary</button>
+    </div>
+
+    <pre id="manningSummary"></pre>
 
     <script src="script.js"></script>
 </body>

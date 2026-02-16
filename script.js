@@ -1,16 +1,12 @@
 let currentMode = "arrival";
 let currentShift = "morning";
 let currentColor = "#4CAF50";
-let isMouseDown = false;
-let lastCell = null;
+let isDragging = false;
+let dragMode = "add";
 
 const table = document.getElementById("rosterTable");
-const summary = document.getElementById("summary");
-const manningSummaryDiv = document.getElementById("manningSummary");
-const modeHighlight = document.getElementById("modeHighlight");
-const shiftHighlight = document.getElementById("shiftHighlight");
+const manningSummary = document.getElementById("manningSummary");
 
-// ---------------- ZONES -----------------
 const zones = {
     arrival: [
         { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -28,227 +24,191 @@ const zones = {
     ]
 };
 
-function range(prefix, start, end) { let arr = []; for (let i = start; i <= end; i++) arr.push(prefix + i); return arr; }
+function range(prefix, start, end) { let arr = []; for (let i = start; i <= end; i++)arr.push(prefix + i); return arr; }
 
-// ---------------- COLOR PICKER -----------------
-document.querySelectorAll(".color-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        currentColor = btn.dataset.color;
-        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-    });
-});
-
-// ---------------- CLEAR GRID -----------------
-document.getElementById("clearGridBtn").addEventListener("click", () => {
-    document.querySelectorAll("#rosterTable td").forEach(td => {
-        td.style.background = "";
-        td.classList.remove("active");
-    });
-    updateSummary();
-    renderManningSummary();
-});
-
-// ---------------- GENERATE TIME SLOTS -----------------
 function generateTimeSlots() {
     let slots = [];
-    if (currentShift === "morning") {
-        let start = 10 * 60; // 10:00
-        let end = 22 * 60; // 22:00
-        for (let t = start; t <= end; t += 15) {
-            let hour = Math.floor(t / 60); let min = t % 60;
-            slots.push(String(hour).padStart(2, "0") + String(min).padStart(2, "0"));
-        }
-    } else {
-        let start = 22 * 60; // 22:00
-        for (let i = 0; i <= 48; i++) { // 48 intervals till 10:00 next day
-            let t = (start + i * 15) % 1440;
-            let hour = Math.floor(t / 60); let min = t % 60;
-            slots.push(String(hour).padStart(2, "0") + String(min).padStart(2, "0"));
-        }
+    let start = currentShift === "morning" ? 10 : 22;
+    for (let i = 0; i < 48; i++) {
+        let total = start * 60 + i * 15;
+        let hour = Math.floor((total % 1440) / 60);
+        let minute = total % 60;
+        slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
     }
     return slots;
 }
 
-// ---------------- RENDER TABLE -----------------
 function renderTable() {
     table.innerHTML = "";
-    const timeSlots = generateTimeSlots();
+    const times = generateTimeSlots();
 
     zones[currentMode].forEach(zone => {
-        // Zone label row
-        const zoneRow = document.createElement("tr");
-        const zoneCell = document.createElement("td");
-        zoneCell.colSpan = timeSlots.length + 2;
+        let zoneRow = document.createElement("tr");
+        let zoneCell = document.createElement("td");
+        zoneCell.colSpan = times.length + 1;
+        zoneCell.className = "zone-header";
         zoneCell.innerText = zone.name;
-        zoneCell.style.background = "#eeeeee";
-        zoneCell.style.fontWeight = "bold";
-        table.appendChild(zoneRow); table.appendChild(zoneCell);
+        zoneRow.appendChild(zoneCell);
+        table.appendChild(zoneRow);
 
-        // Time row
-        const timeRow = document.createElement("tr");
-        const emptyCell = document.createElement("td"); // for counter label
-        timeRow.appendChild(emptyCell);
-        timeSlots.forEach(slot => {
-            const timeCell = document.createElement("td");
-            timeCell.innerText = slot;
-            timeRow.appendChild(timeCell);
+        let timeRow = document.createElement("tr");
+        timeRow.className = "time-header";
+        timeRow.innerHTML = "<th></th>";
+        times.forEach(t => {
+            let th = document.createElement("th");
+            th.innerText = t;
+            timeRow.appendChild(th);
         });
-        const subtotalCell = document.createElement("td"); subtotalCell.innerText = "Subtotal"; timeRow.appendChild(subtotalCell);
         table.appendChild(timeRow);
 
-        // Counter rows
         zone.counters.forEach(counter => {
-            const row = document.createElement("tr");
-            const label = document.createElement("td"); label.innerText = counter; label.style.fontWeight = "bold"; row.appendChild(label);
-            timeSlots.forEach(() => {
-                const cell = document.createElement("td");
+            let row = document.createElement("tr");
+            let label = document.createElement("td");
+            label.innerText = counter;
+            row.appendChild(label);
+
+            times.forEach((t, i) => {
+                let cell = document.createElement("td");
+                cell.className = "counter-cell";
+                cell.dataset.zone = zone.name;
+                cell.dataset.time = i;
                 attachCellEvents(cell);
                 row.appendChild(cell);
             });
-            // Subtotal cell per counter
-            const subCell = document.createElement("td"); subCell.classList.add("subtotal"); subCell.innerText = "0"; row.appendChild(subCell);
             table.appendChild(row);
         });
 
-        // Zone subtotal row
-        const zRow = document.createElement("tr");
-        const zLabel = document.createElement("td"); zLabel.innerText = "Zone Total"; zLabel.style.fontWeight = "bold"; zRow.appendChild(zLabel);
-        for (let i = 0; i < timeSlots.length; i++) {
-            const zCell = document.createElement("td"); zCell.classList.add("subtotal"); zCell.innerText = "0"; zRow.appendChild(zCell);
-        }
-        const zTotalCell = document.createElement("td"); zTotalCell.classList.add("subtotal"); zTotalCell.innerText = "0"; zRow.appendChild(zTotalCell);
-        table.appendChild(zRow);
+        let subtotalRow = document.createElement("tr");
+        subtotalRow.className = "subtotal-row";
+        let subtotalLabel = document.createElement("td");
+        subtotalLabel.innerText = "Subtotal";
+        subtotalRow.appendChild(subtotalLabel);
+
+        times.forEach((t, i) => {
+            let td = document.createElement("td");
+            td.className = "subtotal-cell";
+            td.dataset.zone = zone.name;
+            td.dataset.time = i;
+            subtotalRow.appendChild(td);
+        });
+        table.appendChild(subtotalRow);
     });
 
-    updateSummary();
-    renderManningSummary();
+    updateAll();
 }
 
-// ---------------- CELL EVENTS -----------------
 function attachCellEvents(cell) {
     cell.addEventListener("pointerdown", e => {
-        isMouseDown = true;
-        lastCell = cell;
-        let apply = cell.style.background ? "remove" : "apply";
-        toggleCell(cell, apply);
+        isDragging = true;
+        dragMode = cell.classList.contains("active") ? "remove" : "add";
+        toggleCell(cell);
     });
-    cell.addEventListener("pointermove", e => {
-        if (isMouseDown) {
-            let el = document.elementFromPoint(e.clientX, e.clientY);
-            if (el && el.tagName === "TD" && el !== lastCell && !el.classList.contains("subtotal") && el.innerText === "") {
-                toggleCell(el, lastCell.style.background ? "remove" : "apply");
-                lastCell = el;
-            }
-        }
+    cell.addEventListener("pointerenter", () => {
+        if (isDragging) toggleCell(cell);
     });
-    cell.addEventListener("pointerup", e => { isMouseDown = false; lastCell = null; });
-    cell.addEventListener("click", e => {
-        if (!cell.classList.contains("subtotal") && cell.innerText === "") toggleCell(cell, cell.style.background ? "remove" : "apply");
+    cell.addEventListener("pointerup", () => isDragging = false);
+    cell.addEventListener("click", () => {
+        if (!isDragging) toggleCell(cell);
     });
 }
 
-function toggleCell(cell, action) {
-    if (action === "apply") { cell.style.background = currentColor; cell.classList.add("active"); }
-    else { cell.style.background = ""; cell.classList.remove("active"); }
-    updateSummary();
-    renderManningSummary();
+function toggleCell(cell) {
+    if (dragMode === "add") {
+        cell.style.background = currentColor;
+        cell.classList.add("active");
+    } else {
+        cell.style.background = "";
+        cell.classList.remove("active");
+    }
+    updateAll();
+}
+
+document.addEventListener("pointerup", () => isDragging = false);
+
+function updateAll() {
     updateSubtotals();
+    updateGrandTotal();
+    updateManningSummary();
 }
 
-// ---------------- UPDATE SUBTOTALS -----------------
 function updateSubtotals() {
-    const rows = [...table.rows];
-    for (let r = 0; r < rows.length; r++) {
-        const row = rows[r];
-        if (row.cells.length > 1 && !row.cells[0].classList.contains("subtotal")) {
-            let sum = 0;
-            for (let c = 1; c < row.cells.length - 1; c++) {
-                if (row.cells[c].classList.contains("active")) sum++;
-            }
-            row.cells[row.cells.length - 1].innerText = sum;
-        }
-    }
-    // Zone subtotal
-    for (let r = 0; r < rows.length; r++) {
-        const row = rows[r];
-        if (row.cells[0] && row.cells[0].innerText === "Zone Total") {
-            for (let c = 1; c < row.cells.length; c++) {
-                let colSum = 0;
-                for (let rr = r - rows[r].cells.length + 1; rr < r; rr++) {
-                    const checkRow = rows[rr];
-                    if (checkRow.cells[c] && !checkRow.cells[c].classList.contains("subtotal") && checkRow.cells[c].classList.contains("active")) colSum++;
-                }
-                row.cells[c].innerText = colSum;
-            }
-        }
-    }
-}
-
-// ---------------- UPDATE SUMMARY -----------------
-function updateSummary() {
-    let count = 0;
-    document.querySelectorAll("#rosterTable td").forEach(td => { if (td.style.background) count++; });
-    summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
-}
-
-// ---------------- MANNING SUMMARY -----------------
-function renderManningSummary() {
-    const timeSlots = generateTimeSlots();
-    let result = "";
-    timeSlots.forEach(slot => {
-        let car = 0, bike = 0, zoneCounts = [0, 0, 0, 0];
-        zones[currentMode].forEach((zone, zi) => {
-            zone.counters.forEach(counter => {
-                const row = [...table.rows].find(r => r.cells[0].innerText === counter);
-                const idx = timeSlots.indexOf(slot) + 1;
-                if (row && row.cells[idx] && row.cells[idx].classList.contains("active")) {
-                    if (zone.name === "BIKES") bike++;
-                    else { car++; zoneCounts[zi >= 4 ? 3 : zi]++; }
-                }
-            });
-        });
-        result += `${slot}: ${car.toString().padStart(2, "0")}/${bike.toString().padStart(2, "0")}\n`;
-        result += zoneCounts.join("/") + "\n\n";
+    document.querySelectorAll(".subtotal-cell").forEach(td => {
+        let zone = td.dataset.zone;
+        let time = td.dataset.time;
+        let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
+        let sum = cells.filter(c => c.classList.contains("active")).length;
+        td.innerText = sum;
     });
-    manningSummaryDiv.innerText = result;
 }
 
-// ---------------- COPY SUMMARY -----------------
+function updateGrandTotal() {
+}
+
+function updateManningSummary() {
+    const times = generateTimeSlots();
+    let text = "";
+    times.forEach((time, i) => {
+        let totalCars = 0;
+        let zoneBreakdown = [];
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${i}"]`)];
+            let count = cells.filter(c => c.classList.contains("active")).length;
+            totalCars += count;
+            zoneBreakdown.push(count);
+        });
+        let bikeCells = [...document.querySelectorAll(`.counter-cell[data-zone="BIKES"][data-time="${i}"]`)];
+        let bikeCount = bikeCells.filter(c => c.classList.contains("active")).length;
+        text += `${time}: ${String(totalCars).padStart(2, "0")}/${String(bikeCount).padStart(2, "0")}\n${zoneBreakdown.join("/")}\n\n`;
+    });
+    manningSummary.textContent = text;
+}
+
 document.getElementById("copySummaryBtn").addEventListener("click", () => {
-    navigator.clipboard.writeText(manningSummaryDiv.innerText);
-    alert("Manning summary copied!");
+    navigator.clipboard.writeText(manningSummary.textContent).then(() => {
+        let btn = document.getElementById("copySummaryBtn");
+        btn.classList.add("copied");
+        btn.innerText = "Copied ✓";
+        setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.innerText = "Copy Manning Summary";
+        }, 2000);
+    });
 });
 
-// ---------------- SEGMENTED BUTTONS -----------------
-function initSegmented() {
-    const modeBtns = [document.getElementById("arrivalBtn"), document.getElementById("departureBtn")];
-    const shiftBtns = [document.getElementById("morningBtn"), document.getElementById("nightBtn")];
-
-    modeBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-            modeBtns.forEach(b => b.style.color = "black");
-            btn.style.color = "white";
-            currentMode = btn.id === "arrivalBtn" ? "arrival" : "departure";
-            currentColor = currentMode === "arrival" ? "#4CAF50" : "#FF9800";
-            modeHighlight.style.transform = `translateX(${btn.dataset.index * 100}%)`;
-            modeHighlight.style.background = currentColor;
-            renderTable();
-        });
+document.getElementById("clearGridBtn").addEventListener("click", () => {
+    document.querySelectorAll(".counter-cell").forEach(c => {
+        c.style.background = "";
+        c.classList.remove("active");
     });
+    updateAll();
+});
 
-    shiftBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-            shiftBtns.forEach(b => b.style.color = "black");
-            btn.style.color = "white";
-            currentShift = btn.id === "morningBtn" ? "morning" : "night";
-            shiftHighlight.style.transform = `translateX(${btn.dataset.index * 100}%)`;
-            shiftHighlight.style.background = currentShift === "morning" ? "#b0bec5" : "#9e9e9e";
-            renderTable();
-        });
-    });
-}
+document.getElementById("arrivalBtn").onclick = () => {
+    currentMode = "arrival";
+    currentColor = "#4CAF50";
+    renderTable();
+};
+document.getElementById("departureBtn").onclick = () => {
+    currentMode = "departure";
+    currentColor = "#FF9800";
+    renderTable();
+};
+document.getElementById("morningBtn").onclick = () => {
+    currentShift = "morning";
+    renderTable();
+};
+document.getElementById("nightBtn").onclick = () => {
+    currentShift = "night";
+    renderTable();
+};
 
-// ---------------- INIT -----------------
-initSegmented();
+document.querySelectorAll(".color-btn").forEach(btn => {
+    btn.onclick = () => {
+        currentColor = btn.dataset.color;
+        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+    };
+});
+
 renderTable();

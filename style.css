@@ -1,12 +1,7 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: Arial;
     padding: 20px;
     background: #f7f9fc;
-}
-
-h2,
-h3 {
-    margin-bottom: 15px;
 }
 
 .controls {
@@ -14,10 +9,8 @@ h3 {
     flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 15px;
-    align-items: center;
 }
 
-/* ---------------- Segmented Buttons ---------------- */
 .segmented {
     position: relative;
     display: flex;
@@ -29,13 +22,11 @@ h3 {
 .segment-btn {
     flex: 1;
     padding: 8px 16px;
-    margin: 0;
     border: none;
     background: transparent;
     cursor: pointer;
     font-weight: bold;
     z-index: 2;
-    transition: color 0.2s ease;
 }
 
 .segment-highlight {
@@ -43,67 +34,37 @@ h3 {
     top: 0;
     bottom: 0;
     width: 50%;
-    background: #ccc;
     border-radius: 8px;
-    transition: transform 0.25s ease, background 0.25s ease;
+    transition: 0.25s ease;
     z-index: 1;
 }
 
-/* Mode highlight colors */
-#modeHighlight {
-    background: #4CAF50;
-}
-
-#shiftHighlight {
-    background: #b0bec5;
-}
-
-/* Color buttons */
 .color-group {
     display: flex;
-    gap: 0;
     border: 1px solid #ccc;
-    border-radius: 5px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
 .color-btn {
     width: 28px;
     height: 28px;
-    border-radius: 4px;
-    border: 1px solid #999;
+    border: none;
     cursor: pointer;
 }
 
 .color-btn.selected {
-    border: 2px solid black;
+    outline: 2px solid black;
 }
 
-/* Clear button */
-#clearGridBtn,
-#copySummaryBtn {
+#clearGridBtn {
     padding: 8px 16px;
-    margin-left: 10px;
 }
 
-/* Summary */
-#summary {
-    margin: 10px 0;
-    padding: 8px;
-    background: #e3f2fd;
-    border-left: 4px solid #2196f3;
-    font-size: 14px;
-}
-
-/* Table */
 .table-container {
-    overflow-x: auto;
-    overflow-y: auto;
+    overflow: auto;
     border: 1px solid #ccc;
     background: white;
-    padding: 5px;
-    touch-action: none;
-    max-height: 60vh;
 }
 
 table {
@@ -119,38 +80,52 @@ td {
     text-align: center;
 }
 
-th {
-    background: #eeeeee;
+.zone-header {
+    background: #eee;
     font-weight: bold;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    text-align: left;
+    padding-left: 6px;
 }
 
-td:first-child {
-    background: #fafafa;
-    font-weight: bold;
-    position: sticky;
-    left: 0;
-    z-index: 1;
+.time-header th {
+    background: #f0f0f0;
+    font-size: 10px;
 }
 
-td.active {
+td.counter-cell.active {
     border: 2px solid black;
 }
 
-.zone-row td {
-    background: #eeeeee;
+.subtotal-row td {
+    background: #e8f5e9;
     font-weight: bold;
-    text-align: left;
-    padding-left: 8px;
 }
 
-td:hover {
+.grandtotal-row td {
+    background: #fff3e0;
+    font-weight: bold;
+}
+
+#manningSummary {
+    background: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    white-space: pre;
+}
+
+.summary-controls {
+    margin: 10px 0;
+}
+
+#copySummaryBtn {
+    padding: 8px 14px;
+    border: none;
+    background: #2196F3;
+    color: white;
+    border-radius: 6px;
     cursor: pointer;
 }
 
-.subtotal {
-    background: #dcedc8;
-    font-weight: bold;
+#copySummaryBtn.copied {
+    background: #4CAF50;
 }
