@@ -1,12 +1,5 @@
-let currentMode = "arrival";
-let currentShift = "morning";
-let currentColor = "#4CAF50";
-
-let isDragging = false;
-let dragMode = "apply";
-let lastCell = null;
-
 // ---------------- ZONES -----------------
+function range(prefix,start,end){return Array.from({length:end-start+1},(_,i)=>prefix+(start+i));}
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -24,118 +17,129 @@ const zones = {
   ]
 };
 
-function range(p, s, e){ let arr=[]; for(let i=s;i<=e;i++) arr.push(p+i); return arr; }
-function generateTimeSlots(){
-  const slots=[]; const startHour = currentShift === "morning"?10:22;
-  for(let i=0;i<48;i++){
-    const h=(startHour+Math.floor(i/4))%24;
-    const m=(i%4)*15;
-    slots.push(String(h).padStart(2,"0")+String(m).padStart(2,"0"));
+// Global vars
+let currentMode="arrival", currentShift="morning", currentColor="#4CAF50";
+let dataStore={arrival:null,departure:null};
+let dragging=false, startRow=null, startCol=null, dragDirection=null, paintedCells=new Set();
+const container=document.getElementById("table-container");
+const clearButton=document.getElementById("clear-button");
+const summaryText=document.getElementById("summary-text");
+let colHeaders=[];
+
+// ---------------- Storage -----------------
+function saveData(){localStorage.setItem("counterData",JSON.stringify(dataStore));localStorage.setItem("currentMode",currentMode);localStorage.setItem("currentShift",currentShift);}
+function loadData(){
+  const stored=JSON.parse(localStorage.getItem("counterData")||"{}");
+  dataStore.arrival=stored.arrival||null; dataStore.departure=stored.departure||null;
+  currentMode=localStorage.getItem("currentMode")||"arrival";
+  currentShift=localStorage.getItem("currentShift")||"morning";
+}
+
+// ---------------- Table -----------------
+function initializeData(modeName){
+  const rows=zones[modeName].reduce((s,z)=>s+z.counters.length,0)+1; // +1 motor row
+  return Array.from({length:rows},()=>Array(24).fill(0));
+}
+
+function getData(){if(!dataStore[currentMode]) dataStore[currentMode]=initializeData(currentMode); return dataStore[currentMode];}
+
+// ---------------- Headers -----------------
+function generateColHeaders(){
+  const startHour=currentShift==="morning"?10:22;
+  let headers=[],hour=startHour,minute=0;
+  for(let i=0;i<24;i++){
+    headers.push(`${hour.toString().padStart(2,"0")}${minute.toString().padStart(2,"0")}`);
+    minute+=30;if(minute>=60){minute=0;hour=(hour+1)%24;}
   }
-  return slots;
+  colHeaders=headers;
 }
 
-// ---------------- RENDER TABLE -----------------
+// ---------------- Render -----------------
 function renderTable(){
-  const container = document.getElementById("tableContainer");
-  container.innerHTML="";
-  const slots=generateTimeSlots();
+  const df=getData();
+  let html="<table><tr><th></th>";
+  colHeaders.forEach((h,i)=>{html+=`<th>${h}</th>`;});
+  html+="</tr>";
 
-  zones[currentMode].forEach(zone=>{
-    const zoneTitle=document.createElement("h3");
-    zoneTitle.innerText=zone.name;
-    container.appendChild(zoneTitle);
+  let rowIndex=0;
+  for(const z of zones[currentMode]){
+    for(const _ of z.counters){
+      html+=`<tr><th>${rowIndex+1}</th>`;
+      for(let c=0;c<24;c++){
+        const val=df[rowIndex][c];
+        const bg=val===1?"blue":"transparent";
+        html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${bg}">${val}</td>`;
+      }
+      html+="</tr>"; rowIndex++;
+    }
+  }
+  // Motor row
+  html+=`<tr class="motor-row"><th>${rowIndex+1}</th>`;
+  for(let c=0;c<24;c++){
+    const val=df[rowIndex][c]; const bg=val===1?"blue":"transparent";
+    html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${bg}">${val}</td>`;
+  }
+  html+="</tr></table>";
+  container.innerHTML=html;
 
-    const table=document.createElement("table");
-
-    // Time header row
-    const headerRow=document.createElement("tr");
-    const emptyTh=document.createElement("th"); emptyTh.innerText=""; headerRow.appendChild(emptyTh);
-    slots.forEach(t=>{ const th=document.createElement("th"); th.innerText=t; headerRow.appendChild(th); });
-    table.appendChild(headerRow);
-
-    // Counters
-    zone.counters.forEach(counter=>{
-      const row=document.createElement("tr");
-      const tdLabel=document.createElement("td"); tdLabel.innerText=counter; row.appendChild(tdLabel);
-      slots.forEach(()=>{
-        const td=document.createElement("td");
-        attachCellEvents(td);
-        row.appendChild(td);
-      });
-      table.appendChild(row);
-    });
-
-    container.appendChild(table);
+  // Attach events
+  container.querySelectorAll("td[data-row]").forEach(td=>{
+    td.addEventListener("mousedown",e=>{dragging=true; startRow=+td.dataset.row; startCol=+td.dataset.col; dragDirection=null; paintedCells.clear(); toggleCell(td); e.preventDefault();});
+    td.addEventListener("mouseover",()=>{if(dragging) handleDrag(+td.dataset.row,+td.dataset.col);});
+    td.addEventListener("touchstart",e=>{dragging=true; startRow=+td.dataset.row; startCol=+td.dataset.col; dragDirection=null; paintedCells.clear(); toggleCell(td); e.preventDefault();});
+    td.addEventListener("touchmove",e=>{if(!dragging)return;e.preventDefault();const touch=e.touches[0];const el=document.elementFromPoint(touch.clientX,touch.clientY);if(el?.dataset?.row)handleDrag(+el.dataset.row,+el.dataset.col);});
+    td.addEventListener("touchend",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
+    td.addEventListener("touchcancel",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
   });
+  document.addEventListener("mouseup",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
 }
 
-// ---------------- CELL EVENTS -----------------
-function attachCellEvents(cell){
-  cell.addEventListener("pointerdown",e=>{
-    isDragging=true; lastCell=cell;
-    dragMode=cell.style.backgroundColor? "remove":"apply";
-    applyCell(cell);
-  });
-  cell.addEventListener("click",e=>{
-    if(!isDragging){ dragMode=cell.style.backgroundColor?"remove":"apply"; applyCell(cell); }
-  });
-}
-function applyCell(cell){
-  const color=currentColor || getModeColor();
-  if(dragMode==="apply"){ cell.style.background=color; cell.classList.add("active-cell"); }
-  else{ cell.style.background=""; cell.classList.remove("active-cell"); }
+function handleDrag(r,c){
+  if(dragDirection===null){
+    if(c!==startCol && r===startRow) dragDirection="horizontal";
+    else if(r!==startRow && c===startCol) dragDirection="vertical";
+    else return;
+  }
+  const tr=dragDirection==="horizontal"?startRow:r;
+  const tc=dragDirection==="vertical"?startCol:c;
+  const key=`${tr}-${tc}`;
+  if(!paintedCells.has(key)){paintedCells.add(key); toggleCell(container.querySelector(`td[data-row="${tr}"][data-col="${tc}"]`));}
 }
 
-// ---------------- DRAG -----------------
-window.addEventListener("pointermove",e=>{
-  if(!isDragging) return;
-  const el=document.elementFromPoint(e.clientX,e.clientY);
-  if(el && el.tagName==="TD" && el!==lastCell){ applyCell(el); lastCell=el; }
+function toggleCell(td){
+  const df=getData();
+  const r=+td.dataset.row, c=+td.dataset.col;
+  df[r][c]=df[r][c]?0:1;
+  td.style.backgroundColor=df[r][c]? "blue":"transparent";
+}
+
+// ---------------- Controls -----------------
+document.getElementById("clear-button").addEventListener("click",()=>{
+  if(confirm(`Clear all data for ${currentMode}?`)){
+    dataStore[currentMode]=initializeData(currentMode);
+    renderTable();
+    saveData();
+  }
 });
-window.addEventListener("pointerup",()=>{ isDragging=false; lastCell=null; });
 
-// ---------------- MODE COLOR -----------------
-function getModeColor(){ return currentMode==="arrival"? "#4CAF50": "#FF9800"; }
-
-// ---------------- SEGMENTED -----------------
-document.querySelectorAll(".segmented").forEach(segment=>{
-  const buttons=segment.querySelectorAll(".segment-btn");
-  const highlight=segment.querySelector(".segment-highlight");
-
-  buttons.forEach(btn=>{
+// ---------------- Segmented highlight -----------------
+const segments=document.querySelectorAll(".segmented");
+segments.forEach(seg=>{
+  const btns=seg.querySelectorAll(".segment-btn");
+  const hl=seg.querySelector(".segment-highlight");
+  btns.forEach(btn=>{
     btn.addEventListener("click",()=>{
-      buttons.forEach(b=>{ b.classList.remove("active"); b.style.color="black"; });
-      btn.classList.add("active"); btn.style.color="white";
+      btns.forEach(b=>{b.classList.remove("active"); b.style.color="black";});
+      btn.classList.add("active");
+      hl.style.transform=`translateX(${btn.dataset.index*100}%)`;
 
-      // Slide highlight
-      highlight.style.transform=`translateX(${btn.dataset.index*100}%)`;
-
-      // Mode
-      if(btn.id==="arrivalBtn"){ highlight.style.background="#4CAF50"; currentMode="arrival"; currentColor="#4CAF50"; }
-      if(btn.id==="departureBtn"){ highlight.style.background="#FF9800"; currentMode="departure"; currentColor="#FF9800"; }
-
-      // Shift
-      if(btn.id==="morningBtn"){ highlight.style.background="#9e9e9e"; currentShift="morning"; }
-      if(btn.id==="nightBtn"){ highlight.style.background="#9e9e9e"; currentShift="night"; }
-
-      renderTable();
+      if(btn.id==="arrivalBtn"){currentMode="arrival"; currentColor="#4CAF50"; hl.style.backgroundColor=currentColor; renderTable();}
+      if(btn.id==="departureBtn"){currentMode="departure"; currentColor="#ff9800"; hl.style.backgroundColor=currentColor; renderTable();}
+      if(btn.id==="morningBtn"){currentShift="morning"; hl.style.backgroundColor="#eee"; generateColHeaders(); renderTable();}
+      if(btn.id==="nightBtn"){currentShift="night"; hl.style.backgroundColor="#eee"; generateColHeaders(); renderTable();}
     });
   });
 });
 
-// ---------------- COLOR PICKER -----------------
-document.querySelectorAll(".color-btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    document.querySelectorAll(".color-btn").forEach(b=>b.classList.remove("selected"));
-    btn.classList.add("selected"); currentColor=btn.dataset.color;
-  });
-});
-
-// ---------------- CLEAR -----------------
-document.getElementById("clearGrid").addEventListener("click",()=>{
-  document.querySelectorAll("td").forEach(cell=>{ cell.style.background=""; cell.classList.remove("active-cell"); });
-});
-
-// ---------------- INIT -----------------
-renderTable();
+// ---------------- Init -----------------
+loadData(); generateColHeaders(); renderTable();
