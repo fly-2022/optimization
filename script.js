@@ -1,6 +1,6 @@
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = "#4CAF50"; // default selected color
+let currentColor = "#4CAF50";
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -21,7 +21,10 @@ document.querySelector(".color-btn").classList.add("selected");
 // Clear grid button
 // -----------------------------
 document.getElementById("clearGridBtn").addEventListener("click", () => {
-  document.querySelectorAll("#rosterTable td").forEach(td => td.style.backgroundColor = "");
+  document.querySelectorAll("#rosterTable td").forEach(td => {
+    td.dataset.color = "";
+    td.style.backgroundColor = "";
+  });
   updateSummary();
 });
 
@@ -47,7 +50,7 @@ const zones = {
 
 function range(prefix, start, end) {
   let arr = [];
-  for (let i = start; i <= end; i++) arr.push(prefix + i);
+  for (let i=start; i<=end; i++) arr.push(prefix+i);
   return arr;
 }
 
@@ -56,10 +59,10 @@ function range(prefix, start, end) {
 // -----------------------------
 function generateTimeSlots() {
   const slots = [];
-  let startHour = currentShift === "morning" ? 10 : 22;
-  for (let i = 0; i < 48; i++) {
-    let hour = (startHour + Math.floor(i / 4)) % 24;
-    let minute = (i % 4) * 15;
+  const startHour = currentShift === "morning" ? 10 : 22;
+  for (let i=0; i<48; i++) {
+    const hour = (startHour + Math.floor(i/4))%24;
+    const minute = (i%4)*15;
     slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
   }
   return slots;
@@ -73,10 +76,10 @@ function renderTable() {
   const timeSlots = generateTimeSlots();
 
   // Header
-  let headerRow = document.createElement("tr");
+  const headerRow = document.createElement("tr");
   headerRow.appendChild(document.createElement("th"));
   timeSlots.forEach(t => {
-    let th = document.createElement("th");
+    const th = document.createElement("th");
     th.innerText = t;
     headerRow.appendChild(th);
   });
@@ -84,9 +87,9 @@ function renderTable() {
 
   // Body
   zones[currentMode].forEach(zone => {
-    // Zone row
-    let zoneRow = document.createElement("tr");
-    let zoneCell = document.createElement("td");
+    // Zone header
+    const zoneRow = document.createElement("tr");
+    const zoneCell = document.createElement("td");
     zoneCell.innerText = zone.name;
     zoneCell.colSpan = timeSlots.length+1;
     zoneCell.style.backgroundColor = "#eeeeee";
@@ -94,24 +97,26 @@ function renderTable() {
     zoneRow.appendChild(zoneCell);
     table.appendChild(zoneRow);
 
+    // Counters
     zone.counters.forEach(counter => {
-      let row = document.createElement("tr");
-      let label = document.createElement("td");
+      const row = document.createElement("tr");
+      const label = document.createElement("td");
       label.innerText = counter;
       label.style.fontWeight = "bold";
       row.appendChild(label);
 
       timeSlots.forEach(() => {
         const cell = document.createElement("td");
+        cell.dataset.color = ""; // track applied color
 
-        // -----------------------------
-        // Mobile & desktop click: toggle color
-        // -----------------------------
         cell.addEventListener("click", () => {
-          if (cell.style.backgroundColor === currentColor) {
-            cell.style.backgroundColor = ""; // remove color
+          // toggle color
+          if(cell.dataset.color === currentColor) {
+            cell.dataset.color = "";
+            cell.style.backgroundColor = "";
           } else {
-            cell.style.backgroundColor = currentColor; // apply color
+            cell.dataset.color = currentColor;
+            cell.style.backgroundColor = currentColor;
           }
           updateSummary();
         });
@@ -132,7 +137,7 @@ function renderTable() {
 function updateSummary() {
   let count = 0;
   document.querySelectorAll("#rosterTable td").forEach(td => {
-    if (td.style.backgroundColor) count++;
+    if(td.dataset.color) count++;
   });
   summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
@@ -146,34 +151,19 @@ function updateButtons() {
   document.getElementById("morningBtn").className = "";
   document.getElementById("nightBtn").className = "";
 
-  if (currentMode==="arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
+  if(currentMode==="arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
   else document.getElementById("departureBtn").classList.add("active-departure");
 
-  if (currentShift==="morning") document.getElementById("morningBtn").classList.add("active-morning");
+  if(currentShift==="morning") document.getElementById("morningBtn").classList.add("active-morning");
   else document.getElementById("nightBtn").classList.add("active-night");
-
-  updateHighlight();
 }
 
-function updateHighlight() {
-  const modeHighlight = document.querySelector(".mode-highlight");
-  const shiftHighlight = document.querySelector(".shift-highlight");
-  if (modeHighlight) modeHighlight.style.left = currentMode==="arrival" ? "0%" : "50%";
-  if (modeHighlight) modeHighlight.style.backgroundColor = currentMode==="arrival" ? "#4CAF50" : "#ff9800";
-  if (shiftHighlight) shiftHighlight.style.left = currentShift==="morning" ? "0%" : "50%";
-  if (shiftHighlight) shiftHighlight.style.backgroundColor = currentShift==="morning" ? "#b0bec5" : "#ddd";
-}
-
-// -----------------------------
 // Button listeners
-// -----------------------------
 document.getElementById("arrivalBtn").onclick = () => { currentMode="arrival"; updateButtons(); renderTable(); };
 document.getElementById("departureBtn").onclick = () => { currentMode="departure"; updateButtons(); renderTable(); };
 document.getElementById("morningBtn").onclick = () => { currentShift="morning"; updateButtons(); renderTable(); };
 document.getElementById("nightBtn").onclick = () => { currentShift="night"; updateButtons(); renderTable(); };
 
-// -----------------------------
 // Initial render
-// -----------------------------
 updateButtons();
 renderTable();
