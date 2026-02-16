@@ -1,7 +1,6 @@
-// ---------------- STATE -----------------
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = null;
+let currentColor = "#4CAF50";
 
 let isDragging = false;
 let dragMode = "apply";
@@ -25,67 +24,45 @@ const zones = {
   ]
 };
 
-function range(prefix, start, end) {
-  const arr = [];
-  for (let i = start; i <= end; i++) arr.push(prefix + i);
-  return arr;
-}
-
-// ---------------- TIME SLOTS -----------------
-function generateTimeSlots() {
-  const slots = [];
-  const startHour = currentShift === "morning" ? 10 : 22;
-  const totalSlots = 48; // 12 hours × 4 (15-min intervals)
-
-  for (let i = 0; i < totalSlots; i++) {
-    const hour = (startHour + Math.floor(i / 4)) % 24;
-    const minute = (i % 4) * 15;
-    slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
+function range(p, s, e){ let arr=[]; for(let i=s;i<=e;i++) arr.push(p+i); return arr; }
+function generateTimeSlots(){
+  const slots=[]; const startHour = currentShift === "morning"?10:22;
+  for(let i=0;i<48;i++){
+    const h=(startHour+Math.floor(i/4))%24;
+    const m=(i%4)*15;
+    slots.push(String(h).padStart(2,"0")+String(m).padStart(2,"0"));
   }
   return slots;
 }
 
 // ---------------- RENDER TABLE -----------------
-function renderTable() {
+function renderTable(){
   const container = document.getElementById("tableContainer");
-  container.innerHTML = "";
+  container.innerHTML="";
+  const slots=generateTimeSlots();
 
-  const slots = generateTimeSlots();
-
-  zones[currentMode].forEach(zone => {
-
-    // Zone title
-    const zoneTitle = document.createElement("h3");
-    zoneTitle.innerText = zone.name;
+  zones[currentMode].forEach(zone=>{
+    const zoneTitle=document.createElement("h3");
+    zoneTitle.innerText=zone.name;
     container.appendChild(zoneTitle);
 
-    const table = document.createElement("table");
+    const table=document.createElement("table");
 
     // Time header row
-    const headerRow = document.createElement("tr");
-    const emptyTh = document.createElement("th");
-    emptyTh.innerText = "";
-    headerRow.appendChild(emptyTh);
-    slots.forEach(slot => {
-      const th = document.createElement("th");
-      th.innerText = slot;
-      headerRow.appendChild(th);
-    });
+    const headerRow=document.createElement("tr");
+    const emptyTh=document.createElement("th"); emptyTh.innerText=""; headerRow.appendChild(emptyTh);
+    slots.forEach(t=>{ const th=document.createElement("th"); th.innerText=t; headerRow.appendChild(th); });
     table.appendChild(headerRow);
 
-    // Counters rows
-    zone.counters.forEach(counter => {
-      const row = document.createElement("tr");
-      const tdLabel = document.createElement("td");
-      tdLabel.innerText = counter;
-      row.appendChild(tdLabel);
-
-      slots.forEach(() => {
-        const td = document.createElement("td");
+    // Counters
+    zone.counters.forEach(counter=>{
+      const row=document.createElement("tr");
+      const tdLabel=document.createElement("td"); tdLabel.innerText=counter; row.appendChild(tdLabel);
+      slots.forEach(()=>{
+        const td=document.createElement("td");
         attachCellEvents(td);
         row.appendChild(td);
       });
-
       table.appendChild(row);
     });
 
@@ -94,94 +71,71 @@ function renderTable() {
 }
 
 // ---------------- CELL EVENTS -----------------
-function attachCellEvents(cell) {
-  cell.addEventListener("pointerdown", e => {
-    isDragging = true;
-    lastCell = cell;
-    dragMode = cell.style.backgroundColor ? "remove" : "apply";
+function attachCellEvents(cell){
+  cell.addEventListener("pointerdown",e=>{
+    isDragging=true; lastCell=cell;
+    dragMode=cell.style.backgroundColor? "remove":"apply";
     applyCell(cell);
   });
-
-  cell.addEventListener("click", e => {
-    if (!isDragging) {
-      dragMode = cell.style.backgroundColor ? "remove" : "apply";
-      applyCell(cell);
-    }
+  cell.addEventListener("click",e=>{
+    if(!isDragging){ dragMode=cell.style.backgroundColor?"remove":"apply"; applyCell(cell); }
   });
 }
-
-// ---------------- APPLY CELL -----------------
-function applyCell(cell) {
-  const color = currentColor || getModeColor();
-  if (dragMode === "apply") {
-    cell.style.background = color;
-    cell.classList.add("active-cell");
-  } else {
-    cell.style.background = "";
-    cell.classList.remove("active-cell");
-  }
+function applyCell(cell){
+  const color=currentColor || getModeColor();
+  if(dragMode==="apply"){ cell.style.background=color; cell.classList.add("active-cell"); }
+  else{ cell.style.background=""; cell.classList.remove("active-cell"); }
 }
 
 // ---------------- DRAG -----------------
-window.addEventListener("pointermove", e => {
-  if (!isDragging) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  if (el && el.tagName === "TD" && el !== lastCell) {
-    applyCell(el);
-    lastCell = el;
-  }
+window.addEventListener("pointermove",e=>{
+  if(!isDragging) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  if(el && el.tagName==="TD" && el!==lastCell){ applyCell(el); lastCell=el; }
 });
-window.addEventListener("pointerup", () => {
-  isDragging = false;
-  lastCell = null;
-});
+window.addEventListener("pointerup",()=>{ isDragging=false; lastCell=null; });
 
 // ---------------- MODE COLOR -----------------
-function getModeColor() {
-  if (currentMode === "arrival") return "#4CAF50";
-  if (currentMode === "departure") return "#FF9800";
-  return "#dddddd";
-}
+function getModeColor(){ return currentMode==="arrival"? "#4CAF50": "#FF9800"; }
 
-// ---------------- SEGMENTED CONTROLS -----------------
-function initSegmented() {
-  document.querySelectorAll(".segmented").forEach(group => {
-    const buttons = group.querySelectorAll(".seg-btn");
-    const bg = group.querySelector(".segmented-bg");
+// ---------------- SEGMENTED -----------------
+document.querySelectorAll(".segmented").forEach(segment=>{
+  const buttons=segment.querySelectorAll(".segment-btn");
+  const highlight=segment.querySelector(".segment-highlight");
 
-    buttons.forEach((btn, idx) => {
-      btn.addEventListener("click", () => {
-        buttons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        bg.style.transform = `translateX(${idx * 100}%)`;
+  buttons.forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      buttons.forEach(b=>{ b.classList.remove("active"); b.style.color="black"; });
+      btn.classList.add("active"); btn.style.color="white";
 
-        if (btn.dataset.type) currentMode = btn.dataset.type;
-        if (btn.dataset.shift) currentShift = btn.dataset.shift;
+      // Slide highlight
+      highlight.style.transform=`translateX(${btn.dataset.index*100}%)`;
 
-        renderTable();
-      });
+      // Mode
+      if(btn.id==="arrivalBtn"){ highlight.style.background="#4CAF50"; currentMode="arrival"; currentColor="#4CAF50"; }
+      if(btn.id==="departureBtn"){ highlight.style.background="#FF9800"; currentMode="departure"; currentColor="#FF9800"; }
+
+      // Shift
+      if(btn.id==="morningBtn"){ highlight.style.background="#9e9e9e"; currentShift="morning"; }
+      if(btn.id==="nightBtn"){ highlight.style.background="#9e9e9e"; currentShift="night"; }
+
+      renderTable();
     });
-  });
-}
-
-// ---------------- COLOR PICKER -----------------
-document.querySelectorAll(".color-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
-    btn.classList.add("selected");
-    currentColor = btn.dataset.color;
   });
 });
 
-// ---------------- CLEAR GRID -----------------
-document.getElementById("clearGrid").addEventListener("click", () => {
-  document.querySelectorAll("td").forEach(cell => {
-    cell.style.background = "";
-    cell.classList.remove("active-cell");
+// ---------------- COLOR PICKER -----------------
+document.querySelectorAll(".color-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".color-btn").forEach(b=>b.classList.remove("selected"));
+    btn.classList.add("selected"); currentColor=btn.dataset.color;
   });
+});
+
+// ---------------- CLEAR -----------------
+document.getElementById("clearGrid").addEventListener("click",()=>{
+  document.querySelectorAll("td").forEach(cell=>{ cell.style.background=""; cell.classList.remove("active-cell"); });
 });
 
 // ---------------- INIT -----------------
-currentColor = "#4CAF50";
-initSegmented();
 renderTable();
