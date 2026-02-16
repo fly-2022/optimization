@@ -1,83 +1,85 @@
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  text-align: center;
-  margin: 20px;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
+    background-color: #f7f9fc;
 }
 
-/* Segmented */
+/* Segmented Buttons */
 .segmented {
-  position: relative;
-  display: flex;
-  width: 280px;
-  margin: 10px auto;
-  background: #f2f2f7;
-  border-radius: 14px;
-  padding: 4px;
-  border: 1px solid #d1d1d6;
-  overflow: hidden;
+    position: relative;
+    display: flex;
+    width: 280px;
+    margin: 10px auto;
+    background-color: #f2f2f7;
+    border-radius: 14px;
+    padding: 4px;
+    border: 1px solid #d1d1d6;
+    overflow: hidden;
 }
 
 .segmented-bg {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(50% - 4px);
-  height: calc(100% - 8px);
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-  transition: transform 0.25s cubic-bezier(.4,.0,.2,1);
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    height: calc(100% - 8px);
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    transition: transform 0.25s cubic-bezier(.4,.0,.2,1);
 }
 
 .seg-btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-weight: 600;
-  padding: 8px 0;
-  cursor: pointer;
-  z-index: 2;
-  position: relative;
-  color: #8e8e93;
+    flex: 1;
+    border: none;
+    background-color: transparent;
+    font-weight: 600;
+    padding: 8px 0;
+    cursor: pointer;
+    z-index: 2;
+    position: relative;
+    color: #8e8e93;
+    transition: color 0.2s ease;
 }
 
 .seg-btn.active {
-  color: black;
+    color: #000000;
 }
 
-/* Colors */
+/* Color Picker */
 .color-group {
-  margin: 15px 0;
+    margin: 15px 0;
 }
 
 .color-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid white;
-  margin: 4px;
-  cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin: 4px;
+    cursor: pointer;
 }
 
 .color-btn.selected {
-  border: 2px solid black;
+    border: 2px solid black;
 }
 
 /* Table */
 table {
-  border-collapse: collapse;
-  margin: 20px auto;
-  touch-action: none;
+    border-collapse: collapse;
+    margin: 20px auto;
+    touch-action: none;
 }
 
 th, td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  min-width: 45px;
-  text-align: center;
-  user-select: none;
+    border: 1px solid #ccc;
+    padding: 8px;
+    min-width: 45px;
+    text-align: center;
+    user-select: none;
 }
 
 td.active-cell {
-  border: 3px solid black;
+    border: 3px solid black;
 }
