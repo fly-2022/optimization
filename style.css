@@ -1,50 +1,65 @@
-body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; }
-h2 { margin-bottom: 15px; }
+body { font-family: Arial, sans-serif; margin: 20px; overflow-x: hidden; }
 
-.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
-
-/* iOS-style segmented buttons */
+/* -------- Segmented tabs -------- */
 .segmented {
-  display: flex;
   position: relative;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  display: flex;
+  border-radius: 6px;
   overflow: hidden;
-  width: 200px;
+  border: 1px solid #ccc;
+  margin-bottom: 15px;
 }
+
 .segment-btn {
   flex: 1;
+  text-align: center;
   padding: 8px 0;
-  background: transparent;
-  border: none;
   cursor: pointer;
-  z-index: 1;
-  font-weight: bold;
-  transition: color 0.3s;
+  user-select: none;
+  transition: color 0.2s;
+  z-index: 2;
 }
-.segment-btn.active { color: white; }
+
 .segment-highlight {
   position: absolute;
-  top: 0; left: 0; width: 50%; height: 100%;
-  background: #4CAF50;
-  border-radius: 8px;
-  transition: transform 0.3s ease, background 0.3s ease;
-  z-index: 0;
+  top: 0; bottom: 0;
+  width: 50%;
+  transition: transform 0.3s, background-color 0.3s;
+  z-index: 1;
+  border-radius: 6px;
 }
 
-/* Color picker buttons */
-.color-group { display: flex; gap: 5px; }
-.color-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #999; cursor: pointer; }
-.color-btn.selected { border: 2px solid black; }
+/* Arrival / Departure colors */
+#arrivalBtn.segmented .segment-highlight { background-color: #4CAF50; }
+#departureBtn.segmented .segment-highlight { background-color: #ff9800; }
 
-#clearGrid { padding: 8px 16px; margin-left: 10px; }
+/* Shift highlight */
+.shift-segment .segment-highlight { background-color: #eee; }
 
-#summary { margin: 10px 0; padding: 8px; background: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
+/* Clear button */
+.clear-button {
+  padding: 8px 16px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 15px;
+}
 
-.table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; touch-action: none; }
-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; margin-bottom: 20px; }
-th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
-th { background: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
-td:first-child { background: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
-td.active-cell { border: 2px solid black; }
-td:hover { cursor: pointer; }
+/* Table */
+#table-wrapper { overflow-x: auto; border: 1px solid #ddd; border-radius: 6px; }
+table { border-collapse: collapse; }
+th, td {
+  min-width: 40px;
+  height: 25px;
+  text-align: center;
+  border: 1px solid black;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Subtotal & Grand Total */
+.subtotal-row { background-color: #ffffcc; font-weight: bold; }
+.grandtotal-row { background-color: #ffcccc; font-weight: bold; }
+.motor-row { background-color: #ccffcc; font-weight: bold; }
