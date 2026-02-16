@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Roster Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Roster Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<h2>Roster Optimisation Dashboard</h2>
+    <h2>Roster Optimisation Dashboard</h2>
 
-<div class="controls">
-    <div class="segmented mode-group">
-        <div class="segment-highlight" id="modeHighlight"></div>
-        <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
-        <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
+    <div class="controls">
+        <div class="segmented mode-group">
+            <div class="segment-highlight" id="modeHighlight"></div>
+            <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
+            <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
+        </div>
+
+        <div class="segmented shift-group">
+            <div class="segment-highlight" id="shiftHighlight"></div>
+            <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
+            <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
+        </div>
+
+        <button id="clearGridBtn">Clear Grid</button>
     </div>
 
-    <div class="segmented shift-group">
-        <div class="segment-highlight" id="shiftHighlight"></div>
-        <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
-        <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
+    <div id="summary"></div>
+
+    <div class="table-container">
+        <table id="rosterTable"></table>
     </div>
 
-    <button id="clearGridBtn">Clear Grid</button>
-</div>
-
-<div id="summary"></div>
-
-<div class="table-container">
-    <table id="rosterTable"></table>
-</div>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>
