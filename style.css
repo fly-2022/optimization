@@ -1,26 +1,33 @@
-/* ========================= GENERAL PAGE STYLING ========================= */
-body {
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  background-color: #f7f9fc;
-}
-
+body { font-family: Arial, sans-serif; padding: 20px; background-color: #f7f9fc; }
 h2 { margin-bottom: 15px; }
 
-/* ========================= CONTROL BUTTONS ========================= */
-.controls { margin-bottom: 15px; display: flex; gap: 20px; }
+/* Color palette buttons */
+.color-controls {
+  margin-bottom: 15px;
+  display: flex;
+  gap: 8px;
+}
+.color-btn {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #bbb;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.color-btn.selected {
+  border: 3px solid black;
+}
 
-/* Group buttons side by side with no gaps and border */
+/* Controls styling */
+.controls { margin-bottom: 15px; display: flex; gap: 20px; }
 .mode-group, .shift-group {
   display: flex;
   position: relative;
-  border: 2px solid #bbb; /* visible border */
+  border: 2px solid #bbb;
   border-radius: 6px;
   width: 220px;
   overflow: hidden;
 }
-
-/* Highlight bar */
 .mode-highlight, .shift-highlight {
   position: absolute;
   top: 0;
@@ -31,12 +38,6 @@ h2 { margin-bottom: 15px; }
   transition: left 0.3s ease, background-color 0.3s ease;
   z-index: 0;
 }
-
-/* Default highlight colors (updated via JS) */
-.mode-highlight { background-color: #4CAF50; }
-.shift-highlight { background-color: #b0bec5; }
-
-/* Buttons */
 .mode-group button, .shift-group button {
   flex: 1;
   padding: 8px 16px;
@@ -44,71 +45,20 @@ h2 { margin-bottom: 15px; }
   cursor: pointer;
   font-weight: bold;
   position: relative;
-  z-index: 1; /* above highlight */
-  background-color: transparent; 
+  z-index: 1;
+  background-color: transparent;
   color: black;
   transition: color 0.3s ease;
 }
 
-/* Active text colors */
-.active-arrival, .active-morning { color: white !important; }
-.active-departure, .active-night { color: white !important; }
+/* Table styling */
+.table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; }
+table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+th, td { border: 1px solid #ccc; padding: 4px; text-align: center; user-select: none; }
+th { background-color: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
+td:first-child { background-color: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
+td.active { border: 2px solid #000; } 
+td:hover { opacity: 0.85; cursor: pointer; }
 
-/* ========================= SUMMARY BAR ========================= */
-#summary {
-  margin-top: 10px;
-  margin-bottom: 10px;
-  padding: 8px;
-  background-color: #e3f2fd;
-  border-left: 4px solid #2196f3;
-  font-size: 14px;
-}
-
-/* ========================= TABLE STYLING ========================= */
-.table-container {
-  overflow-x: auto;
-  border: 1px solid #ccc;
-  background: white;
-  padding: 5px;
-}
-
-table {
-  border-collapse: collapse;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 4px;
-  text-align: center;
-  user-select: none; /* prevent text selection while dragging */
-}
-
-th {
-  background-color: #eeeeee;
-  font-weight: bold;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-td:first-child {
-  background-color: #fafafa;
-  font-weight: bold;
-  position: sticky;
-  left: 0;
-  z-index: 1;
-}
-
-/* Active grid cell */
-td.active { 
-  background-color: #4CAF50; 
-  border: 2px solid #388E3C; 
-}
-
-/* Zone header row */
-.zone-row td { background-color: #eeeeee; font-weight: bold; text-align: left; padding-left: 8px; }
-
-/* Hover effect for cells */
-td:hover { background-color: #dcedc8; cursor: pointer; }
+/* Summary bar */
+#summary { margin-top: 10px; margin-bottom: 10px; padding: 8px; background-color: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
