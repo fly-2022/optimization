@@ -69,7 +69,7 @@ body {
 .color-btn {
     width: 28px;
     height: 28px;
-    border: solid;
+    border: none;
     cursor: pointer;
 }
 
@@ -150,4 +150,5 @@ td.counter-cell.active {
     background: #4CAF50;
 
 }
+
 
