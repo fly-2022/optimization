@@ -1,28 +1,136 @@
-body { font-family: Arial,sans-serif; padding:20px; background:#f7f9fc; }
-h2 { margin-bottom:15px; }
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #f7f9fc;
+}
 
-.controls { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px; }
-.mode-group, .shift-group, .color-group { display:flex; gap:0; border:1px solid #ccc; border-radius:5px; overflow:hidden; }
+h2 {
+    margin-bottom: 15px;
+}
 
-.mode-btn, .shift-btn { flex:1; padding:8px 16px; margin:0; border:none; cursor:pointer; font-weight:bold; background:#ddd; transition:0.2s ease; }
-.mode-btn:hover, .shift-btn:hover { opacity:0.85; }
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
 
-.mode-btn.active-arrival { background:#4CAF50; color:white; }
-.mode-btn.active-departure { background:#ff9800; color:white; }
-.shift-btn.active-morning { background:#b0bec5; color:black; }
-.shift-btn.active-night { background:#9e9e9e; color:black; }
+.mode-group,
+.shift-group,
+.color-group {
+    display: flex;
+    gap: 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+}
 
-.color-btn { width:28px; height:28px; border-radius:4px; border:1px solid #999; cursor:pointer; }
-.color-btn.selected { border:2px solid black; }
+.mode-btn,
+.shift-btn {
+    flex: 1;
+    padding: 8px 16px;
+    margin: 0;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    background: #ddd;
+    transition: 0.2s ease;
+}
 
-#clearGridBtn { padding:8px 16px; margin-left:10px; }
+.mode-btn:hover,
+.shift-btn:hover {
+    opacity: 0.85;
+}
 
-#summary { margin:10px 0; padding:8px; background:#e3f2fd; border-left:4px solid #2196f3; font-size:14px; }
+.mode-btn.active-arrival {
+    background: #4CAF50;
+    color: white;
+}
 
-.table-container { overflow-x:auto; border:1px solid #ccc; background:white; padding:5px; touch-action:none; }
-table { border-collapse:collapse; font-size:11px; white-space:nowrap; }
-th, td { border:1px solid #ccc; padding:4px; text-align:center; }
-th { background:#eeeeee; font-weight:bold; position:sticky; top:0; z-index:1; }
-td:first-child { background:#fafafa; font-weight:bold; position:sticky; left:0; z-index:1; }
-.zone-row td { background:#eeeeee; font-weight:bold; text-align:left; padding-left:8px; }
-td:hover { cursor:pointer; }
+.mode-btn.active-departure {
+    background: #ff9800;
+    color: white;
+}
+
+.shift-btn.active-morning {
+    background: #b0bec5;
+    color: black;
+}
+
+.shift-btn.active-night {
+    background: #9e9e9e;
+    color: black;
+}
+
+.color-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid #999;
+    cursor: pointer;
+}
+
+.color-btn.selected {
+    border: 2px solid black;
+}
+
+#clearGridBtn {
+    padding: 8px 16px;
+    margin-left: 10px;
+}
+
+#summary {
+    margin: 10px 0;
+    padding: 8px;
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    font-size: 14px;
+}
+
+.table-container {
+    overflow-x: auto;
+    border: 1px solid #ccc;
+    background: white;
+    padding: 5px;
+    touch-action: none;
+}
+
+table {
+    border-collapse: collapse;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+th,
+td {
+    border: 1px solid #ccc;
+    padding: 4px;
+    text-align: center;
+}
+
+th {
+    background: #eeeeee;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+td:first-child {
+    background: #fafafa;
+    font-weight: bold;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+.zone-row td {
+    background: #eeeeee;
+    font-weight: bold;
+    text-align: left;
+    padding-left: 8px;
+}
+
+td:hover {
+    cursor: pointer;
+}
