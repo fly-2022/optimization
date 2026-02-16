@@ -1,17 +1,23 @@
-// -----------------------------
-// GLOBAL STATE
-// -----------------------------
 let currentMode = "arrival";
 let currentShift = "morning";
-let isMouseDown = false; // tracks if mouse is pressed
-let dragMode = true;      // whether we're activating or deactivating during drag
+let currentColor = "#4CAF50"; // default color
+let isMouseDown = false;
+let dragMode = true;
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
 
-// -----------------------------
-// ZONE CONFIGURATION
-// -----------------------------
+// Color palette selection
+document.querySelectorAll(".color-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentColor = btn.dataset.color;
+    document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+  });
+});
+document.querySelector(".color-btn").classList.add("selected"); // mark first as selected
+
+// Zones
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -29,91 +35,71 @@ const zones = {
   ]
 };
 
-// -----------------------------
-// HELPER: RANGE GENERATOR
-// -----------------------------
 function range(prefix, start, end) {
   let arr = [];
-  for (let i = start; i <= end; i++) arr.push(prefix + i);
+  for(let i=start;i<=end;i++) arr.push(prefix+i);
   return arr;
 }
 
-// -----------------------------
-// GENERATE TIME SLOTS
-// -----------------------------
-function generateTimeSlots() {
-  let slots = [];
-  let startHour = currentShift === "morning" ? 10 : 22;
-  let totalSlots = 48; // 12 hours × 4 (15-min intervals)
-  for (let i = 0; i < totalSlots; i++) {
-    let hour = (startHour + Math.floor(i / 4)) % 24;
-    let minute = (i % 4) * 15;
-    slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
+// Generate time slots
+function generateTimeSlots(){
+  let slots=[];
+  let startHour=currentShift==="morning"?10:22;
+  for(let i=0;i<48;i++){
+    let hour=(startHour+Math.floor(i/4))%24;
+    let minute=(i%4)*15;
+    slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
   }
   return slots;
 }
 
-// -----------------------------
-// RENDER TABLE
-// -----------------------------
-function renderTable() {
-  table.innerHTML = "";
-  const timeSlots = generateTimeSlots();
+// Render table
+function renderTable(){
+  table.innerHTML="";
+  const timeSlots=generateTimeSlots();
 
-  // Header row
-  let headerRow = document.createElement("tr");
+  // header
+  let headerRow=document.createElement("tr");
   headerRow.appendChild(document.createElement("th"));
-  timeSlots.forEach(time => {
-    let th = document.createElement("th");
-    th.innerText = time;
-    headerRow.appendChild(th);
-  });
+  timeSlots.forEach(t=>{let th=document.createElement("th"); th.innerText=t; headerRow.appendChild(th);});
   table.appendChild(headerRow);
 
-  // Body rows
-  zones[currentMode].forEach(zone => {
-    let zoneRow = document.createElement("tr");
-    let zoneCell = document.createElement("td");
-    zoneCell.innerText = zone.name;
-    zoneCell.colSpan = timeSlots.length + 1;
-    zoneCell.style.backgroundColor = "#eeeeee";
-    zoneCell.style.fontWeight = "bold";
+  zones[currentMode].forEach(zone=>{
+    let zoneRow=document.createElement("tr");
+    let zoneCell=document.createElement("td");
+    zoneCell.innerText=zone.name;
+    zoneCell.colSpan=timeSlots.length+1;
+    zoneCell.style.backgroundColor="#eeeeee";
+    zoneCell.style.fontWeight="bold";
     zoneRow.appendChild(zoneCell);
     table.appendChild(zoneRow);
 
-    zone.counters.forEach(counter => {
-      let row = document.createElement("tr");
-      let label = document.createElement("td");
-      label.innerText = counter;
-      label.style.fontWeight = "bold";
+    zone.counters.forEach(counter=>{
+      let row=document.createElement("tr");
+      let label=document.createElement("td");
+      label.innerText=counter;
+      label.style.fontWeight="bold";
       row.appendChild(label);
 
-      timeSlots.forEach(() => {
-        let cell = document.createElement("td");
+      timeSlots.forEach(()=>{
+        let cell=document.createElement("td");
 
-        // Start drag on mousedown
-        cell.addEventListener("mousedown", (e) => {
-          isMouseDown = true;
-          dragMode = !cell.classList.contains("active"); // true = activate, false = deactivate
-          cell.classList.toggle("active", dragMode);
+        cell.addEventListener("mousedown",e=>{
+          isMouseDown=true;
+          dragMode = (currentColor==="") ? cell.style.backgroundColor!=="" : cell.style.backgroundColor!==currentColor;
+          cell.style.backgroundColor = currentColor;
           updateSummary();
-          e.preventDefault(); // prevent text selection
+          e.preventDefault();
         });
 
-        // Apply toggle on mouseover while dragging
-        cell.addEventListener("mouseover", () => {
-          if (isMouseDown) {
-            cell.classList.toggle("active", dragMode);
-            updateSummary();
-          }
+        cell.addEventListener("mouseover",()=>{
+          if(isMouseDown) cell.style.backgroundColor=currentColor;
+          updateSummary();
         });
 
-        // Stop dragging on mouseup
-        cell.addEventListener("mouseup", () => { isMouseDown = false; });
-
+        cell.addEventListener("mouseup",()=>{isMouseDown=false;});
         row.appendChild(cell);
       });
-
       table.appendChild(row);
     });
   });
@@ -121,74 +107,43 @@ function renderTable() {
   updateSummary();
 }
 
-// -----------------------------
-// UPDATE SUMMARY
-// -----------------------------
-function updateSummary() {
-  const activeCells = document.querySelectorAll("td.active").length;
-  summary.innerHTML =
-    `Current Mode: <b>${currentMode.toUpperCase()}</b> |
-     Current Shift: <b>${currentShift.toUpperCase()}</b> |
-     Total Manning Slots Selected: <b>${activeCells}</b>`;
+// Summary
+function updateSummary(){
+  let count=0;
+  document.querySelectorAll("#rosterTable td").forEach(td=>{if(td.style.backgroundColor) count++;});
+  summary.innerHTML=`Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
 
-// -----------------------------
-// BUTTONS & HIGHLIGHT
-// -----------------------------
-function updateButtons() {
-  // Reset buttons
-  document.getElementById("arrivalBtn").className = "";
-  document.getElementById("departureBtn").className = "";
-  document.getElementById("morningBtn").className = "";
-  document.getElementById("nightBtn").className = "";
-
-  // Active buttons
-  if (currentMode === "arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
+// Buttons
+function updateButtons(){
+  document.getElementById("arrivalBtn").className="";
+  document.getElementById("departureBtn").className="";
+  document.getElementById("morningBtn").className="";
+  document.getElementById("nightBtn").className="";
+  if(currentMode==="arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
   else document.getElementById("departureBtn").classList.add("active-departure");
-
-  if (currentShift === "morning") document.getElementById("morningBtn").classList.add("active-morning");
+  if(currentShift==="morning") document.getElementById("morningBtn").classList.add("active-morning");
   else document.getElementById("nightBtn").classList.add("active-night");
-
   updateHighlight();
 }
 
-// -----------------------------
-// SLIDING HIGHLIGHT
-// -----------------------------
-function updateHighlight() {
-  const modeHighlight = document.querySelector(".mode-highlight");
-  const shiftHighlight = document.querySelector(".shift-highlight");
-
-  if (currentMode === "arrival") {
-    modeHighlight.style.left = "0%";
-    modeHighlight.style.backgroundColor = "#4CAF50";
-  } else {
-    modeHighlight.style.left = "50%";
-    modeHighlight.style.backgroundColor = "#ff9800";
-  }
-
-  if (currentShift === "morning") {
-    shiftHighlight.style.left = "0%";
-    shiftHighlight.style.backgroundColor = "#b0bec5";
-  } else {
-    shiftHighlight.style.left = "50%";
-    shiftHighlight.style.backgroundColor = "#ddd";
-  }
+function updateHighlight(){
+  const modeHighlight=document.querySelector(".mode-highlight");
+  const shiftHighlight=document.querySelector(".shift-highlight");
+  modeHighlight.style.left=currentMode==="arrival"?"0%":"50%";
+  modeHighlight.style.backgroundColor=currentMode==="arrival"?"#4CAF50":"#ff9800";
+  shiftHighlight.style.left=currentShift==="morning"?"0%":"50%";
+  shiftHighlight.style.backgroundColor=currentShift==="morning"?"#b0bec5":"#ddd";
 }
 
-// -----------------------------
-// BUTTON EVENT LISTENERS
-// -----------------------------
-document.getElementById("arrivalBtn").onclick = () => { currentMode = "arrival"; updateButtons(); renderTable(); };
-document.getElementById("departureBtn").onclick = () => { currentMode = "departure"; updateButtons(); renderTable(); };
-document.getElementById("morningBtn").onclick = () => { currentShift = "morning"; updateButtons(); renderTable(); };
-document.getElementById("nightBtn").onclick = () => { currentShift = "night"; updateButtons(); renderTable(); };
+// Mode/shift buttons
+document.getElementById("arrivalBtn").onclick=()=>{currentMode="arrival"; updateButtons(); renderTable();};
+document.getElementById("departureBtn").onclick=()=>{currentMode="departure"; updateButtons(); renderTable();};
+document.getElementById("morningBtn").onclick=()=>{currentShift="morning"; updateButtons(); renderTable();};
+document.getElementById("nightBtn").onclick=()=>{currentShift="night"; updateButtons(); renderTable();};
 
-// -----------------------------
-// INITIAL LOAD
-// -----------------------------
+document.addEventListener("mouseup",()=>{isMouseDown=false;});
+
+// Initial render
 updateButtons();
 renderTable();
-
-// Stop dragging when mouse leaves the window
-document.addEventListener("mouseup", () => { isMouseDown = false; });
