@@ -269,171 +269,172 @@ setShift("morning");
 
 /* ================= MANPOWER SYSTEM ================= */
 
-let manpowerType = "main";
+document.addEventListener("DOMContentLoaded", function () {
 
-const sosFields = document.getElementById("sosFields");
-const otFields = document.getElementById("otFields");
+    let manpowerType = "main";
+    let historyStack = [];
 
-document.querySelectorAll(".mp-type").forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        manpowerType = btn.dataset.type;
+    const sosFields = document.getElementById("sosFields");
+    const otFields = document.getElementById("otFields");
+    const addBtn = document.getElementById("addOfficerBtn");
+    const removeBtn = document.getElementById("removeOfficerBtn");
+    const undoBtn = document.getElementById("undoBtn");
 
-        sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-        otFields.style.display = manpowerType === "ot" ? "block" : "none";
-    });
-});
-
-document.getElementById("addOfficerBtn").addEventListener("click", () => {
-
-    const count = parseInt(document.getElementById("officerCount").value);
-    if (!count || count <= 0) return;
-
-    saveState();
-
-    if (manpowerType === "sos") {
-        const start = document.getElementById("sosStart").value;
-        const end = document.getElementById("sosEnd").value;
-        if (!start || !end) {
-            alert("Please enter SOS start and end time");
-            return;
-        }
-        addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
-    }
-
-    if (manpowerType === "ot") {
-        const slot = document.getElementById("otSlot").value;
-        const [start, end] = slot.split("-");
-        addOfficersGlobal(count, start, end);
-    }
-
-    if (manpowerType === "main") {
-        alert("Main template upload to be implemented later.");
-    }
-});
-
-
-let historyStack = [];
-
-function saveState() {
-    const state = [];
-    document.querySelectorAll(".counter-cell").forEach(cell => {
-        state.push({
-            zone: cell.dataset.zone,
-            time: cell.dataset.time,
-            active: cell.classList.contains("active"),
-            color: cell.style.background
-        });
-    });
-    historyStack.push(state);
-}
-
-function restoreState(state) {
-    document.querySelectorAll(".counter-cell").forEach(cell => {
-        const found = state.find(s =>
-            s.zone === cell.dataset.zone &&
-            s.time === cell.dataset.time
-        );
-        if (found && found.active) {
-            cell.classList.add("active");
-            cell.style.background = found.color;
-        } else {
-            cell.classList.remove("active");
-            cell.style.background = "";
-        }
-    });
-    updateAll();
-}
-
-
-function addOfficersGlobal(count, startTime, endTime) {
-
-    const times = generateTimeSlots();
-    let startIndex = times.findIndex(t => t === startTime);
-    let endIndex = times.findIndex(t => t === endTime);
-
-    if (startIndex === -1 || endIndex === -1) {
-        alert("Time range outside current shift grid.");
+    if (!addBtn || !removeBtn || !undoBtn) {
+        console.error("Manpower buttons not found in HTML.");
         return;
     }
 
-    for (let t = startIndex; t < endIndex; t++) {
+    document.querySelectorAll(".mp-type").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            manpowerType = btn.dataset.type;
 
-        let allCells = [];
-
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-
-            let cells = [...document.querySelectorAll(
-                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
-            )];
-
-            allCells = allCells.concat(cells);
+            sosFields.style.display = manpowerType === "sos" ? "block" : "none";
+            otFields.style.display = manpowerType === "ot" ? "block" : "none";
         });
-
-        let activeCount = allCells.filter(c => c.classList.contains("active")).length;
-
-        let toAdd = Math.min(count, allCells.length - activeCount);
-
-        for (let i = 0; i < toAdd; i++) {
-            let emptyCell = allCells.find(c => !c.classList.contains("active"));
-            if (emptyCell) {
-                emptyCell.classList.add("active");
-                emptyCell.style.background = currentColor;
-            }
-        }
-    }
-
-    updateAll();
-}
-
-document.getElementById("removeOfficerBtn").addEventListener("click", () => {
-
-    const count = parseInt(document.getElementById("officerCount").value);
-    if (!count || count <= 0) return;
-
-    saveState();
-
-    const times = generateTimeSlots();
-
-    times.forEach((time, tIndex) => {
-
-        let allCells = [];
-
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-
-            let cells = [...document.querySelectorAll(
-                `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
-            )];
-
-            allCells = allCells.concat(cells);
-        });
-
-        let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-        for (let i = 0; i < count && activeCells.length > 0; i++) {
-            let last = activeCells.pop();
-            last.classList.remove("active");
-            last.style.background = "";
-        }
-
     });
 
-    updateAll();
+    function saveState() {
+        const state = [];
+        document.querySelectorAll(".counter-cell").forEach(cell => {
+            state.push({
+                zone: cell.dataset.zone,
+                time: cell.dataset.time,
+                active: cell.classList.contains("active"),
+                color: cell.style.background
+            });
+        });
+        historyStack.push(state);
+    }
+
+    function restoreState(state) {
+        document.querySelectorAll(".counter-cell").forEach(cell => {
+            const found = state.find(s =>
+                s.zone === cell.dataset.zone &&
+                s.time === cell.dataset.time
+            );
+            if (found && found.active) {
+                cell.classList.add("active");
+                cell.style.background = found.color;
+            } else {
+                cell.classList.remove("active");
+                cell.style.background = "";
+            }
+        });
+        updateAll();
+    }
+
+    function addOfficersGlobal(count, startTime, endTime) {
+
+        const times = generateTimeSlots();
+        let startIndex = times.findIndex(t => t === startTime);
+        let endIndex = times.findIndex(t => t === endTime);
+
+        if (startIndex === -1 || endIndex === -1) {
+            alert("Time range outside current shift grid.");
+            return;
+        }
+
+        for (let t = startIndex; t < endIndex; t++) {
+
+            let allCells = [];
+
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+
+                let cells = [...document.querySelectorAll(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
+                )];
+
+                allCells = allCells.concat(cells);
+            });
+
+            let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+            let toAdd = Math.min(count, allCells.length - activeCells.length);
+
+            for (let i = 0; i < toAdd; i++) {
+                let emptyCell = allCells.find(c => !c.classList.contains("active"));
+                if (emptyCell) {
+                    emptyCell.classList.add("active");
+                    emptyCell.style.background = currentColor;
+                }
+            }
+        }
+
+        updateAll();
+    }
+
+    addBtn.addEventListener("click", () => {
+
+        const count = parseInt(document.getElementById("officerCount").value);
+        if (!count || count <= 0) return;
+
+        saveState();
+
+        if (manpowerType === "sos") {
+            const start = document.getElementById("sosStart").value;
+            const end = document.getElementById("sosEnd").value;
+            if (!start || !end) {
+                alert("Please enter SOS start and end time");
+                return;
+            }
+            addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
+        }
+
+        if (manpowerType === "ot") {
+            const slot = document.getElementById("otSlot").value;
+            const [start, end] = slot.split("-");
+            addOfficersGlobal(count, start, end);
+        }
+
+        if (manpowerType === "main") {
+            alert("Main template upload to be implemented later.");
+        }
+    });
+
+    removeBtn.addEventListener("click", () => {
+
+        const count = parseInt(document.getElementById("officerCount").value);
+        if (!count || count <= 0) return;
+
+        saveState();
+
+        const times = generateTimeSlots();
+
+        times.forEach((time, tIndex) => {
+
+            let allCells = [];
+
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+
+                let cells = [...document.querySelectorAll(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
+                )];
+
+                allCells = allCells.concat(cells);
+            });
+
+            let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+            for (let i = 0; i < count && activeCells.length > 0; i++) {
+                let last = activeCells.pop();
+                last.classList.remove("active");
+                last.style.background = "";
+            }
+
+        });
+
+        updateAll();
+    });
+
+    undoBtn.addEventListener("click", () => {
+        if (historyStack.length === 0) return;
+        const prev = historyStack.pop();
+        restoreState(prev);
+    });
+
 });
-
-
-document.getElementById("undoBtn").addEventListener("click", () => {
-    if (historyStack.length === 0) return;
-    const prev = historyStack.pop();
-    restoreState(prev);
-});
-
-
-
-
-
-
-
