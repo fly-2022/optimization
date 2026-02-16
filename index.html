@@ -13,19 +13,19 @@
 
 <div class="controls">
 
-  <!-- MODE -->
-  <div class="segmented" id="modeSegment">
-    <div class="segment-highlight"></div>
-    <button id="arrivalBtn" class="segment-btn active" data-index="0">Arrival</button>
-    <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
-  </div>
+ <!-- Arrival / Departure -->
+<div class="segmented">
+  <div class="segmented-bg"></div>
+  <button class="seg-btn active" data-type="arrival">Arrival</button>
+  <button class="seg-btn" data-type="departure">Departure</button>
+</div>
 
-  <!-- SHIFT -->
-  <div class="segmented" id="shiftSegment">
-    <div class="segment-highlight"></div>
-    <button id="morningBtn" class="segment-btn active" data-index="0">Morning</button>
-    <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
-  </div>
+<!-- Morning / Night -->
+<div class="segmented">
+  <div class="segmented-bg"></div>
+  <button class="seg-btn active" data-shift="morning">Morning</button>
+  <button class="seg-btn" data-shift="night">Night</button>
+</div>
 
   <!-- COLORS -->
   <div class="color-group">
@@ -51,3 +51,4 @@
 <script src="script.js?v=5"></script>
 </body>
 </html>
+
