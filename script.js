@@ -2,15 +2,14 @@ let currentMode = "arrival";
 let currentShift = "morning";
 let currentColor = "#4CAF50";
 
-let isPointerDown = false;
+let isTouchDragging = false; 
+let isMouseDragging = false;
 let dragAction = "apply";
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
 
-// -------------------
-// Color selection
-// -------------------
+// ==================== COLOR SELECTION ====================
 document.querySelectorAll(".color-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     currentColor = btn.dataset.color;
@@ -20,9 +19,7 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 });
 document.querySelector(".color-btn").classList.add("selected");
 
-// -------------------
-// Clear grid
-// -------------------
+// ==================== CLEAR GRID ====================
 document.getElementById("clearGridBtn").addEventListener("click", () => {
   document.querySelectorAll("#rosterTable td").forEach(td => {
     td.dataset.color = "";
@@ -31,9 +28,7 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
   updateSummary();
 });
 
-// -------------------
-// Zones
-// -------------------
+// ==================== ZONE CONFIG ====================
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC",1,10) },
@@ -51,80 +46,97 @@ const zones = {
   ]
 };
 
-function range(prefix,start,end){ let arr=[]; for(let i=start;i<=end;i++) arr.push(prefix+i); return arr; }
+function range(prefix,start,end) {
+  let arr = [];
+  for(let i=start;i<=end;i++) arr.push(prefix+i);
+  return arr;
+}
 
-// -------------------
-// Generate time slots
-// -------------------
-function generateTimeSlots(){
-  const slots=[];
-  const startHour = currentShift==="morning"?10:22;
+function generateTimeSlots() {
+  const slots = [];
+  const startHour = currentShift === "morning" ? 10 : 22;
   for(let i=0;i<48;i++){
-    const hour=(startHour+Math.floor(i/4))%24;
-    const minute=(i%4)*15;
+    const hour = (startHour + Math.floor(i/4)) % 24;
+    const minute = (i % 4)*15;
     slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
   }
   return slots;
 }
 
-// -------------------
-// Render table
-// -------------------
+// ==================== RENDER TABLE ====================
 function renderTable(){
-  table.innerHTML="";
+  table.innerHTML = "";
   const timeSlots = generateTimeSlots();
 
-  const headerRow=document.createElement("tr");
+  // Header
+  const headerRow = document.createElement("tr");
   headerRow.appendChild(document.createElement("th"));
-  timeSlots.forEach(t=>{
-    const th=document.createElement("th");
-    th.innerText=t;
+  timeSlots.forEach(t => {
+    const th = document.createElement("th");
+    th.innerText = t;
     headerRow.appendChild(th);
   });
   table.appendChild(headerRow);
 
-  zones[currentMode].forEach(zone=>{
-    const zoneRow=document.createElement("tr");
-    const zoneCell=document.createElement("td");
-    zoneCell.innerText=zone.name;
-    zoneCell.colSpan=timeSlots.length+1;
-    zoneCell.style.backgroundColor="#eeeeee";
-    zoneCell.style.fontWeight="bold";
+  // Body
+  zones[currentMode].forEach(zone => {
+    const zoneRow = document.createElement("tr");
+    const zoneCell = document.createElement("td");
+    zoneCell.innerText = zone.name;
+    zoneCell.colSpan = timeSlots.length+1;
+    zoneCell.style.backgroundColor = "#eeeeee";
+    zoneCell.style.fontWeight = "bold";
     zoneRow.appendChild(zoneCell);
     table.appendChild(zoneRow);
 
-    zone.counters.forEach(counter=>{
-      const row=document.createElement("tr");
-      const label=document.createElement("td");
-      label.innerText=counter;
-      label.style.fontWeight="bold";
+    zone.counters.forEach(counter => {
+      const row = document.createElement("tr");
+      const label = document.createElement("td");
+      label.innerText = counter;
+      label.style.fontWeight = "bold";
       row.appendChild(label);
 
-      timeSlots.forEach(()=>{
-        const cell=document.createElement("td");
-        cell.dataset.color="";
+      timeSlots.forEach(()=> {
+        const cell = document.createElement("td");
+        cell.dataset.color = "";
 
-        // ---------- Pointer events for drag ----------
-        cell.addEventListener("pointerdown", e => {
-          e.preventDefault(); // important for mobile
-          isPointerDown = true;
-          dragAction = cell.dataset.color === currentColor ? "remove" : "apply";
-          cell.dataset.dragging = "false";
-        });
-
-        cell.addEventListener("pointermove", e => {
-          if (!isPointerDown) return;
-          e.preventDefault(); // important for mobile
+        //-----------------------
+        // MOUSE EVENTS (desktop)
+        //-----------------------
+        cell.addEventListener("mousedown", e => {
+          isMouseDragging = true;
+          dragAction = (cell.dataset.color === currentColor) ? "remove" : "apply";
           toggleCell(cell, true);
-          cell.dataset.dragging = "true";
+        });
+        cell.addEventListener("mouseover", () => {
+          if(isMouseDragging) toggleCell(cell, true);
+        });
+        cell.addEventListener("mouseup", () => {
+          isMouseDragging = false;
+        });
+        cell.addEventListener("click", () => {
+          if (!isMouseDragging) toggleCell(cell, false);
         });
 
-        cell.addEventListener("pointerup", e => {
-          e.preventDefault(); // important for mobile
-          if (!cell.dataset.dragging || cell.dataset.dragging === "false") {
-            toggleCell(cell, false);
+        //-----------------------
+        // TOUCH EVENTS (mobile)
+        //-----------------------
+        cell.addEventListener("touchstart", e => {
+          e.preventDefault();
+          isTouchDragging = true;
+          dragAction = (cell.dataset.color === currentColor) ? "remove" : "apply";
+          toggleCell(cell, true);
+        });
+        cell.addEventListener("touchmove", e => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const target = document.elementFromPoint(touch.clientX, touch.clientY);
+          if(target && target.tagName === "TD") {
+            toggleCell(target, true);
           }
-          isPointerDown = false;
+        });
+        cell.addEventListener("touchend", () => {
+          isTouchDragging = false;
         });
 
         row.appendChild(cell);
@@ -137,32 +149,38 @@ function renderTable(){
   updateSummary();
 }
 
-// -------------------
-// Toggle cell
-// -------------------
-function toggleCell(cell,isDrag){
+// ==================== TOGGLE CELL ====================
+function toggleCell(cell, isDrag) {
   if(isDrag){
-    if(dragAction==="apply"){ cell.dataset.color=currentColor; cell.style.backgroundColor=currentColor; }
-    else { cell.dataset.color=""; cell.style.backgroundColor=""; }
+    if(dragAction==="apply"){ 
+      cell.dataset.color = currentColor;
+      cell.style.backgroundColor = currentColor;
+    } else { 
+      cell.dataset.color = "";
+      cell.style.backgroundColor = "";
+    }
   } else {
-    if(cell.dataset.color===currentColor){ cell.dataset.color=""; cell.style.backgroundColor=""; }
-    else { cell.dataset.color=currentColor; cell.style.backgroundColor=currentColor; }
+    if(cell.dataset.color === currentColor){
+      cell.dataset.color = "";
+      cell.style.backgroundColor = "";
+    } else {
+      cell.dataset.color = currentColor;
+      cell.style.backgroundColor = currentColor;
+    }
   }
   updateSummary();
 }
 
-// -------------------
-// Update summary
-// -------------------
+// ==================== SUMMARY ====================
 function updateSummary(){
-  let count=0;
-  document.querySelectorAll("#rosterTable td").forEach(td=>{ if(td.dataset.color) count++; });
-  summary.innerHTML=`Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
+  let count = 0;
+  document.querySelectorAll("#rosterTable td").forEach(td=>{
+    if(td.dataset.color) count++;
+  });
+  summary.innerHTML = `Current Mode: <b>${currentMode.toUpperCase()}</b> | Current Shift: <b>${currentShift.toUpperCase()}</b> | Total Cells Selected: <b>${count}</b>`;
 }
 
-// -------------------
-// Mode/Shift buttons
-// -------------------
+// ==================== MODE / SHIFT BUTTONS ====================
 function updateButtons(){
   document.getElementById("arrivalBtn").className="";
   document.getElementById("departureBtn").className="";
@@ -176,15 +194,13 @@ function updateButtons(){
   else document.getElementById("nightBtn").classList.add("active-night");
 }
 
-// Button listeners
-document.getElementById("arrivalBtn").onclick=()=>{ currentMode="arrival"; updateButtons(); renderTable(); };
-document.getElementById("departureBtn").onclick=()=>{ currentMode="departure"; updateButtons(); renderTable(); };
-document.getElementById("morningBtn").onclick=()=>{ currentShift="morning"; updateButtons(); renderTable(); };
-document.getElementById("nightBtn").onclick=()=>{ currentShift="night"; updateButtons(); renderTable(); };
+document.getElementById("arrivalBtn").onclick = () => { currentMode="arrival"; updateButtons(); renderTable(); };
+document.getElementById("departureBtn").onclick = () => { currentMode="departure"; updateButtons(); renderTable(); };
+document.getElementById("morningBtn").onclick = () => { currentShift="morning"; updateButtons(); renderTable(); };
+document.getElementById("nightBtn").onclick = () => { currentShift="night"; updateButtons(); renderTable(); };
 
-// Release pointer anywhere
-document.addEventListener("pointerup",()=>{ isPointerDown=false; });
+// release mouse drag if pointer leaves
+document.addEventListener("mouseup", () => { isMouseDragging = false; });
 
-// Initial render
 updateButtons();
 renderTable();
