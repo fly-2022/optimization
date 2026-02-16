@@ -27,6 +27,14 @@ body {
     cursor: pointer;
     font-weight: bold;
     z-index: 2;
+    color: black;
+    position: relative;
+    z-index: 2;
+    transition: color 0.2s ease;
+}
+
+.segment-btn.active {
+    color: white;
 }
 
 .segment-highlight {
@@ -37,6 +45,18 @@ body {
     border-radius: 8px;
     transition: 0.25s ease;
     z-index: 1;
+    background: #4CAF50;
+    transform: translateX(0%);
+}
+
+#modeHighlight {
+    background: #4CAF50;
+    transform: translateX(0%);
+}
+
+#shiftHighlight {
+    background: #b0bec5;
+    transform: translateX(0%);
 }
 
 .color-group {

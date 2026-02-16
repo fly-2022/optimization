@@ -5,7 +5,16 @@ let isDragging = false;
 let dragMode = "add";
 
 const table = document.getElementById("rosterTable");
-const manningSummary = document.getElementById("manningSummary");
+const summary = document.getElementById("summary");
+const manningSummaryEl = document.getElementById("manningSummary");
+
+const modeHighlight = document.getElementById("modeHighlight");
+const shiftHighlight = document.getElementById("shiftHighlight");
+
+const arrivalBtn = document.getElementById("arrivalBtn");
+const departureBtn = document.getElementById("departureBtn");
+const morningBtn = document.getElementById("morningBtn");
+const nightBtn = document.getElementById("nightBtn");
 
 const zones = {
     arrival: [
@@ -25,6 +34,25 @@ const zones = {
 };
 
 function range(prefix, start, end) { let arr = []; for (let i = start; i <= end; i++)arr.push(prefix + i); return arr; }
+
+// ---------------- COLOR PICKER -----------------
+document.querySelectorAll(".color-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        currentColor = btn.dataset.color;
+        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+    });
+});
+
+// ---------------- CLEAR GRID -----------------
+document.getElementById("clearGridBtn").addEventListener("click", () => {
+    document.querySelectorAll("#rosterTable td").forEach(td => {
+        td.style.background = "";
+        td.classList.remove("active");
+    });
+    updateSummary();
+    updateManningSummary();
+});
 
 function generateTimeSlots() {
     let slots = [];
@@ -212,3 +240,43 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 });
 
 renderTable();
+
+// ---------------- SEGMENTED BUTTONS -----------------
+function setMode(mode) {
+    currentMode = mode;
+    if (mode === "arrival") {
+        currentColor = "#4CAF50";
+        modeHighlight.style.transform = "translateX(0%)";
+        modeHighlight.style.background = "#4CAF50";
+        arrivalBtn.classList.add("active"); departureBtn.classList.remove("active");
+    } else {
+        currentColor = "#FF9800";
+        modeHighlight.style.transform = "translateX(100%)";
+        modeHighlight.style.background = "#FF9800";
+        departureBtn.classList.add("active"); arrivalBtn.classList.remove("active");
+    }
+    renderTable();
+}
+
+function setShift(shift) {
+    currentShift = shift;
+    if (shift === "morning") {
+        shiftHighlight.style.transform = "translateX(0%)";
+        shiftHighlight.style.background = "#b0bec5";
+        morningBtn.classList.add("active"); nightBtn.classList.remove("active");
+    } else {
+        shiftHighlight.style.transform = "translateX(100%)";
+        shiftHighlight.style.background = "#9e9e9e";
+        nightBtn.classList.add("active"); morningBtn.classList.remove("active");
+    }
+    renderTable();
+}
+
+arrivalBtn.onclick = () => setMode("arrival");
+departureBtn.onclick = () => setMode("departure");
+morningBtn.onclick = () => setShift("morning");
+nightBtn.onclick = () => setShift("night");
+
+/* ---------------- INIT ---------------- */
+setMode("arrival");
+setShift("morning");
