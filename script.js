@@ -395,5 +395,88 @@ function restoreState(state) {
 }
 
 
+function addOfficersGlobal(count, startTime, endTime) {
+
+    const times = generateTimeSlots();
+    let startIndex = times.findIndex(t => t === startTime);
+    let endIndex = times.findIndex(t => t === endTime);
+
+    if (startIndex === -1 || endIndex === -1) {
+        alert("Time range outside current shift grid.");
+        return;
+    }
+
+    for (let t = startIndex; t < endIndex; t++) {
+
+        let allCells = [];
+
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+
+            let cells = [...document.querySelectorAll(
+                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
+            )];
+
+            allCells = allCells.concat(cells);
+        });
+
+        let activeCount = allCells.filter(c => c.classList.contains("active")).length;
+
+        let toAdd = Math.min(count, allCells.length - activeCount);
+
+        for (let i = 0; i < toAdd; i++) {
+            let emptyCell = allCells.find(c => !c.classList.contains("active"));
+            if (emptyCell) {
+                emptyCell.classList.add("active");
+                emptyCell.style.background = currentColor;
+            }
+        }
+    }
+
+    updateAll();
+}
+
+document.getElementById("removeOfficerBtn").addEventListener("click", () => {
+
+    const count = parseInt(document.getElementById("officerCount").value);
+    if (!count || count <= 0) return;
+
+    saveState();
+
+    const times = generateTimeSlots();
+
+    zones[currentMode].forEach(zone => {
+
+        if (zone.name === "BIKES") return;
+
+        times.forEach((time, tIndex) => {
+
+            let cells = [...document.querySelectorAll(
+                `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
+            )];
+
+            let activeCells = cells.filter(c => c.classList.contains("active"));
+
+            for (let i = 0; i < count && activeCells.length > 0; i++) {
+                let last = activeCells.pop();
+                last.classList.remove("active");
+                last.style.background = "";
+            }
+        });
+    });
+
+    updateAll();
+});
+
+document.getElementById("undoBtn").addEventListener("click", () => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack.pop();
+    restoreState(prev);
+});
+
+
+
+
+
 
 
