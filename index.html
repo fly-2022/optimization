@@ -1,53 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Roster Optimisation Grid</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Link CSS -->
-  <link rel="stylesheet" href="style.css">
+<head>
+    <meta charset="UTF-8">
+    <title>Roster Optimisation Grid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Link CSS -->
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-  <h2>Roster Optimisation Dashboard</h2>
+    <h2>Roster Optimisation Dashboard</h2>
 
-  <!-- ===================== COLOR SELECTION ====================== -->
-  <div class="controls">
-    <div class="color-group">
-      <button class="color-btn" data-color="#4CAF50" style="background:#4CAF50"></button>
-      <button class="color-btn" data-color="#ff9800" style="background:#ff9800"></button>
-      <button class="color-btn" data-color="#ffeb3b" style="background:#ffeb3b"></button>
-      <button class="color-btn" data-color="#e91e63" style="background:#e91e63"></button>
-      <button class="color-btn" data-color="#9c27b0" style="background:#9c27b0"></button>
-      <button class="color-btn" data-color="#2196f3" style="background:#2196f3"></button>
-      <button class="color-btn" data-color="#f44336" style="background:#f44336"></button>
-    </div>
-    <button id="clearGridBtn">Clear Grid</button>
-  </div>
-
-  <!-- ===================== MODE & SHIFT CONTROLS ====================== -->
-  <div class="controls">
-    <div class="mode-group">
-      <button id="arrivalBtn" class="mode-btn">Arrival</button>
-      <button id="departureBtn" class="mode-btn">Departure</button>
+    <!-- ===================== COLOR SELECTION ====================== -->
+    <div class="controls">
+        <div class="color-group">
+            <button class="color-btn" data-color="#4CAF50" style="background:#4CAF50"></button>
+            <button class="color-btn" data-color="#ff9800" style="background:#ff9800"></button>
+            <button class="color-btn" data-color="#ffeb3b" style="background:#ffeb3b"></button>
+            <button class="color-btn" data-color="#e91e63" style="background:#e91e63"></button>
+            <button class="color-btn" data-color="#9c27b0" style="background:#9c27b0"></button>
+            <button class="color-btn" data-color="#2196f3" style="background:#2196f3"></button>
+            <button class="color-btn" data-color="#f44336" style="background:#f44336"></button>
+        </div>
+        <button id="clearGridBtn">Clear Grid</button>
     </div>
 
-    <div class="shift-group">
-      <button id="morningBtn" class="shift-btn">Morning</button>
-      <button id="nightBtn" class="shift-btn">Night</button>
+    <!-- ===================== MODE & SHIFT CONTROLS ====================== -->
+    <div class="controls">
+        <div class="mode-group">
+            <button id="arrivalBtn" class="mode-btn">Arrival</button>
+            <button id="departureBtn" class="mode-btn">Departure</button>
+        </div>
+
+        <div class="shift-group">
+            <button id="morningBtn" class="shift-btn">Morning</button>
+            <button id="nightBtn" class="shift-btn">Night</button>
+        </div>
     </div>
-  </div>
 
-  <!-- ===================== SUMMARY ====================== -->
-  <div id="summary"></div>
+    <!-- ===================== SUMMARY ====================== -->
+    <div id="summary"></div>
 
-  <!-- ===================== TABLE CONTAINER ====================== -->
-  <div class="table-container">
-    <table id="rosterTable"></table>
-  </div>
+    <!-- ===================== TABLE CONTAINER ====================== -->
+    <div class="table-container">
+        <table id="rosterTable"></table>
+    </div>
 
-  <!-- Link JavaScript -->
-  <script src="script.js"></script>
+    <!-- Link JavaScript -->
+    <script src="script.js"></script>
 </body>
+
 </html>

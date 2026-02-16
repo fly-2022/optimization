@@ -1,128 +1,142 @@
 /* ========================= GENERAL PAGE STYLING ========================= */
 body {
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  background-color: #f7f9fc;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background-color: #f7f9fc;
 }
 
 h2 {
-  margin-bottom: 15px;
+    margin-bottom: 15px;
 }
 
 /* ========================= CONTROL BUTTONS ========================= */
 .controls {
-  margin-bottom: 15px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
 }
 
-/* Mode & shift groups */
-.mode-group, .shift-group, .color-group {
-  display: flex;
-  gap: 5px;
-  border: 1px solid #ccc;
-  padding: 5px;
-  border-radius: 5px;
+.mode-group,
+.shift-group,
+.color-group {
+    display: flex;
+    gap: 5px;
+    border: 1px solid #ccc;
+    padding: 5px;
+    border-radius: 5px;
 }
 
-/* Base button styling */
 button {
-  padding: 8px 16px;
-  border: none;
-  cursor: pointer;
-  border-radius: 4px;
-  font-weight: bold;
-  transition: 0.2s ease;
+    padding: 8px 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: 0.2s ease;
 }
 
-/* Hover */
 button:hover {
-  opacity: 0.85;
+    opacity: 0.85;
 }
 
 /* Mode buttons */
 .mode-btn {
-  background-color: #ddd;
+    background-color: #ddd;
 }
 
-/* Active mode */
-.active-arrival { background-color: #4CAF50 !important; color:white; }
-.active-departure { background-color: #ff9800 !important; color:white; }
+.active-arrival {
+    background-color: #4CAF50 !important;
+    color: white;
+}
+
+.active-departure {
+    background-color: #ff9800 !important;
+    color: white;
+}
 
 /* Shift buttons */
-.shift-btn { background-color: #ddd; }
-.active-morning { background-color: #b0bec5 !important; }
-.active-night { background-color: #ddd !important; }
+.shift-btn {
+    background-color: #ddd;
+}
+
+.active-morning {
+    background-color: #b0bec5 !important;
+}
+
+.active-night {
+    background-color: #ddd !important;
+}
 
 /* Color buttons */
 .color-btn {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  cursor: pointer;
-  outline: none;
+    width: 24px;
+    height: 24px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    outline: none;
 }
+
 .color-btn.selected {
-  border: 2px solid #000;
+    border: 2px solid #000;
 }
 
 /* Clear button */
 #clearGridBtn {
-  background-color: #f44336;
-  color: white;
-  font-weight: normal;
+    background-color: #f44336;
+    color: white;
+    font-weight: normal;
 }
 
 /* ========================= SUMMARY BAR ========================= */
 #summary {
-  margin-top: 10px;
-  margin-bottom: 10px;
-  padding: 8px;
-  background-color: #e3f2fd;
-  border-left: 4px solid #2196f3;
-  font-size: 14px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    font-size: 14px;
 }
 
 /* ========================= TABLE STYLING ========================= */
 .table-container {
-  overflow-x: auto;
-  border: 1px solid #ccc;
-  background: white;
-  padding: 5px;
+    overflow-x: auto;
+    border: 1px solid #ccc;
+    background: white;
+    padding: 5px;
 }
 
 table {
-  border-collapse: collapse;
-  font-size: 11px;
-  white-space: nowrap;
+    border-collapse: collapse;
+    font-size: 11px;
+    white-space: nowrap;
 }
 
-th, td {
-  border: 1px solid #ccc;
-  padding: 4px;
-  text-align: center;
+th,
+td {
+    border: 1px solid #ccc;
+    padding: 4px;
+    text-align: center;
 }
 
 th {
-  background-color: #eeeeee;
-  font-weight: bold;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+    background-color: #eeeeee;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 td:first-child {
-  background-color: #fafafa;
-  font-weight: bold;
-  position: sticky;
-  left: 0;
-  z-index: 1;
+    background-color: #fafafa;
+    font-weight: bold;
+    position: sticky;
+    left: 0;
+    z-index: 1;
 }
 
-/* Hover effect */
-td:hover { cursor: pointer; }
-
-/* Active colored cells - background applied inline via JS */
+td:hover {
+    cursor: pointer;
+}
