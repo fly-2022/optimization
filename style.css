@@ -38,3 +38,41 @@ td.active {
 .table-container {
     overflow-x: auto;
 }
+
+/* --- MODE BUTTONS --- */
+.mode-btn {
+    padding: 6px 14px;
+    border: none;
+    cursor: pointer;
+    background-color: #ddd;
+}
+
+.mode-btn.active-arrival {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.mode-btn.active-departure {
+    background-color: #ff9800;
+    color: white;
+}
+
+/* --- SHIFT BUTTONS --- */
+.shift-btn {
+    padding: 6px 14px;
+    border: none;
+    cursor: pointer;
+    background-color: #ddd;
+}
+
+.shift-btn.active-morning {
+    background-color: #cfd8dc;
+    /* shaded */
+    font-weight: bold;
+}
+
+.shift-btn.active-night {
+    background-color: #ddd;
+    /* neutral */
+    font-weight: bold;
+}
