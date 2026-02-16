@@ -1,15 +1,13 @@
+// ----------------- STATE -----------------
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = "#4CAF50";
+let currentColor = null;
 
 let isDragging = false;
 let dragMode = "apply";
+let lastCell = null;
 
-const table = document.getElementById("rosterTable");
-const summary = document.getElementById("summary");
-
-/* ================= ZONES (RESTORED FULL) ================= */
-
+// ----------------- ZONES -----------------
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -22,212 +20,166 @@ const zones = {
     { name: "Zone 1", counters: range("DC", 1, 8) },
     { name: "Zone 2", counters: range("DC", 9, 19) },
     { name: "Zone 3", counters: range("DC", 20, 29) },
-    { name: "Zone 4", counters: range("DC", 29, 36) },
+    { name: "Zone 4", counters: range("DC", 30, 36) },
     { name: "BIKES", counters: ["DM37A", "DM37C"] }
   ]
 };
 
 function range(prefix, start, end) {
-  let arr = [];
-  for (let i = start; i <= end; i++) {
-    arr.push(prefix + i);
-  }
+  const arr = [];
+  for (let i = start; i <= end; i++) arr.push(prefix + i);
   return arr;
 }
 
-/* ================= TIME GENERATION ================= */
-
+// ----------------- TIME SLOTS -----------------
 function generateTimeSlots() {
   const slots = [];
   const startHour = currentShift === "morning" ? 10 : 22;
-
   for (let i = 0; i < 48; i++) {
     const hour = (startHour + Math.floor(i / 4)) % 24;
     const minute = (i % 4) * 15;
-    slots.push(
-      String(hour).padStart(2, "0") +
-      String(minute).padStart(2, "0")
-    );
+    slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
   }
   return slots;
 }
 
-/* ================= iOS SEGMENTED CONTROL ================= */
-
-document.querySelectorAll(".segmented").forEach(segment => {
-  const buttons = segment.querySelectorAll(".segment-btn");
-  const highlight = segment.querySelector(".segment-highlight");
-
-  buttons.forEach(btn => {
-    btn.addEventListener("click", () => {
-
-      // Reset button states
-      buttons.forEach(b => {
-        b.classList.remove("active");
-        b.style.color = "black";
-      });
-
-      btn.classList.add("active");
-
-      // Slide highlight
-      highlight.style.transform = `translateX(${btn.dataset.index * 100}%)`;
-
-      // Arrival / Departure colouring
-      if (btn.id === "arrivalBtn") {
-        highlight.style.background = "#4CAF50";
-        btn.style.color = "white";
-        currentMode = "arrival";
-        currentColor = "#4CAF50";
-        renderTable();
-      }
-
-      if (btn.id === "departureBtn") {
-        highlight.style.background = "#ff9800";
-        btn.style.color = "white";
-        currentMode = "departure";
-        currentColor = "#ff9800";
-        renderTable();
-      }
-
-      // Morning / Night
-      if (btn.id === "morningBtn") {
-        highlight.style.background = "white";
-        currentShift = "morning";
-        renderTable();
-      }
-
-      if (btn.id === "nightBtn") {
-        highlight.style.background = "white";
-        currentShift = "night";
-        renderTable();
-      }
-    });
-  });
-});
-
-/* ================= COLOR PICKER ================= */
-
-document.querySelectorAll(".color-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    currentColor = btn.dataset.color;
-
-    document.querySelectorAll(".color-btn")
-      .forEach(b => b.classList.remove("selected"));
-
-    btn.classList.add("selected");
-  });
-});
-
-// Default selected
-document.querySelector(".color-btn").classList.add("selected");
-
-/* ================= CLEAR GRID ================= */
-
-document.getElementById("clearGridBtn")
-  .addEventListener("click", () => {
-    document.querySelectorAll("#rosterTable td")
-      .forEach(td => {
-        td.style.backgroundColor = "";
-        td.classList.remove("active-cell");
-      });
-});
-
-/* ================= RENDER TABLE ================= */
-
+// ----------------- RENDER TABLE -----------------
 function renderTable() {
-
-  table.innerHTML = "";
-  const timeSlots = generateTimeSlots();
+  const container = document.getElementById("tableContainer");
+  container.innerHTML = "";
+  const slots = generateTimeSlots();
 
   zones[currentMode].forEach(zone => {
 
-    // Repeat time header above each zone
-    const headerRow = document.createElement("tr");
-    headerRow.appendChild(document.createElement("th"));
+    // Zone header
+    const zoneTitle = document.createElement("h3");
+    zoneTitle.innerText = zone.name;
+    container.appendChild(zoneTitle);
 
-    timeSlots.forEach(time => {
+    const table = document.createElement("table");
+
+    // Time row above counters
+    const headerRow = document.createElement("tr");
+    headerRow.appendChild(document.createElement("th")); // empty top-left cell
+    slots.forEach(slot => {
       const th = document.createElement("th");
-      th.innerText = time;
+      th.innerText = slot;
       headerRow.appendChild(th);
     });
-
     table.appendChild(headerRow);
 
-    // Zone row
-    const zoneRow = document.createElement("tr");
-    const zoneCell = document.createElement("td");
-    zoneCell.innerText = zone.name;
-    zoneCell.colSpan = timeSlots.length + 1;
-    zoneRow.classList.add("zone-row");
-    zoneRow.appendChild(zoneCell);
-    table.appendChild(zoneRow);
-
-    // Counter rows
+    // Counters
     zone.counters.forEach(counter => {
-
       const row = document.createElement("tr");
       const label = document.createElement("td");
       label.innerText = counter;
       row.appendChild(label);
 
-      timeSlots.forEach(() => {
-
+      slots.forEach(() => {
         const cell = document.createElement("td");
-
-        cell.addEventListener("pointerdown", () => {
-          isDragging = true;
-          dragMode = cell.classList.contains("active-cell") ? "remove" : "apply";
-          applyCell(cell);
-        });
-
-        cell.addEventListener("pointerenter", () => {
-          if (isDragging) applyCell(cell);
-        });
-
-        cell.addEventListener("click", () => {
-          if (!isDragging) applyCell(cell);
-        });
-
+        attachCellEvents(cell);
         row.appendChild(cell);
       });
 
       table.appendChild(row);
     });
+
+    container.appendChild(table);
+  });
+}
+
+// ----------------- CELL EVENTS -----------------
+function attachCellEvents(cell) {
+  // Start drag
+  cell.addEventListener("pointerdown", e => {
+    isDragging = true;
+    lastCell = cell;
+    dragMode = cell.style.backgroundColor ? "remove" : "apply";
+    applyCell(cell);
   });
 
-  updateSummary();
+  // Click/tap for single cell
+  cell.addEventListener("click", e => {
+    if (!isDragging) {
+      dragMode = cell.style.backgroundColor ? "remove" : "apply";
+      applyCell(cell);
+    }
+  });
 }
+
+// ----------------- APPLY CELL -----------------
+function applyCell(cell) {
+  const color = currentColor || getModeColor();
+  if (dragMode === "apply") {
+    cell.style.background = color;
+    cell.classList.add("active-cell");
+  } else {
+    cell.style.background = "";
+    cell.classList.remove("active-cell");
+  }
+}
+
+// ----------------- GLOBAL DRAG -----------------
+window.addEventListener("pointermove", e => {
+  if (!isDragging) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (el && el.tagName === "TD" && el !== lastCell) {
+    applyCell(el);
+    lastCell = el;
+  }
+});
 
 window.addEventListener("pointerup", () => {
   isDragging = false;
+  lastCell = null;
 });
 
-/* ================= APPLY COLOR ================= */
+// ----------------- MODE COLOR -----------------
+function getModeColor() {
+  if (currentMode === "arrival") return "#4CAF50";
+  if (currentMode === "departure") return "#FF9800";
+  return "#dddddd";
+}
 
-function applyCell(cell) {
+// ----------------- SEGMENTED CONTROLS -----------------
+function initSegmented() {
+  document.querySelectorAll(".segmented").forEach(group => {
+    const buttons = group.querySelectorAll(".seg-btn");
+    const bg = group.querySelector(".segmented-bg");
 
-  if (dragMode === "apply") {
-    cell.style.backgroundColor = currentColor;
-    cell.classList.add("active-cell");
-  } else {
-    cell.style.backgroundColor = "";
+    buttons.forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        bg.style.transform = `translateX(${idx * 100}%)`;
+
+        // Update current mode / shift
+        if (btn.dataset.type) currentMode = btn.dataset.type;
+        if (btn.dataset.shift) currentShift = btn.dataset.shift;
+        renderTable();
+      });
+    });
+  });
+}
+
+// ----------------- COLOR PICKER -----------------
+document.querySelectorAll(".color-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    currentColor = btn.dataset.color;
+  });
+});
+
+// ----------------- CLEAR GRID -----------------
+document.getElementById("clearGrid").addEventListener("click", () => {
+  document.querySelectorAll("td").forEach(cell => {
+    cell.style.background = "";
     cell.classList.remove("active-cell");
-  }
+  });
+});
 
-  updateSummary();
-}
-
-/* ================= SUMMARY ================= */
-
-function updateSummary() {
-  const count = document.querySelectorAll(".active-cell").length;
-
-  summary.innerHTML =
-    `Mode: <b>${currentMode.toUpperCase()}</b> |
-     Shift: <b>${currentShift.toUpperCase()}</b> |
-     Selected: <b>${count}</b>`;
-}
-
-/* ================= INITIAL LOAD ================= */
-
+// ----------------- INIT -----------------
+currentColor = "#4CAF50";
+initSegmented();
 renderTable();
