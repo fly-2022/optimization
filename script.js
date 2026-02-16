@@ -54,7 +54,7 @@ const zones = {
 function range(prefix,start,end){ let arr=[]; for(let i=start;i<=end;i++) arr.push(prefix+i); return arr; }
 
 // -------------------
-// Generate times
+// Generate time slots
 // -------------------
 function generateTimeSlots(){
   const slots=[];
