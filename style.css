@@ -1,78 +1,151 @@
+/* =========================
+   GENERAL PAGE STYLING
+========================= */
+
 body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background-color: #f7f9fc;
 }
 
-.controls button {
-    margin: 5px;
-    padding: 6px 12px;
-    cursor: pointer;
+h2 {
+  margin-bottom: 15px;
+}
+
+/* =========================
+   CONTROL BUTTONS
+========================= */
+
+.controls {
+  margin-bottom: 15px;
+}
+
+.mode-group,
+.shift-group {
+  display: inline-block;
+  margin-right: 20px;
+}
+
+/* Base button styling */
+button {
+  padding: 8px 16px;
+  margin: 5px;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: bold;
+  background-color: #ddd;
+  transition: 0.2s ease;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+/* ===== MODE BUTTONS ===== */
+
+.mode-btn {
+  background-color: #ddd;
+}
+
+/* Arrival Active - GREEN */
+.active-arrival {
+  background-color: #4CAF50 !important;
+  color: white !important;
+}
+
+/* Departure Active - ORANGE */
+.active-departure {
+  background-color: #ff9800 !important;
+  color: white !important;
+}
+
+/* ===== SHIFT BUTTONS ===== */
+
+.shift-btn {
+  background-color: #ddd;
+}
+
+/* Morning - Shaded */
+.active-morning {
+  background-color: #b0bec5 !important;
+  color: black !important;
+}
+
+/* Night - Neutral but bold */
+.active-night {
+  background-color: #ddd !important;
+  color: black !important;
+}
+
+/* =========================
+   SUMMARY BAR
+========================= */
+
+#summary {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  font-size: 14px;
+}
+
+/* =========================
+   TABLE STYLING
+========================= */
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid #ccc;
+  background: white;
+  padding: 5px;
 }
 
 table {
-    border-collapse: collapse;
-    margin-top: 20px;
-    font-size: 12px;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-th,
-td {
-    border: 1px solid #ccc;
-    padding: 4px;
-    text-align: center;
+th, td {
+  border: 1px solid #ccc;
+  padding: 4px;
+  text-align: center;
 }
 
-td {
-    cursor: pointer;
+th {
+  background-color: #eeeeee;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
+/* Counter labels */
+td:first-child {
+  background-color: #fafafa;
+  font-weight: bold;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+/* Active grid cell */
 td.active {
-    background-color: #4CAF50;
+  background-color: #4CAF50;
 }
 
-.zone-label {
-    background-color: #f3f3f3;
-    font-weight: bold;
+/* Zone header row */
+.zone-row td {
+  background-color: #eeeeee;
+  font-weight: bold;
+  text-align: left;
+  padding-left: 8px;
 }
 
-.table-container {
-    overflow-x: auto;
-}
-
-/* --- MODE BUTTONS --- */
-.mode-btn {
-    padding: 6px 14px;
-    border: none;
-    cursor: pointer;
-    background-color: #ddd;
-}
-
-.mode-btn.active-arrival {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.mode-btn.active-departure {
-    background-color: #ff9800;
-    color: white;
-}
-
-/* --- SHIFT BUTTONS --- */
-.shift-btn {
-    padding: 6px 14px;
-    border: none;
-    cursor: pointer;
-    background-color: #ddd;
-}
-
-.shift-btn.active-morning {
-    background-color: #cfd8dc;
-    /* shaded */
-    font-weight: bold;
-}
-
-.shift-btn.active-night {
-    background-color: #ddd;
-    /* neutral */
-    font-weight: bold;
+/* Hover effect for cells */
+td:hover {
+  background-color: #dcedc8;
+  cursor: pointer;
 }
