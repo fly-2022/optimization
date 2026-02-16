@@ -194,3 +194,21 @@ td.counter-cell.active {
     border-radius: 6px;
     cursor: pointer;
 }
+
+#removeOfficerBtn {
+    padding: 6px 14px;
+    background: #f44336;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#undoBtn {
+    padding: 6px 14px;
+    background: #9c27b0;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}

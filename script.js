@@ -301,8 +301,11 @@ document.querySelectorAll(".mp-type").forEach(btn => {
 });
 
 document.getElementById("addOfficerBtn").addEventListener("click", () => {
+
     const count = parseInt(document.getElementById("officerCount").value);
     if (!count || count <= 0) return;
+
+    saveState();
 
     if (manpowerType === "sos") {
         const start = document.getElementById("sosStart").value;
@@ -311,19 +314,20 @@ document.getElementById("addOfficerBtn").addEventListener("click", () => {
             alert("Please enter SOS start and end time");
             return;
         }
-        addOfficersToGrid(count, start.replace(":", ""), end.replace(":", ""));
+        addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
     }
 
     if (manpowerType === "ot") {
         const slot = document.getElementById("otSlot").value;
         const [start, end] = slot.split("-");
-        addOfficersToGrid(count, start, end);
+        addOfficersGlobal(count, start, end);
     }
 
     if (manpowerType === "main") {
         alert("Main template upload to be implemented later.");
     }
 });
+
 
 function addOfficersToGrid(count, startTime, endTime) {
 
@@ -357,3 +361,115 @@ function addOfficersToGrid(count, startTime, endTime) {
 
     updateAll();
 }
+
+let historyStack = [];
+
+function saveState() {
+    const state = [];
+    document.querySelectorAll(".counter-cell").forEach(cell => {
+        state.push({
+            zone: cell.dataset.zone,
+            time: cell.dataset.time,
+            active: cell.classList.contains("active"),
+            color: cell.style.background
+        });
+    });
+    historyStack.push(state);
+}
+
+function restoreState(state) {
+    document.querySelectorAll(".counter-cell").forEach(cell => {
+        const found = state.find(s =>
+            s.zone === cell.dataset.zone &&
+            s.time === cell.dataset.time
+        );
+        if (found && found.active) {
+            cell.classList.add("active");
+            cell.style.background = found.color;
+        } else {
+            cell.classList.remove("active");
+            cell.style.background = "";
+        }
+    });
+    updateAll();
+}
+
+function addOfficersGlobal(count, startTime, endTime) {
+
+    const times = generateTimeSlots();
+    let startIndex = times.findIndex(t => t === startTime);
+    let endIndex = times.findIndex(t => t === endTime);
+
+    if (startIndex === -1 || endIndex === -1) {
+        alert("Time range outside current shift grid.");
+        return;
+    }
+
+    for (let t = startIndex; t < endIndex; t++) {
+
+        let allCells = [];
+
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+
+            let cells = [...document.querySelectorAll(
+                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
+            )];
+
+            allCells = allCells.concat(cells);
+        });
+
+        let activeCount = allCells.filter(c => c.classList.contains("active")).length;
+
+        let toAdd = Math.min(count, allCells.length - activeCount);
+
+        for (let i = 0; i < toAdd; i++) {
+            let emptyCell = allCells.find(c => !c.classList.contains("active"));
+            if (emptyCell) {
+                emptyCell.classList.add("active");
+                emptyCell.style.background = currentColor;
+            }
+        }
+    }
+
+    updateAll();
+}
+
+document.getElementById("removeOfficerBtn").addEventListener("click", () => {
+
+    const count = parseInt(document.getElementById("officerCount").value);
+    if (!count || count <= 0) return;
+
+    saveState();
+
+    const times = generateTimeSlots();
+
+    zones[currentMode].forEach(zone => {
+
+        if (zone.name === "BIKES") return;
+
+        times.forEach((time, tIndex) => {
+
+            let cells = [...document.querySelectorAll(
+                `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
+            )];
+
+            let activeCells = cells.filter(c => c.classList.contains("active"));
+
+            for (let i = 0; i < count && activeCells.length > 0; i++) {
+                let last = activeCells.pop();
+                last.classList.remove("active");
+                last.style.background = "";
+            }
+        });
+    });
+
+    updateAll();
+});
+
+document.getElementById("undoBtn").addEventListener("click", () => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack.pop();
+    restoreState(prev);
+});
+
