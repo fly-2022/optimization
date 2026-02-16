@@ -1,11 +1,12 @@
-body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; }
-h2 { margin-bottom: 15px; }
+body { font-family: Arial, sans-serif; padding: 15px; margin:0; background: #f7f9fc; box-sizing: border-box; }
+h2 { margin-bottom: 15px; font-size: 18px; text-align: center; }
 
-.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
+/* Controls container */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; justify-content: center; align-items: center; }
 
-/* ---------------- Segmented Buttons ---------------- */
-.segmented { position: relative; display: flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
-.segment-btn { flex: 1; padding: 8px 16px; margin: 0; border: none; background: transparent; cursor: pointer; font-weight: bold; z-index: 2; transition: color 0.2s ease; }
+/* Segmented Buttons */
+.segmented { position: relative; display: flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; min-width: 120px; }
+.segment-btn { flex: 1; padding: 6px 10px; margin: 0; border: none; background: transparent; cursor: pointer; font-weight: bold; z-index:2; transition: color 0.2s ease; font-size: 12px; white-space: nowrap; }
 .segment-highlight { position: absolute; top:0; bottom:0; width:50%; background:#ccc; border-radius: 8px; transition: transform 0.25s ease, background 0.25s ease; z-index:1; }
 
 /* Mode highlight colors */
@@ -13,22 +14,39 @@ h2 { margin-bottom: 15px; }
 #shiftHighlight { background: #b0bec5; }
 
 /* Color buttons */
-.color-group { display: flex; gap: 0; border: 1px solid #ccc; border-radius: 5px; overflow: hidden; }
-.color-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #999; cursor: pointer; }
+.color-group { display: flex; gap: 2px; border: 1px solid #ccc; border-radius: 5px; overflow: hidden; }
+.color-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #999; cursor: pointer; flex-shrink:0; }
 .color-btn.selected { border: 2px solid black; }
 
 /* Clear button */
-#clearGridBtn { padding: 8px 16px; margin-left: 10px; }
+#clearGridBtn { padding: 6px 12px; font-size: 12px; }
 
 /* Summary */
-#summary { margin: 10px 0; padding: 8px; background: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
+#summary { margin: 10px 0; padding: 8px; background: #e3f2fd; border-left: 4px solid #2196f3; font-size: 13px; word-break: break-word; }
 
-/* Table */
-.table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; touch-action: none; }
-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
-th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
-th { background: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
+/* Table container - responsive & scrollable */
+.table-container { overflow-x: auto; overflow-y: hidden; border: 1px solid #ccc; background: white; padding: 5px; touch-action: pan-x pan-y; }
+table { border-collapse: collapse; font-size: 11px; white-space: nowrap; width: max-content; min-width: 100%; table-layout: fixed; }
+th, td { border: 1px solid #ccc; padding: 4px; text-align: center; min-width: 30px; }
+th { background: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 2; }
 td:first-child { background: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
 td.active { border: 2px solid black; }
 .zone-row td { background: #eeeeee; font-weight: bold; text-align: left; padding-left: 8px; }
+
+/* Hover effect */
 td:hover { cursor: pointer; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    h2 { font-size: 16px; }
+    .segment-btn { font-size: 11px; padding: 5px 6px; }
+    #clearGridBtn { padding: 5px 10px; font-size: 11px; }
+    .color-btn { width: 24px; height: 24px; }
+}
+
+@media (max-width: 480px) {
+    .controls { flex-direction: column; align-items: stretch; }
+    .segmented { min-width: 100%; }
+    table { font-size: 10px; }
+    th, td { min-width: 28px; padding: 3px; }
+}
