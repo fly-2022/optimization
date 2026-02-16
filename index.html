@@ -5,41 +5,44 @@
   <title>Roster Optimisation Grid</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Link CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <h2>Roster Optimisation Dashboard</h2>
 
+<!-- ===================== COLOR SELECTION ====================== -->
+<div class="color-controls">
+  <button class="color-btn" data-color="#4CAF50" style="background-color:#4CAF50;"></button>
+  <button class="color-btn" data-color="#ff9800" style="background-color:#ff9800;"></button>
+  <button class="color-btn" data-color="#FFEB3B" style="background-color:#FFEB3B;"></button>
+  <button class="color-btn" data-color="#E91E63" style="background-color:#E91E63;"></button>
+  <button class="color-btn" data-color="#9C27B0" style="background-color:#9C27B0;"></button>
+  <button class="color-btn" data-color="#2196F3" style="background-color:#2196F3;"></button>
+  <button class="color-btn" data-color="#F44336" style="background-color:#F44336;"></button>
+  <button class="color-btn" data-color="" style="background-color:#fff; border:2px dashed #bbb;">Clear</button>
+</div>
+
 <!-- ===================== MODE & SHIFT CONTROLS ====================== -->
 <div class="controls">
-
-  <!-- Arrival/Departure -->
   <div class="mode-group">
     <div class="mode-highlight"></div>
     <button id="arrivalBtn">Arrival</button>
     <button id="departureBtn">Departure</button>
   </div>
-
-  <!-- Morning/Night -->
   <div class="shift-group">
     <div class="shift-highlight"></div>
     <button id="morningBtn">Morning</button>
     <button id="nightBtn">Night</button>
   </div>
-
 </div>
 
-<!-- ===================== SUMMARY BAR ====================== -->
 <div id="summary"></div>
 
-<!-- ===================== TABLE CONTAINER ====================== -->
 <div class="table-container">
   <table id="rosterTable"></table>
 </div>
 
-<!-- Link JavaScript -->
 <script src="script.js"></script>
 </body>
 </html>
