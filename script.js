@@ -1,8 +1,8 @@
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentColor = "#4CAF50"; // default selected color
+let currentColor = "#4CAF50"; // default color
 let isMouseDown = false;
-let dragMode = true;
+let dragAction = "apply"; // "apply" or "remove"
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -20,7 +20,7 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 document.querySelector(".color-btn").classList.add("selected");
 
 // -----------------------------
-// Clear entire grid
+// Clear grid button
 // -----------------------------
 document.getElementById("clearGridBtn").addEventListener("click", () => {
   document.querySelectorAll("#rosterTable td").forEach(td => td.style.backgroundColor = "");
@@ -28,7 +28,7 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
 });
 
 // -----------------------------
-// Zones configuration
+// Zones config
 // -----------------------------
 const zones = {
   arrival: [
@@ -57,7 +57,7 @@ function range(prefix, start, end) {
 // Generate time slots
 // -----------------------------
 function generateTimeSlots() {
-  let slots = [];
+  const slots = [];
   let startHour = currentShift === "morning" ? 10 : 22;
   for (let i = 0; i < 48; i++) {
     let hour = (startHour + Math.floor(i / 4)) % 24;
@@ -74,7 +74,7 @@ function renderTable() {
   table.innerHTML = "";
   const timeSlots = generateTimeSlots();
 
-  // Header row
+  // Header
   let headerRow = document.createElement("tr");
   headerRow.appendChild(document.createElement("th"));
   timeSlots.forEach(t => {
@@ -84,7 +84,7 @@ function renderTable() {
   });
   table.appendChild(headerRow);
 
-  // Body rows
+  // Body
   zones[currentMode].forEach(zone => {
     // Zone row
     let zoneRow = document.createElement("tr");
@@ -96,7 +96,6 @@ function renderTable() {
     zoneRow.appendChild(zoneCell);
     table.appendChild(zoneRow);
 
-    // Counters
     zone.counters.forEach(counter => {
       let row = document.createElement("tr");
       let label = document.createElement("td");
@@ -105,23 +104,26 @@ function renderTable() {
       row.appendChild(label);
 
       timeSlots.forEach(() => {
-        let cell = document.createElement("td");
+        const cell = document.createElement("td");
 
         // -----------------------------
-        // Manual click/drag logic
+        // Mouse events
         // -----------------------------
         cell.addEventListener("mousedown", e => {
           isMouseDown = true;
-          toggleCellColor(cell);
+          dragAction = cell.style.backgroundColor === currentColor ? "remove" : "apply";
+          applyCellColor(cell);
           e.preventDefault();
         });
 
         cell.addEventListener("mouseover", () => {
           if (!isMouseDown) return;
-          toggleCellColor(cell);
+          applyCellColor(cell);
         });
 
-        cell.addEventListener("mouseup", () => { isMouseDown = false; });
+        cell.addEventListener("mouseup", () => {
+          isMouseDown = false;
+        });
 
         row.appendChild(cell);
       });
@@ -134,13 +136,13 @@ function renderTable() {
 }
 
 // -----------------------------
-// Toggle cell color manually
+// Apply or remove color to a cell
 // -----------------------------
-function toggleCellColor(cell) {
-  if (cell.style.backgroundColor === currentColor) {
-    cell.style.backgroundColor = ""; // remove color
-  } else {
-    cell.style.backgroundColor = currentColor; // apply color
+function applyCellColor(cell) {
+  if (dragAction === "apply") {
+    cell.style.backgroundColor = currentColor;
+  } else if (dragAction === "remove") {
+    cell.style.backgroundColor = "";
   }
   updateSummary();
 }
