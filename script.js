@@ -327,7 +327,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function addOfficersGlobal(count, startTime, endTime) {
-
         const times = generateTimeSlots();
         let startIndex = times.findIndex(t => t === startTime);
         let endIndex = times.findIndex(t => t === endTime);
@@ -339,33 +338,55 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (let t = startIndex; t < endIndex; t++) {
 
-            let allCells = [];
+            // 1️⃣ Step: Compute max allowed per zone (50%)
+            const zoneLimits = {};
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                const total = zone.counters.length;
+                zoneLimits[zone.name] = Math.ceil(total / 2); // at least 50% manning
+            });
 
+            let remainingToAdd = count;
+
+            // 2️⃣ First pass: fill zones to 50% if below
             zones[currentMode].forEach(zone => {
                 if (zone.name === "BIKES") return;
 
-                let cells = [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
-                )];
+                const emptyCells = getEmptyCellsBackFirst(zone.name, t);
+                const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                    .filter(c => c.classList.contains("active")).length;
 
-                allCells = allCells.concat(cells);
+                const needed = Math.min(zoneLimits[zone.name] - activeCount, emptyCells.length, remainingToAdd);
+                for (let i = 0; i < needed; i++) {
+                    const cell = emptyCells[i];
+                    cell.classList.add("active");
+                    cell.style.background = currentColor;
+                }
+                remainingToAdd -= needed;
             });
 
-            let activeCells = allCells.filter(c => c.classList.contains("active"));
+            // 3️⃣ Second pass: fill any remaining slots in back-first order
+            if (remainingToAdd > 0) {
+                zones[currentMode].forEach(zone => {
+                    if (zone.name === "BIKES") return;
 
-            let toAdd = Math.min(count, allCells.length - activeCells.length);
+                    const emptyCells = getEmptyCellsBackFirst(zone.name, t);
+                    const toAdd = Math.min(emptyCells.length, remainingToAdd);
 
-            for (let i = 0; i < toAdd; i++) {
-                let emptyCell = allCells.find(c => !c.classList.contains("active"));
-                if (emptyCell) {
-                    emptyCell.classList.add("active");
-                    emptyCell.style.background = currentColor;
-                }
+                    for (let i = 0; i < toAdd; i++) {
+                        const cell = emptyCells[i];
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                    }
+
+                    remainingToAdd -= toAdd;
+                });
             }
         }
 
         updateAll();
     }
+
 
     addBtn.addEventListener("click", () => {
 
@@ -438,3 +459,16 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 });
+
+function getEmptyCellsBackFirst(zoneName, timeIndex) {
+    const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
+    // filter inactive cells
+    let emptyCells = cells.filter(c => !c.classList.contains("active"));
+    // sort by counter name descending (AC10 → AC1)
+    emptyCells.sort((a, b) => {
+        const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
+        const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+        return numB - numA;
+    });
+    return emptyCells;
+}
