@@ -31,9 +31,9 @@ const zones = {
 // ---------------- TIME SLOTS -----------------
 function generateTimeSlots(){
   const slots = [];
-  let start = currentShift==="morning"?10:22;
+  let startHour = currentShift==="morning"?10:22;
   for(let i=0;i<48;i++){
-    let totalMins = (start*60 + i*15) % 1440;
+    let totalMins = (startHour*60 + i*15) % 1440;
     let h = Math.floor(totalMins/60);
     let m = totalMins%60;
     slots.push(String(h).padStart(2,"0")+String(m).padStart(2,"0"));
@@ -41,27 +41,39 @@ function generateTimeSlots(){
   return slots;
 }
 
-// ---------------- TABLE RENDER -----------------
+// ---------------- RENDER TABLE -----------------
 function renderTable(){
   table.innerHTML="";
   const slots = generateTimeSlots();
 
   zones[currentMode].forEach((zone,index)=>{
-    const zoneRow = document.createElement("tr");
+    // Zone Name row
+    const zr = document.createElement("tr");
     const zc = document.createElement("td");
     zc.colSpan = slots.length+1;
     zc.innerText = zone.name;
     zc.classList.add("zone-row");
-    zoneRow.appendChild(zc);
-    table.appendChild(zoneRow);
+    zr.appendChild(zc);
+    table.appendChild(zr);
 
-    // Counters
+    // Time row for this zone
+    const trTime = document.createElement("tr");
+    const empty = document.createElement("td");
+    trTime.appendChild(empty);
+    slots.forEach(t=>{
+      const th = document.createElement("td");
+      th.innerText = t;
+      th.classList.add("time-row");
+      trTime.appendChild(th);
+    });
+    table.appendChild(trTime);
+
+    // Counters rows
     zone.counters.forEach(counter=>{
       const row = document.createElement("tr");
       const label = document.createElement("td");
-      label.innerText=counter;
+      label.innerText = counter;
       row.appendChild(label);
-
       slots.forEach(()=>{
         const cell = document.createElement("td");
         attachCellEvents(cell);
@@ -83,7 +95,7 @@ function renderTable(){
     table.appendChild(subRow);
   });
 
-  // Grand Total
+  // Grand total row
   const gRow = document.createElement("tr");
   gRow.classList.add("grandtotal");
   const gLabel = document.createElement("td");
@@ -100,21 +112,23 @@ function renderTable(){
 
 // ---------------- CELL EVENTS -----------------
 function attachCellEvents(cell){
+  // Only allow selection on actual roster cells
   cell.addEventListener("pointerdown", e=>{
+    if(cell.closest(".time-row") || cell.closest(".zone-row") || cell.closest(".subtotal") || cell.closest(".grandtotal")) return;
     isPointerDown=true;
     pointerAction = cell.classList.contains("active")?"remove":"apply";
     toggleCell(cell,pointerAction);
   });
   cell.addEventListener("pointermove", e=>{
-    if(isPointerDown){
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(el && el.tagName==="TD" && !el.classList.contains("zone-row") && !el.closest(".subtotal") && !el.closest(".grandtotal")){
-        toggleCell(el,pointerAction);
-      }
+    if(!isPointerDown) return;
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    if(el && el.tagName==="TD" && !el.closest(".time-row") && !el.closest(".zone-row") && !el.closest(".subtotal") && !el.closest(".grandtotal")){
+      toggleCell(el,pointerAction);
     }
   });
   cell.addEventListener("pointerup", e=>{isPointerDown=false;});
   cell.addEventListener("click", e=>{
+    if(cell.closest(".time-row") || cell.closest(".zone-row") || cell.closest(".subtotal") || cell.closest(".grandtotal")) return;
     toggleCell(cell,cell.classList.contains("active")?"remove":"apply");
   });
 }
@@ -130,26 +144,27 @@ function updateTotals(){
   const trs = Array.from(table.querySelectorAll("tr"));
   const zoneRows = table.querySelectorAll(".zone-row");
 
+  // Each zone subtotal
   zoneRows.forEach((zr,i)=>{
-    const start = trs.indexOf(zr)+1;
-    const end = (i<zoneRows.length-1)? trs.indexOf(zoneRows[i+1])-2 : trs.length-2;
-    for(let col=1; col<trs[start].children.length; col++){
+    const start = trs.indexOf(zr)+2; // skip time row
+    const nextZr = i<zoneRows.length-1 ? trs.indexOf(zoneRows[i+1])-1 : trs.length-2;
+    for(let col=1;col<trs[start].children.length;col++){
       let sum=0;
-      for(let r=start;r<=end;r++){
+      for(let r=start;r<=nextZr;r++){
         if(trs[r].children[col].classList.contains("active")) sum++;
       }
-      trs[end+1].children[col].innerText=sum;
+      trs[nextZr+1].children[col].innerText=sum;
     }
   });
 
-  // Grand Total
+  // Grand total
   const gRow = table.querySelector(".grandtotal");
-  for(let col=1; col<gRow.children.length; col++){
+  for(let col=1;col<gRow.children.length;col++){
     let sum=0;
     zoneRows.forEach((zr,i)=>{
-      const start = trs.indexOf(zr)+1;
-      const end = (i<zoneRows.length-1)? trs.indexOf(zoneRows[i+1])-2 : trs.length-2;
-      sum+=Number(trs[end+1].children[col].innerText);
+      const start = trs.indexOf(zr)+2;
+      const nextZr = i<zoneRows.length-1 ? trs.indexOf(zoneRows[i+1])-1 : trs.length-2;
+      sum+=Number(trs[nextZr+1].children[col].innerText);
     });
     gRow.children[col].innerText=sum;
   }
@@ -186,7 +201,7 @@ function initSegmented(){
   });
 }
 
-// ---------------- CLEAR GRID -----------------
+// ---------------- CLEAR -----------------
 document.getElementById("clearGridBtn").addEventListener("click", ()=>{
   table.querySelectorAll("td.active").forEach(td=>{
     td.classList.remove("active");
