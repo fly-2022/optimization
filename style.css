@@ -1,111 +1,85 @@
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 20px;
-  background: #f7f9fc;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 20px;
+  background-color: #f7f9fc;
 }
 
-/* ================= iOS SEGMENT ================= */
-
+/* Segmented Buttons */
 .segmented {
   position: relative;
   display: flex;
-  width: 260px;
+  width: 280px;
+  margin: 10px auto;
+  background-color: #f2f2f7;
+  border-radius: 14px;
+  padding: 4px;
   border: 1px solid #d1d1d6;
-  border-radius: 12px;
   overflow: hidden;
-  background: #f2f2f7;
 }
 
-.segment-btn {
-  flex: 1;
-  padding: 8px 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-weight: 500;
-  z-index: 2;
-}
-
-.segment-highlight {
+.segmented-bg {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
-  width: 50%;
-  background: white;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background-color: white;
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  transition: transform 0.35s cubic-bezier(.25,.8,.25,1);
-  z-index: 1;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  transition: transform 0.25s cubic-bezier(.4,.0,.2,1);
 }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  align-items: center;
-  margin-bottom: 15px;
+.seg-btn {
+  flex: 1;
+  border: none;
+  background-color: transparent;
+  font-weight: 600;
+  padding: 8px 0;
+  cursor: pointer;
+  z-index: 2;
+  position: relative;
+  color: #8e8e93;
+  transition: color 0.2s ease;
 }
 
+.seg-btn.active {
+  color: black;
+}
+
+/* Color Picker */
 .color-group {
-  display: flex;
-  gap: 8px;
+  margin: 15px 0;
 }
 
 .color-btn {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 2px solid white;
-  box-shadow: 0 0 0 1px #ccc;
+  margin: 4px;
   cursor: pointer;
 }
 
 .color-btn.selected {
-  border: 3px solid black;
+  border: 2px solid black;
 }
 
-#clearGridBtn {
-  padding: 8px 16px;
-  cursor: pointer;
-}
-
-/* ================= TABLE ================= */
-
-.table-container {
-  overflow-x: auto;
-  border: 1px solid #ccc;
-  background: white;
-  padding: 5px;
-  touch-action: none;
-}
-
+/* Table */
 table {
   border-collapse: collapse;
-  font-size: 11px;
-  white-space: nowrap;
+  margin: 20px auto;
+  touch-action: none;
 }
 
 th, td {
   border: 1px solid #ccc;
-  padding: 4px;
+  padding: 8px;
+  min-width: 45px;
   text-align: center;
-}
-
-th {
-  background: #eeeeee;
-  font-weight: bold;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.zone-row td {
-  background: #e0e0e0;
-  font-weight: bold;
-  text-align: left;
-  padding-left: 8px;
+  user-select: none;
 }
 
 td.active-cell {
-  border: 2px solid #000;
+  border: 3px solid black;
 }
