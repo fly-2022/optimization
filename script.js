@@ -1,4 +1,4 @@
-// ----------------- STATE -----------------
+// ---------------- STATE -----------------
 let currentMode = "arrival";
 let currentShift = "morning";
 let currentColor = null;
@@ -7,7 +7,7 @@ let isDragging = false;
 let dragMode = "apply";
 let lastCell = null;
 
-// ----------------- ZONES -----------------
+// ---------------- ZONES -----------------
 const zones = {
   arrival: [
     { name: "Zone 1", counters: range("AC", 1, 10) },
@@ -31,11 +31,13 @@ function range(prefix, start, end) {
   return arr;
 }
 
-// ----------------- TIME SLOTS -----------------
+// ---------------- TIME SLOTS -----------------
 function generateTimeSlots() {
   const slots = [];
   const startHour = currentShift === "morning" ? 10 : 22;
-  for (let i = 0; i < 48; i++) {
+  const totalSlots = 48; // 12 hours × 4 (15-min intervals)
+
+  for (let i = 0; i < totalSlots; i++) {
     const hour = (startHour + Math.floor(i / 4)) % 24;
     const minute = (i % 4) * 15;
     slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
@@ -43,24 +45,27 @@ function generateTimeSlots() {
   return slots;
 }
 
-// ----------------- RENDER TABLE -----------------
+// ---------------- RENDER TABLE -----------------
 function renderTable() {
   const container = document.getElementById("tableContainer");
   container.innerHTML = "";
+
   const slots = generateTimeSlots();
 
   zones[currentMode].forEach(zone => {
 
-    // Zone header
+    // Zone title
     const zoneTitle = document.createElement("h3");
     zoneTitle.innerText = zone.name;
     container.appendChild(zoneTitle);
 
     const table = document.createElement("table");
 
-    // Time row above counters
+    // Time header row
     const headerRow = document.createElement("tr");
-    headerRow.appendChild(document.createElement("th")); // empty top-left cell
+    const emptyTh = document.createElement("th");
+    emptyTh.innerText = "";
+    headerRow.appendChild(emptyTh);
     slots.forEach(slot => {
       const th = document.createElement("th");
       th.innerText = slot;
@@ -68,17 +73,17 @@ function renderTable() {
     });
     table.appendChild(headerRow);
 
-    // Counters
+    // Counters rows
     zone.counters.forEach(counter => {
       const row = document.createElement("tr");
-      const label = document.createElement("td");
-      label.innerText = counter;
-      row.appendChild(label);
+      const tdLabel = document.createElement("td");
+      tdLabel.innerText = counter;
+      row.appendChild(tdLabel);
 
       slots.forEach(() => {
-        const cell = document.createElement("td");
-        attachCellEvents(cell);
-        row.appendChild(cell);
+        const td = document.createElement("td");
+        attachCellEvents(td);
+        row.appendChild(td);
       });
 
       table.appendChild(row);
@@ -88,9 +93,8 @@ function renderTable() {
   });
 }
 
-// ----------------- CELL EVENTS -----------------
+// ---------------- CELL EVENTS -----------------
 function attachCellEvents(cell) {
-  // Start drag
   cell.addEventListener("pointerdown", e => {
     isDragging = true;
     lastCell = cell;
@@ -98,7 +102,6 @@ function attachCellEvents(cell) {
     applyCell(cell);
   });
 
-  // Click/tap for single cell
   cell.addEventListener("click", e => {
     if (!isDragging) {
       dragMode = cell.style.backgroundColor ? "remove" : "apply";
@@ -107,7 +110,7 @@ function attachCellEvents(cell) {
   });
 }
 
-// ----------------- APPLY CELL -----------------
+// ---------------- APPLY CELL -----------------
 function applyCell(cell) {
   const color = currentColor || getModeColor();
   if (dragMode === "apply") {
@@ -119,7 +122,7 @@ function applyCell(cell) {
   }
 }
 
-// ----------------- GLOBAL DRAG -----------------
+// ---------------- DRAG -----------------
 window.addEventListener("pointermove", e => {
   if (!isDragging) return;
   const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -128,20 +131,19 @@ window.addEventListener("pointermove", e => {
     lastCell = el;
   }
 });
-
 window.addEventListener("pointerup", () => {
   isDragging = false;
   lastCell = null;
 });
 
-// ----------------- MODE COLOR -----------------
+// ---------------- MODE COLOR -----------------
 function getModeColor() {
   if (currentMode === "arrival") return "#4CAF50";
   if (currentMode === "departure") return "#FF9800";
   return "#dddddd";
 }
 
-// ----------------- SEGMENTED CONTROLS -----------------
+// ---------------- SEGMENTED CONTROLS -----------------
 function initSegmented() {
   document.querySelectorAll(".segmented").forEach(group => {
     const buttons = group.querySelectorAll(".seg-btn");
@@ -153,16 +155,16 @@ function initSegmented() {
         btn.classList.add("active");
         bg.style.transform = `translateX(${idx * 100}%)`;
 
-        // Update current mode / shift
         if (btn.dataset.type) currentMode = btn.dataset.type;
         if (btn.dataset.shift) currentShift = btn.dataset.shift;
+
         renderTable();
       });
     });
   });
 }
 
-// ----------------- COLOR PICKER -----------------
+// ---------------- COLOR PICKER -----------------
 document.querySelectorAll(".color-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("selected"));
@@ -171,7 +173,7 @@ document.querySelectorAll(".color-btn").forEach(btn => {
   });
 });
 
-// ----------------- CLEAR GRID -----------------
+// ---------------- CLEAR GRID -----------------
 document.getElementById("clearGrid").addEventListener("click", () => {
   document.querySelectorAll("td").forEach(cell => {
     cell.style.background = "";
@@ -179,7 +181,7 @@ document.getElementById("clearGrid").addEventListener("click", () => {
   });
 });
 
-// ----------------- INIT -----------------
+// ---------------- INIT -----------------
 currentColor = "#4CAF50";
 initSegmented();
 renderTable();
