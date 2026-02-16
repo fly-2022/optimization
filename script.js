@@ -17,122 +17,86 @@ const zones = {
   ]
 };
 
-// Global vars
+// ---------------- GLOBALS -----------------
 let currentMode="arrival", currentShift="morning", currentColor="#4CAF50";
 let dataStore={arrival:null,departure:null};
 let dragging=false, startRow=null, startCol=null, dragDirection=null, paintedCells=new Set();
 const container=document.getElementById("table-container");
 const clearButton=document.getElementById("clear-button");
-const summaryText=document.getElementById("summary-text");
-let colHeaders=[];
 
-// ---------------- Storage -----------------
+// ---------------- LOCAL STORAGE -----------------
 function saveData(){localStorage.setItem("counterData",JSON.stringify(dataStore));localStorage.setItem("currentMode",currentMode);localStorage.setItem("currentShift",currentShift);}
-function loadData(){
-  const stored=JSON.parse(localStorage.getItem("counterData")||"{}");
-  dataStore.arrival=stored.arrival||null; dataStore.departure=stored.departure||null;
-  currentMode=localStorage.getItem("currentMode")||"arrival";
-  currentShift=localStorage.getItem("currentShift")||"morning";
-}
+function loadData(){const s=JSON.parse(localStorage.getItem("counterData")||"{}");dataStore.arrival=s.arrival||null; dataStore.departure=s.departure||null; currentMode=localStorage.getItem("currentMode")||"arrival"; currentShift=localStorage.getItem("currentShift")||"morning";}
 
-// ---------------- Table -----------------
+// ---------------- DATA -----------------
 function initializeData(modeName){
-  const rows=zones[modeName].reduce((s,z)=>s+z.counters.length,0)+1; // +1 motor row
+  const rows=zones[modeName].reduce((s,z)=>s+z.counters.length,0)+1;
   return Array.from({length:rows},()=>Array(24).fill(0));
 }
-
 function getData(){if(!dataStore[currentMode]) dataStore[currentMode]=initializeData(currentMode); return dataStore[currentMode];}
 
-// ---------------- Headers -----------------
+// ---------------- HEADERS -----------------
+let colHeaders=[];
 function generateColHeaders(){
-  const startHour=currentShift==="morning"?10:22;
-  let headers=[],hour=startHour,minute=0;
-  for(let i=0;i<24;i++){
-    headers.push(`${hour.toString().padStart(2,"0")}${minute.toString().padStart(2,"0")}`);
-    minute+=30;if(minute>=60){minute=0;hour=(hour+1)%24;}
-  }
+  const start=currentShift==="morning"?10:22; let headers=[],h=start,m=0;
+  for(let i=0;i<24;i++){headers.push(`${h.toString().padStart(2,"0")}${m.toString().padStart(2,"0")}`); m+=30; if(m>=60){m=0;h=(h+1)%24;}}
   colHeaders=headers;
 }
 
-// ---------------- Render -----------------
+// ---------------- TABLE -----------------
 function renderTable(){
   const df=getData();
-  let html="<table><tr><th></th>";
-  colHeaders.forEach((h,i)=>{html+=`<th>${h}</th>`;});
-  html+="</tr>";
-
+  let html="<table><tr><th></th>"; colHeaders.forEach(h=>{html+=`<th>${h}</th>`;}); html+="</tr>";
   let rowIndex=0;
   for(const z of zones[currentMode]){
     for(const _ of z.counters){
       html+=`<tr><th>${rowIndex+1}</th>`;
-      for(let c=0;c<24;c++){
-        const val=df[rowIndex][c];
-        const bg=val===1?"blue":"transparent";
-        html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${bg}">${val}</td>`;
-      }
+      for(let c=0;c<24;c++){const val=df[rowIndex][c]; html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${val? 'blue':'transparent'}">${val}</td>`;}
       html+="</tr>"; rowIndex++;
     }
   }
   // Motor row
   html+=`<tr class="motor-row"><th>${rowIndex+1}</th>`;
-  for(let c=0;c<24;c++){
-    const val=df[rowIndex][c]; const bg=val===1?"blue":"transparent";
-    html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${bg}">${val}</td>`;
-  }
+  for(let c=0;c<24;c++){const val=df[rowIndex][c]; html+=`<td data-row="${rowIndex}" data-col="${c}" style="background-color:${val?'blue':'transparent'}">${val}</td>`;}
   html+="</tr></table>";
   container.innerHTML=html;
 
-  // Attach events
+  // Cell events
   container.querySelectorAll("td[data-row]").forEach(td=>{
     td.addEventListener("mousedown",e=>{dragging=true; startRow=+td.dataset.row; startCol=+td.dataset.col; dragDirection=null; paintedCells.clear(); toggleCell(td); e.preventDefault();});
     td.addEventListener("mouseover",()=>{if(dragging) handleDrag(+td.dataset.row,+td.dataset.col);});
     td.addEventListener("touchstart",e=>{dragging=true; startRow=+td.dataset.row; startCol=+td.dataset.col; dragDirection=null; paintedCells.clear(); toggleCell(td); e.preventDefault();});
-    td.addEventListener("touchmove",e=>{if(!dragging)return;e.preventDefault();const touch=e.touches[0];const el=document.elementFromPoint(touch.clientX,touch.clientY);if(el?.dataset?.row)handleDrag(+el.dataset.row,+el.dataset.col);});
+    td.addEventListener("touchmove",e=>{if(!dragging)return;e.preventDefault();const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY);if(el?.dataset?.row) handleDrag(+el.dataset.row,+el.dataset.col);});
     td.addEventListener("touchend",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
     td.addEventListener("touchcancel",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
   });
   document.addEventListener("mouseup",()=>{dragging=false; startRow=startCol=dragDirection=null; paintedCells.clear();});
 }
-
 function handleDrag(r,c){
-  if(dragDirection===null){
-    if(c!==startCol && r===startRow) dragDirection="horizontal";
-    else if(r!==startRow && c===startCol) dragDirection="vertical";
-    else return;
-  }
-  const tr=dragDirection==="horizontal"?startRow:r;
-  const tc=dragDirection==="vertical"?startCol:c;
-  const key=`${tr}-${tc}`;
-  if(!paintedCells.has(key)){paintedCells.add(key); toggleCell(container.querySelector(`td[data-row="${tr}"][data-col="${tc}"]`));}
+  if(dragDirection===null){if(c!==startCol && r===startRow) dragDirection="horizontal"; else if(r!==startRow && c===startCol) dragDirection="vertical"; else return;}
+  const tr=dragDirection==="horizontal"?startRow:r; const tc=dragDirection==="vertical"?startCol:c;
+  const key=`${tr}-${tc}`; if(!paintedCells.has(key)){paintedCells.add(key); toggleCell(container.querySelector(`td[data-row="${tr}"][data-col="${tc}"]`));}
 }
-
 function toggleCell(td){
-  const df=getData();
-  const r=+td.dataset.row, c=+td.dataset.col;
+  const df=getData(); const r=+td.dataset.row, c=+td.dataset.col;
   df[r][c]=df[r][c]?0:1;
-  td.style.backgroundColor=df[r][c]? "blue":"transparent";
+  td.style.backgroundColor=df[r][c]?"blue":"transparent";
+  saveData();
 }
 
-// ---------------- Controls -----------------
-document.getElementById("clear-button").addEventListener("click",()=>{
-  if(confirm(`Clear all data for ${currentMode}?`)){
-    dataStore[currentMode]=initializeData(currentMode);
-    renderTable();
-    saveData();
-  }
-});
+// ---------------- CONTROLS -----------------
+clearButton.addEventListener("click",()=>{if(confirm(`Clear all data for ${currentMode}?`)){dataStore[currentMode]=initializeData(currentMode); renderTable(); saveData();}});
 
-// ---------------- Segmented highlight -----------------
+// ---------------- SEGMENTED HIGHLIGHT -----------------
 const segments=document.querySelectorAll(".segmented");
 segments.forEach(seg=>{
   const btns=seg.querySelectorAll(".segment-btn");
   const hl=seg.querySelector(".segment-highlight");
   btns.forEach(btn=>{
     btn.addEventListener("click",()=>{
-      btns.forEach(b=>{b.classList.remove("active"); b.style.color="black";});
+      btns.forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       hl.style.transform=`translateX(${btn.dataset.index*100}%)`;
-
       if(btn.id==="arrivalBtn"){currentMode="arrival"; currentColor="#4CAF50"; hl.style.backgroundColor=currentColor; renderTable();}
       if(btn.id==="departureBtn"){currentMode="departure"; currentColor="#ff9800"; hl.style.backgroundColor=currentColor; renderTable();}
       if(btn.id==="morningBtn"){currentShift="morning"; hl.style.backgroundColor="#eee"; generateColHeaders(); renderTable();}
@@ -141,5 +105,5 @@ segments.forEach(seg=>{
   });
 });
 
-// ---------------- Init -----------------
+// ---------------- INIT -----------------
 loadData(); generateColHeaders(); renderTable();
