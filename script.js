@@ -3,6 +3,8 @@
 // -----------------------------
 let currentMode = "arrival";
 let currentShift = "morning";
+let isMouseDown = false; // for drag selection
+let dragMode = true;      // track whether we're activating or deactivating cells
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -88,12 +90,28 @@ function renderTable() {
 
       timeSlots.forEach(() => {
         let cell = document.createElement("td");
-        cell.addEventListener("click", () => {
-          cell.classList.toggle("active");
+
+        // Toggle cell individually
+        cell.addEventListener("mousedown", (e) => {
+          isMouseDown = true;
+          dragMode = !cell.classList.contains("active");
+          cell.classList.toggle("active", dragMode);
           updateSummary();
+          e.preventDefault(); // prevent text selection
         });
+
+        cell.addEventListener("mouseover", () => {
+          if (isMouseDown) {
+            cell.classList.toggle("active", dragMode);
+            updateSummary();
+          }
+        });
+
+        cell.addEventListener("mouseup", () => { isMouseDown = false; });
+
         row.appendChild(cell);
       });
+
       table.appendChild(row);
     });
   });
@@ -116,13 +134,11 @@ function updateSummary() {
 // UPDATE BUTTONS & HIGHLIGHT
 // -----------------------------
 function updateButtons() {
-  // Reset buttons
   document.getElementById("arrivalBtn").className = "mode-btn";
   document.getElementById("departureBtn").className = "mode-btn";
   document.getElementById("morningBtn").className = "shift-btn";
   document.getElementById("nightBtn").className = "shift-btn";
 
-  // Active classes
   if (currentMode === "arrival") document.getElementById("arrivalBtn").classList.add("active-arrival");
   else document.getElementById("departureBtn").classList.add("active-departure");
 
@@ -139,7 +155,6 @@ function updateHighlight() {
   const modeHighlight = document.querySelector(".mode-highlight");
   const shiftHighlight = document.querySelector(".shift-highlight");
 
-  // Mode highlight color matches active button
   if (currentMode === "arrival") {
     modeHighlight.style.left = "0%";
     modeHighlight.style.backgroundColor = "#4CAF50";
@@ -148,7 +163,6 @@ function updateHighlight() {
     modeHighlight.style.backgroundColor = "#ff9800";
   }
 
-  // Shift highlight color
   if (currentShift === "morning") {
     shiftHighlight.style.left = "0%";
     shiftHighlight.style.backgroundColor = "#b0bec5";
@@ -171,3 +185,6 @@ document.getElementById("nightBtn").onclick = () => { currentShift = "night"; up
 // -----------------------------
 updateButtons();
 renderTable();
+
+// End mouse drag
+document.addEventListener("mouseup", () => { isMouseDown = false; });
