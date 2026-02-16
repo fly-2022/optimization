@@ -69,12 +69,12 @@ body {
 .color-btn {
     width: 28px;
     height: 28px;
-    border: none;
+    border: solid;
     cursor: pointer;
 }
 
 .color-btn.selected {
-    outline: 2px none black;
+    outline: 2px solid black;
 }
 
 #clearGridBtn {
@@ -150,3 +150,4 @@ td.counter-cell.active {
     background: #4CAF50;
 
 }
+
