@@ -1,224 +1,242 @@
-let currentMode = localStorage.getItem("currentMode") || "arrival";
-let currentShift = localStorage.getItem("currentShift") || "morning";
-let isDragging = false;
-let lastCell = null;
+let currentMode = "arrival";
+let currentShift = "morning";
+let currentColor = "#4CAF50";
+let isPointerDown = false;
+let lastAction = null;
 
-// ---------------- ZONES -----------------
-const zones = {
-  arrival: [
-    { name: "Zone 1", counters: range("AC", 1, 10) },
-    { name: "Zone 2", counters: range("AC", 11, 20) },
-    { name: "Zone 3", counters: range("AC", 21, 30) },
-    { name: "Zone 4", counters: range("AC", 31, 40) },
-    { name: "BIKES", counters: ["AM41", "AM43"] }
-  ],
-  departure: [
-    { name: "Zone 1", counters: range("DC", 1, 8) },
-    { name: "Zone 2", counters: range("DC", 9, 19) },
-    { name: "Zone 3", counters: range("DC", 20, 29) },
-    { name: "Zone 4", counters: range("DC", 30, 36) },
-    { name: "BIKES", counters: ["DM37A", "DM37C"] }
-  ]
-};
-function range(prefix, start, end){ let arr=[]; for(let i=start;i<=end;i++) arr.push(prefix+i); return arr; }
-
-// ---------------- STORAGE -----------------
-const savedDataKey = "rosterData";
-let rosterData = JSON.parse(localStorage.getItem(savedDataKey)) || {};
-
-// ---------------- ELEMENTS -----------------
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
 const modeHighlight = document.getElementById("modeHighlight");
 const shiftHighlight = document.getElementById("shiftHighlight");
 
+// ---------------- ZONES -----------------
+function range(prefix,start,end){let arr=[];for(let i=start;i<=end;i++)arr.push(prefix+i);return arr;}
+const zones = {
+  arrival: [
+    { name:"Zone 1", counters: range("AC",1,10) },
+    { name:"Zone 2", counters: range("AC",11,20) },
+    { name:"Zone 3", counters: range("AC",21,30) },
+    { name:"Zone 4", counters: range("AC",31,40) },
+    { name:"BIKES", counters:["AM41","AM43"] }
+  ],
+  departure:[
+    { name:"Zone 1", counters: range("DC",1,8) },
+    { name:"Zone 2", counters: range("DC",9,19) },
+    { name:"Zone 3", counters: range("DC",20,29) },
+    { name:"Zone 4", counters: range("DC",30,36) },
+    { name:"BIKES", counters:["DM37A","DM37C"] }
+  ]
+};
+
 // ---------------- TIME SLOTS -----------------
 function generateTimeSlots(){
   let slots = [];
-  let hour = currentShift === "morning" ? 10 : 22;
-  let minute = 0;
+  let startHour = currentShift==="morning"?10:22;
   for(let i=0;i<48;i++){
-    slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
-    minute+=15;
-    if(minute>=60){ minute=0; hour=(hour+1)%24; }
+    let hour = (startHour+Math.floor(i/4))%24;
+    let min = (i%4)*15;
+    slots.push(String(hour).padStart(2,"0")+String(min).padStart(2,"0"));
   }
   return slots;
 }
 
-// ---------------- RENDER -----------------
+// ---------------- RENDER TABLE -----------------
 function renderTable(){
   table.innerHTML="";
   const slots = generateTimeSlots();
-  const totalCols = slots.length;
+
+  // Grand total row at end
+  let grandTotalRow = {cells:Array(slots.length).fill(0)};
 
   zones[currentMode].forEach(zone=>{
-    // Zone Name Row
-    const zrow = document.createElement("tr");
-    const zcell = document.createElement("td");
-    zcell.colSpan = totalCols+1;
-    zcell.innerText = zone.name;
-    zcell.className="zone-row";
-    zrow.appendChild(zcell);
-    table.appendChild(zrow);
+    // Zone header
+    let trHeader = document.createElement("tr");
+    let tdHeader = document.createElement("td");
+    tdHeader.colSpan = slots.length+1;
+    tdHeader.innerText = zone.name;
+    tdHeader.className="zone-row";
+    trHeader.appendChild(tdHeader);
+    table.appendChild(trHeader);
 
-    // Time header row for this zone
-    const timeRow = document.createElement("tr");
-    const blankCell = document.createElement("td"); blankCell.innerText=""; timeRow.appendChild(blankCell);
-    slots.forEach(t=>{
-      const tc = document.createElement("td");
-      tc.innerText = t;
-      timeRow.appendChild(tc);
+    // Time row under zone
+    let trTime = document.createElement("tr");
+    let tdLabel = document.createElement("td");
+    tdLabel.innerText = "Time";
+    trTime.appendChild(tdLabel);
+    slots.forEach(s=>{
+      let td = document.createElement("td");
+      td.innerText = s;
+      trTime.appendChild(td);
     });
-    table.appendChild(timeRow);
+    table.appendChild(trTime);
 
     // Counter rows
     zone.counters.forEach(counter=>{
-      const row = document.createElement("tr");
-      const label = document.createElement("td"); label.innerText=counter; row.appendChild(label);
+      let tr = document.createElement("tr");
+      let tdCounter = document.createElement("td");
+      tdCounter.innerText=counter;
+      tr.appendChild(tdCounter);
+
       slots.forEach((_,i)=>{
-        const cell = document.createElement("td");
-        attachCellEvents(cell, counter, i);
-        const key = `${currentMode}_${currentShift}_${counter}_${i}`;
-        if(rosterData[key]){ cell.classList.add("active"); cell.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800"; }
-        row.appendChild(cell);
+        let td = document.createElement("td");
+        td.dataset.zone=zone.name;
+        td.dataset.index=i;
+        td.addEventListener("pointerdown",startSelection);
+        td.addEventListener("pointerenter",moveSelection);
+        td.addEventListener("pointerup",endSelection);
+        td.addEventListener("click",()=>toggleCell(td));
+        tr.appendChild(td);
       });
-      table.appendChild(row);
+
+      table.appendChild(tr);
     });
 
     // Subtotal row
-    const subtotalRow = document.createElement("tr");
-    subtotalRow.className="subtotal-row";
-    const subtotalLabel = document.createElement("td"); subtotalLabel.innerText="Subtotal"; subtotalRow.appendChild(subtotalLabel);
-    for(let i=0;i<totalCols;i++){
-      const subtotalCell = document.createElement("td");
-      subtotalCell.dataset.zone = zone.name;
-      subtotalCell.dataset.index = i;
-      subtotalRow.appendChild(subtotalCell);
-    }
-    table.appendChild(subtotalRow);
+    let trSub = document.createElement("tr");
+    let tdSub = document.createElement("td");
+    tdSub.innerText="Subtotal";
+    trSub.appendChild(tdSub);
+    slots.forEach((_,i)=>{
+      let td = document.createElement("td");
+      td.dataset.zone=zone.name;
+      td.dataset.index=i;
+      td.className="subtotal";
+      td.innerText="0";
+      trSub.appendChild(td);
+    });
+    table.appendChild(trSub);
   });
 
   // Grand total row
-  const grandRow = document.createElement("tr");
-  grandRow.className="grandtotal-row";
-  const grandLabel = document.createElement("td"); grandLabel.innerText="Grand Total"; grandRow.appendChild(grandLabel);
-  for(let i=0;i<totalCols;i++){
-    const gcell = document.createElement("td"); gcell.dataset.index=i; grandRow.appendChild(gcell);
-  }
-  table.appendChild(grandRow);
+  let trGrand = document.createElement("tr");
+  let tdLabel = document.createElement("td");
+  tdLabel.innerText="Grand Total";
+  trGrand.appendChild(tdLabel);
+  slots.forEach((_,i)=>{
+    let td = document.createElement("td");
+    td.className="grandtotal";
+    td.innerText="0";
+    trGrand.appendChild(td);
+  });
+  table.appendChild(trGrand);
 
   updateSummary();
 }
 
-// ---------------- CELL EVENTS -----------------
-function attachCellEvents(cell, counter, colIndex){
-  const key = `${currentMode}_${currentShift}_${counter}_${colIndex}`;
-
-  cell.addEventListener("pointerdown", e=>{
-    isDragging=true;
-    lastCell=cell;
-    toggleCell(cell);
-  });
-  cell.addEventListener("pointermove", e=>{
-    if(!isDragging) return;
-    const el = document.elementFromPoint(e.clientX,e.clientY);
-    if(el && el.tagName==="TD" && el!==lastCell && !el.classList.contains("zone-row") && !el.classList.contains("subtotal-row") && !el.classList.contains("grandtotal-row")){
-      toggleCell(el);
-      lastCell=el;
-    }
-  });
-  cell.addEventListener("pointerup", e=>{
-    isDragging=false; lastCell=null;
-  });
-  cell.addEventListener("click", e=>{
-    toggleCell(cell);
-  });
-
-  function toggleCell(td){
-    if(td.classList.contains("active")){
-      td.classList.remove("active");
-      td.style.background="";
-      rosterData[key]=false;
-    }else{
-      td.classList.add("active");
-      td.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800";
-      rosterData[key]=true;
-    }
-    localStorage.setItem(savedDataKey, JSON.stringify(rosterData));
-    updateSummary();
+// ---------------- CELL TOGGLE -----------------
+function toggleCell(td){
+  if(td.classList.contains("active")){
+    td.classList.remove("active");
+    td.style.background="";
+  } else{
+    td.classList.add("active");
+    td.style.background=currentColor;
   }
+  updateSummary();
 }
 
-// ---------------- SUMMARY -----------------
+// ---------------- SELECTION -----------------
+function startSelection(e){
+  isPointerDown=true;
+  lastAction = !this.classList.contains("active");
+  toggleByAction(this,lastAction);
+  e.preventDefault();
+}
+function moveSelection(e){
+  if(isPointerDown){
+    toggleByAction(this,lastAction);
+  }
+}
+function endSelection(){ isPointerDown=false; lastAction=null; }
+
+// Apply action consistently
+function toggleByAction(td,apply){
+  if(apply){
+    td.classList.add("active");
+    td.style.background=currentColor;
+  } else{
+    td.classList.remove("active");
+    td.style.background="";
+  }
+  updateSummary();
+}
+
+// ---------------- UPDATE SUMMARY -----------------
 function updateSummary(){
-  const totalCols = generateTimeSlots().length;
+  // Reset all subtotal & grandtotal
+  document.querySelectorAll(".subtotal").forEach(td=>td.innerText=0);
+  document.querySelectorAll(".grandtotal").forEach(td=>td.innerText=0);
 
-  // Update subtotal rows
-  document.querySelectorAll(".subtotal-row").forEach(sr=>{
-    const zone = sr.querySelector("td").innerText;
-    for(let i=1;i<=totalCols;i++){
-      let sum=0;
-      zones[currentMode].find(z=>z.name===zone).counters.forEach(counter=>{
-        const key = `${currentMode}_${currentShift}_${counter}_${i-1}`;
-        if(rosterData[key]) sum++;
-      });
-      sr.children[i].innerText=sum;
-    }
+  let zonesMap={};
+  document.querySelectorAll("#rosterTable td.active").forEach(td=>{
+    let z=td.dataset.zone;
+    let idx=td.dataset.index;
+    if(!zonesMap[z]) zonesMap[z]=[];
+    zonesMap[z].push(idx);
   });
 
-  // Update grand total row
-  const gRow = document.querySelector(".grandtotal-row");
-  for(let i=1;i<=totalCols;i++){
-    let gsum=0;
-    zones[currentMode].forEach(zone=>{
-      zone.counters.forEach(counter=>{
-        const key = `${currentMode}_${currentShift}_${counter}_${i-1}`;
-        if(rosterData[key]) gsum++;
-      });
+  // Update subtotals
+  Object.keys(zonesMap).forEach(z=>{
+    zonesMap[z].forEach(idx=>{
+      let td = document.querySelector(`.subtotal[data-zone="${z}"][data-index="${idx}"]`);
+      if(td) td.innerText=parseInt(td.innerText)+1;
     });
-    gRow.children[i].innerText=gsum;
+  });
+
+  // Update grand total
+  const slotCount = document.querySelectorAll(".grandtotal").length;
+  for(let i=0;i<slotCount;i++){
+    let sum=0;
+    document.querySelectorAll(`.subtotal[data-index="${i}"]`).forEach(td=>sum+=parseInt(td.innerText));
+    document.querySelectorAll(".grandtotal")[i].innerText=sum;
   }
 
-  summary.innerHTML=`Mode: <b>${currentMode}</b> | Shift: <b>${currentShift}</b>`;
-}
-
-// ---------------- SEGMENTED BUTTONS -----------------
-function initSegmented(){
-  const arrivalBtn=document.getElementById("arrivalBtn");
-  const departureBtn=document.getElementById("departureBtn");
-  const morningBtn=document.getElementById("morningBtn");
-  const nightBtn=document.getElementById("nightBtn");
-
-  [arrivalBtn,departureBtn].forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      currentMode = btn.id==="arrivalBtn"?"arrival":"departure";
-      modeHighlight.style.transform=`translateX(${btn.dataset.index*100}%)`;
-      modeHighlight.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800";
-      localStorage.setItem("currentMode", currentMode);
-      renderTable();
-    });
-  });
-
-  [morningBtn,nightBtn].forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      currentShift = btn.id==="morningBtn"?"morning":"night";
-      shiftHighlight.style.transform=`translateX(${btn.dataset.index*100}%)`;
-      shiftHighlight.style.background=currentShift==="morning"?"#b0bec5":"#9e9e9e";
-      localStorage.setItem("currentShift", currentShift);
-      renderTable();
-    });
-  });
+  // Update summary text
+  let totalCount=document.querySelectorAll("#rosterTable td.active").length;
+  summary.innerHTML=`Mode: <b>${currentMode}</b> | Shift: <b>${currentShift}</b> | Selected Cells: <b>${totalCount}</b>`;
 }
 
 // ---------------- CLEAR -----------------
-document.getElementById("clearGridBtn").addEventListener("click", ()=>{
-  if(confirm("Clear all selections for current mode & shift?")){
-    rosterData = {};
-    localStorage.setItem(savedDataKey,JSON.stringify(rosterData));
-    renderTable();
-  }
+document.getElementById("clearGridBtn").addEventListener("click",()=>{
+  document.querySelectorAll("#rosterTable td.active").forEach(td=>{
+    td.classList.remove("active");
+    td.style.background="";
+  });
+  updateSummary();
 });
+
+// ---------------- SEGMENTED BUTTONS -----------------
+function initSegmented(){
+  const modeBtns = [document.getElementById("arrivalBtn"),document.getElementById("departureBtn")];
+  const shiftBtns = [document.getElementById("morningBtn"),document.getElementById("nightBtn")];
+
+  modeBtns.forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      modeBtns.forEach(b=>b.style.color="black");
+      btn.style.color="white";
+      currentMode = btn.id==="arrivalBtn"?"arrival":"departure";
+      currentColor = currentMode==="arrival"?"#4CAF50":"#FF9800";
+      modeHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
+      modeHighlight.style.background=currentColor;
+      renderTable();
+    });
+  });
+
+  shiftBtns.forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      shiftBtns.forEach(b=>b.style.color="black");
+      btn.style.color="white";
+      currentShift = btn.id==="morningBtn"?"morning":"night";
+      shiftHighlight.style.transform = `translateX(${btn.dataset.index*100}%)`;
+      shiftHighlight.style.background=currentShift==="morning"?"#b0bec5":"#9e9e9e";
+      renderTable();
+    });
+  });
+}
 
 // ---------------- INIT -----------------
 initSegmented();
 renderTable();
+
+// Prevent scroll on table drag for mobile
+document.querySelector(".table-container").addEventListener("touchmove", e=>{ if(isPointerDown) e.preventDefault(); },{passive:false});
