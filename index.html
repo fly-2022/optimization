@@ -14,21 +14,18 @@
 
     <div class="controls">
 
-        <!-- Mode -->
         <div class="segmented mode-group">
             <div class="segment-highlight" id="modeHighlight"></div>
-            <button id="arrivalBtn" class="segment-btn">Arrival</button>
-            <button id="departureBtn" class="segment-btn">Departure</button>
+            <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
+            <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
         </div>
 
-        <!-- Shift -->
         <div class="segmented shift-group">
             <div class="segment-highlight" id="shiftHighlight"></div>
-            <button id="morningBtn" class="segment-btn">Morning</button>
-            <button id="nightBtn" class="segment-btn">Night</button>
+            <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
+            <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
         </div>
 
-        <!-- Color Picker -->
         <div class="color-group">
             <button class="color-btn selected" data-color="#4CAF50" style="background:#4CAF50"></button>
             <button class="color-btn" data-color="#FF9800" style="background:#FF9800"></button>
@@ -50,8 +47,8 @@
     </div>
 
     <h3>Manning Summary</h3>
-    <button id="copyManningBtn">Copy Manning Summary</button>
-    <pre id="manningSummary"></pre>
+    <div id="manningSummary"></div>
+    <button id="copySummaryBtn">Copy Summary</button>
 
     <script src="script.js"></script>
 </body>
