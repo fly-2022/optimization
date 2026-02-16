@@ -75,6 +75,7 @@ button:hover {
   border: 1px solid #ccc;
   background: white;
   padding: 5px;
+  touch-action: none; /* disables scrolling while dragging on mobile */
 }
 
 table {
@@ -126,6 +127,7 @@ td:hover { cursor: pointer; }
    MOBILE DRAG SUPPORT
 ========================= */
 .table-container td {
-  touch-action: none; /* allows drag on mobile */
-  -ms-touch-action: none; /* IE fallback */
+  touch-action: none; /* allow drag on mobile */
+  -ms-touch-action: none;
+  user-select: none;   /* prevent text selection while dragging */
 }
