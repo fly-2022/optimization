@@ -22,9 +22,9 @@ table { border-collapse: collapse; font-size: 11px; white-space: nowrap; width: 
 th, td { border: 1px solid #ccc; padding: 4px; text-align: center; min-width: 35px; }
 th { background: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
 td:first-child { background: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
-td.active { border: 2px solid black; background-color: inherit; }
+td.active { border: 2px solid black; }
 .zone-row td { background: #eeeeee; font-weight: bold; text-align: left; padding-left: 8px; }
 .subtotal td { background: #ffffcc; font-weight: bold; }
 .grandtotal td { background: #ffcccc; font-weight: bold; }
+.time-row td { background: #cce5ff; font-weight: bold; }
 td:hover { cursor: pointer; }
-
