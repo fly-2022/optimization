@@ -4,10 +4,6 @@ body {
     background: #f5f7fa;
 }
 
-h2 {
-    margin-bottom: 10px;
-}
-
 .controls {
     display: flex;
     flex-wrap: wrap;
@@ -15,7 +11,7 @@ h2 {
     margin-bottom: 15px;
 }
 
-/* Segmented */
+/* Segmented buttons */
 .segmented {
     position: relative;
     display: flex;
@@ -32,6 +28,7 @@ h2 {
     cursor: pointer;
     font-weight: bold;
     z-index: 2;
+    transition: color 0.2s ease;
 }
 
 .segment-highlight {
@@ -51,9 +48,23 @@ h2 {
     background: #b0bec5;
 }
 
-#clearGridBtn {
-    padding: 8px 14px;
+/* Color buttons */
+.color-group {
+    display: flex;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.color-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #999;
     cursor: pointer;
+}
+
+.color-btn.selected {
+    border: 3px solid black;
 }
 
 /* Table */
@@ -76,8 +87,10 @@ td {
     text-align: center;
 }
 
-th {
-    background: #eee;
+td.zone-header {
+    background: #ddd;
+    font-weight: bold;
+    text-align: left;
 }
 
 td.label-cell {
@@ -85,13 +98,6 @@ td.label-cell {
     font-weight: bold;
     position: sticky;
     left: 0;
-    z-index: 1;
-}
-
-td.zone-header {
-    background: #ddd;
-    font-weight: bold;
-    text-align: left;
 }
 
 td.active {
@@ -100,7 +106,7 @@ td.active {
 
 .summary-container {
     margin-top: 20px;
-    overflow-x: auto;
-    background: white;
     border: 1px solid #ccc;
+    background: white;
+    overflow-x: auto;
 }
