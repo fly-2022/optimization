@@ -35,12 +35,10 @@ const shiftHighlight = document.getElementById("shiftHighlight");
 // ---------------- TIME SLOTS -----------------
 function generateTimeSlots(){
   let slots = [];
-  let startHour = currentShift==="morning"?10:22;
-  let hour=startHour, minute=0;
+  let hour = currentShift === "morning" ? 10 : 22;
+  let minute = 0;
   for(let i=0;i<48;i++){
-    let hh = hour.toString().padStart(2,"0");
-    let mm = minute.toString().padStart(2,"0");
-    slots.push(hh+mm);
+    slots.push(String(hour).padStart(2,"0")+String(minute).padStart(2,"0"));
     minute+=15;
     if(minute>=60){ minute=0; hour=(hour+1)%24; }
   }
@@ -51,7 +49,7 @@ function generateTimeSlots(){
 function renderTable(){
   table.innerHTML="";
   const slots = generateTimeSlots();
-  let totalCols = slots.length;
+  const totalCols = slots.length;
 
   zones[currentMode].forEach(zone=>{
     // Zone Name Row
@@ -65,9 +63,7 @@ function renderTable(){
 
     // Time header row for this zone
     const timeRow = document.createElement("tr");
-    const blankCell = document.createElement("td");
-    blankCell.innerText = "";
-    timeRow.appendChild(blankCell);
+    const blankCell = document.createElement("td"); blankCell.innerText=""; timeRow.appendChild(blankCell);
     slots.forEach(t=>{
       const tc = document.createElement("td");
       tc.innerText = t;
@@ -82,15 +78,14 @@ function renderTable(){
       slots.forEach((_,i)=>{
         const cell = document.createElement("td");
         attachCellEvents(cell, counter, i);
-        // restore saved
         const key = `${currentMode}_${currentShift}_${counter}_${i}`;
-        if(rosterData[key]) { cell.classList.add("active"); cell.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800"; }
+        if(rosterData[key]){ cell.classList.add("active"); cell.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800"; }
         row.appendChild(cell);
       });
       table.appendChild(row);
     });
 
-    // Subtotal Row
+    // Subtotal row
     const subtotalRow = document.createElement("tr");
     subtotalRow.className="subtotal-row";
     const subtotalLabel = document.createElement("td"); subtotalLabel.innerText="Subtotal"; subtotalRow.appendChild(subtotalLabel);
@@ -103,7 +98,7 @@ function renderTable(){
     table.appendChild(subtotalRow);
   });
 
-  // Grandtotal Row
+  // Grand total row
   const grandRow = document.createElement("tr");
   grandRow.className="grandtotal-row";
   const grandLabel = document.createElement("td"); grandLabel.innerText="Grand Total"; grandRow.appendChild(grandLabel);
@@ -127,14 +122,13 @@ function attachCellEvents(cell, counter, colIndex){
   cell.addEventListener("pointermove", e=>{
     if(!isDragging) return;
     const el = document.elementFromPoint(e.clientX,e.clientY);
-    if(el && el.tagName==="TD" && el!==lastCell){
+    if(el && el.tagName==="TD" && el!==lastCell && !el.classList.contains("zone-row") && !el.classList.contains("subtotal-row") && !el.classList.contains("grandtotal-row")){
       toggleCell(el);
       lastCell=el;
     }
   });
   cell.addEventListener("pointerup", e=>{
-    isDragging=false;
-    lastCell=null;
+    isDragging=false; lastCell=null;
   });
   cell.addEventListener("click", e=>{
     toggleCell(cell);
@@ -150,30 +144,31 @@ function attachCellEvents(cell, counter, colIndex){
       td.style.background=currentMode==="arrival"?"#4CAF50":"#FF9800";
       rosterData[key]=true;
     }
-    localStorage.setItem(savedDataKey,JSON.stringify(rosterData));
+    localStorage.setItem(savedDataKey, JSON.stringify(rosterData));
     updateSummary();
   }
 }
 
 // ---------------- SUMMARY -----------------
 function updateSummary(){
-  const subtotalRows = document.querySelectorAll(".subtotal-row");
-  subtotalRows.forEach(sr=>{
+  const totalCols = generateTimeSlots().length;
+
+  // Update subtotal rows
+  document.querySelectorAll(".subtotal-row").forEach(sr=>{
     const zone = sr.querySelector("td").innerText;
-    sr.querySelectorAll("td").forEach((cell,i)=>{
-      if(i===0) return;
+    for(let i=1;i<=totalCols;i++){
       let sum=0;
       zones[currentMode].find(z=>z.name===zone).counters.forEach(counter=>{
         const key = `${currentMode}_${currentShift}_${counter}_${i-1}`;
         if(rosterData[key]) sum++;
       });
-      cell.innerText=sum;
-    });
+      sr.children[i].innerText=sum;
+    }
   });
 
-  // grand total
+  // Update grand total row
   const gRow = document.querySelector(".grandtotal-row");
-  for(let i=1;i<gRow.children.length;i++){
+  for(let i=1;i<=totalCols;i++){
     let gsum=0;
     zones[currentMode].forEach(zone=>{
       zone.counters.forEach(counter=>{
