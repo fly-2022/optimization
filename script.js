@@ -106,20 +106,22 @@ function renderTable(){
 
         // ---------- Pointer events for drag ----------
         cell.addEventListener("pointerdown", e => {
+          e.preventDefault(); // important for mobile
           isPointerDown = true;
           dragAction = cell.dataset.color === currentColor ? "remove" : "apply";
-          cell.dataset.dragging = "false"; // reset drag flag
+          cell.dataset.dragging = "false";
         });
 
         cell.addEventListener("pointermove", e => {
           if (!isPointerDown) return;
+          e.preventDefault(); // important for mobile
           toggleCell(cell, true);
-          cell.dataset.dragging = "true"; // mark as drag
+          cell.dataset.dragging = "true";
         });
 
         cell.addEventListener("pointerup", e => {
+          e.preventDefault(); // important for mobile
           if (!cell.dataset.dragging || cell.dataset.dragging === "false") {
-            // treat as tap/click
             toggleCell(cell, false);
           }
           isPointerDown = false;
