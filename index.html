@@ -1,49 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Roster Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Roster Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<h2>Roster Optimisation Dashboard</h2>
+    <h2>Roster Optimisation Dashboard</h2>
 
-<div class="controls">
+    <div class="controls">
 
-  <!-- Arrival / Departure -->
-  <div class="segmented" id="modeSegment">
-    <div class="segment-highlight"></div>
-    <button class="segment-btn" id="arrivalBtn" data-index="0">Arrival</button>
-    <button class="segment-btn" id="departureBtn" data-index="1">Departure</button>
-  </div>
+        <!-- Arrival / Departure -->
+        <div class="segmented" id="modeSegment">
+            <div class="segment-highlight"></div>
+            <button class="segment-btn" id="arrivalBtn" data-index="0">Arrival</button>
+            <button class="segment-btn" id="departureBtn" data-index="1">Departure</button>
+        </div>
 
-  <!-- Morning / Night -->
-  <div class="segmented" id="shiftSegment">
-    <div class="segment-highlight"></div>
-    <button class="segment-btn" id="morningBtn" data-index="0">Morning</button>
-    <button class="segment-btn" id="nightBtn" data-index="1">Night</button>
-  </div>
+        <!-- Morning / Night -->
+        <div class="segmented" id="shiftSegment">
+            <div class="segment-highlight"></div>
+            <button class="segment-btn" id="morningBtn" data-index="0">Morning</button>
+            <button class="segment-btn" id="nightBtn" data-index="1">Night</button>
+        </div>
 
-  <!-- Color picker -->
-  <div class="color-group">
-    <button class="color-btn selected" data-color="#4CAF50" style="background:#4CAF50"></button>
-    <button class="color-btn" data-color="#FF9800" style="background:#FF9800"></button>
-    <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
-    <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
-    <button class="color-btn" data-color="#800080" style="background:#800080"></button>
-    <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
-    <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
-  </div>
+        <!-- Color picker -->
+        <div class="color-group">
+            <button class="color-btn selected" data-color="#4CAF50" style="background:#4CAF50"></button>
+            <button class="color-btn" data-color="#FF9800" style="background:#FF9800"></button>
+            <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
+            <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
+            <button class="color-btn" data-color="#800080" style="background:#800080"></button>
+            <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
+            <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
+        </div>
 
-  <button id="clearGrid">Clear Grid</button>
-</div>
+        <button id="clearGrid">Clear Grid</button>
+    </div>
 
-<div id="summary"></div>
+    <div id="summary"></div>
 
-<div id="tableContainer" class="table-container"></div>
+    <div id="tableContainer" class="table-container"></div>
 
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>
