@@ -280,3 +280,80 @@ nightBtn.onclick = () => setShift("night");
 /* ---------------- INIT ---------------- */
 setMode("arrival");
 setShift("morning");
+
+
+/* ================= MANPOWER SYSTEM ================= */
+
+let manpowerType = "main";
+
+const sosFields = document.getElementById("sosFields");
+const otFields = document.getElementById("otFields");
+
+document.querySelectorAll(".mp-type").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        manpowerType = btn.dataset.type;
+
+        sosFields.style.display = manpowerType === "sos" ? "block" : "none";
+        otFields.style.display = manpowerType === "ot" ? "block" : "none";
+    });
+});
+
+document.getElementById("addOfficerBtn").addEventListener("click", () => {
+    const count = parseInt(document.getElementById("officerCount").value);
+    if (!count || count <= 0) return;
+
+    if (manpowerType === "sos") {
+        const start = document.getElementById("sosStart").value;
+        const end = document.getElementById("sosEnd").value;
+        if (!start || !end) {
+            alert("Please enter SOS start and end time");
+            return;
+        }
+        addOfficersToGrid(count, start.replace(":", ""), end.replace(":", ""));
+    }
+
+    if (manpowerType === "ot") {
+        const slot = document.getElementById("otSlot").value;
+        const [start, end] = slot.split("-");
+        addOfficersToGrid(count, start, end);
+    }
+
+    if (manpowerType === "main") {
+        alert("Main template upload to be implemented later.");
+    }
+});
+
+function addOfficersToGrid(count, startTime, endTime) {
+
+    const times = generateTimeSlots();
+
+    let startIndex = times.findIndex(t => t === startTime);
+    let endIndex = times.findIndex(t => t === endTime);
+
+    if (startIndex === -1 || endIndex === -1) {
+        alert("Time range outside current shift grid.");
+        return;
+    }
+
+    zones[currentMode].forEach(zone => {
+
+        if (zone.name === "BIKES") return;
+
+        for (let t = startIndex; t < endIndex; t++) {
+
+            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)];
+
+            for (let i = 0; i < count; i++) {
+                let emptyCell = cells.find(c => !c.classList.contains("active"));
+                if (emptyCell) {
+                    emptyCell.style.background = currentColor;
+                    emptyCell.classList.add("active");
+                }
+            }
+        }
+    });
+
+    updateAll();
+}

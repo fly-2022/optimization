@@ -74,7 +74,7 @@ body {
 }
 
 .color-btn.selected {
-    outline: 2px solid black;
+    outline: 2px none black;
 }
 
 #clearGridBtn {
@@ -148,7 +148,49 @@ td.counter-cell.active {
 
 #copySummaryBtn.copied {
     background: #4CAF50;
-
 }
 
 
+/* ================= MANPOWER SECTION ================= */
+
+.manpower-section {
+    background: white;
+    padding: 12px;
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
+}
+
+.manpower-type {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mp-type {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    background: #f0f0f0;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.mp-type.active {
+    background: #2196F3;
+    color: white;
+}
+
+.mp-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+#addOfficerBtn {
+    padding: 6px 14px;
+    background: #4CAF50;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}

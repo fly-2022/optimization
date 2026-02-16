@@ -40,6 +40,47 @@
 
     </div>
 
+    <!-- ================= MANPOWER INPUT ================= -->
+    <div class="manpower-section">
+
+        <h3>Add Officers</h3>
+
+        <div class="manpower-type">
+            <button class="mp-type active" data-type="main">Main</button>
+            <button class="mp-type" data-type="sos">SOS</button>
+            <button class="mp-type" data-type="ot">OT</button>
+        </div>
+
+        <div class="mp-controls">
+
+            <label>Number of Officers:</label>
+            <input type="number" id="officerCount" min="1" value="1">
+
+            <!-- SOS Timing -->
+            <div id="sosFields" style="display:none;">
+                <label>Start (HH:MM)</label>
+                <input type="time" id="sosStart">
+
+                <label>End (HH:MM)</label>
+                <input type="time" id="sosEnd">
+            </div>
+
+            <!-- OT Slot -->
+            <div id="otFields" style="display:none;">
+                <label>OT Slot</label>
+                <select id="otSlot">
+                    <option value="0600-1100">0600 - 1100</option>
+                    <option value="1100-1600">1100 - 1600</option>
+                    <option value="1600-2100">1600 - 2100</option>
+                </select>
+            </div>
+
+            <button id="addOfficerBtn">Add Officers</button>
+
+        </div>
+    </div>
+    <!-- ================= MANPOWER INPUT ================= -->
+
     <div class="table-container">
         <table id="rosterTable"></table>
     </div>
