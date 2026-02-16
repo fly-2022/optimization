@@ -104,26 +104,24 @@ function renderTable(){
         const cell=document.createElement("td");
         cell.dataset.color="";
 
-        // ---------- Pointer events with click vs drag ----------
+        // ---------- Pointer events for drag ----------
         cell.addEventListener("pointerdown", e => {
-          e.preventDefault();
           isPointerDown = true;
           dragAction = cell.dataset.color === currentColor ? "remove" : "apply";
-          cell.dataset.dragMoved = "false"; // track movement
         });
 
         cell.addEventListener("pointermove", e => {
           if (!isPointerDown) return;
-          toggleCell(cell,true);
-          cell.dataset.dragMoved = "true"; // mark as moved
+          toggleCell(cell, true);
         });
 
         cell.addEventListener("pointerup", e => {
-          if (!cell.dataset.dragMoved || cell.dataset.dragMoved === "false") {
-            // pointer didn't move → treat as click
-            toggleCell(cell,false);
-          }
           isPointerDown = false;
+        });
+
+        // ---------- Click event for individual toggle ----------
+        cell.addEventListener("click", e => {
+          toggleCell(cell, false);
         });
 
         row.appendChild(cell);
