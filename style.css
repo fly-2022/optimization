@@ -1,0 +1,40 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+.controls button {
+    margin: 5px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+table {
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 12px;
+}
+
+th,
+td {
+    border: 1px solid #ccc;
+    padding: 4px;
+    text-align: center;
+}
+
+td {
+    cursor: pointer;
+}
+
+td.active {
+    background-color: #4CAF50;
+}
+
+.zone-label {
+    background-color: #f3f3f3;
+    font-weight: bold;
+}
+
+.table-container {
+    overflow-x: auto;
+}
