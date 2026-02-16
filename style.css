@@ -1,112 +1,34 @@
-body {
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    padding: 20px;
-    background: #f7f9fc;
-}
+body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; }
+h2 { margin-bottom: 15px; }
 
-/* ================= iOS SEGMENT ================= */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
 
-.segmented {
-    position: relative;
-    display: flex;
-    width: 260px;
-    border: 1px solid #d1d1d6;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #f2f2f7;
-}
+/* ---------------- Segmented Buttons ---------------- */
+.segmented { position: relative; display: flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
+.segment-btn { flex: 1; padding: 8px 16px; margin: 0; border: none; background: transparent; cursor: pointer; font-weight: bold; z-index: 2; transition: color 0.2s ease; }
+.segment-highlight { position: absolute; top:0; bottom:0; width:50%; background:#ccc; border-radius: 8px; transition: transform 0.25s ease, background 0.25s ease; z-index:1; }
 
-.segment-btn {
-    flex: 1;
-    padding: 8px 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-weight: 500;
-    z-index: 2;
-}
+/* Mode highlight colors */
+#modeHighlight { background: #4CAF50; }
+#shiftHighlight { background: #b0bec5; }
 
-.segment-highlight {
-    position: absolute;
-    top: 3px;
-    bottom: 3px;
-    width: 50%;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transition: transform 0.35s cubic-bezier(.25, .8, .25, 1);
-    z-index: 1;
-}
+/* Color buttons */
+.color-group { display: flex; gap: 0; border: 1px solid #ccc; border-radius: 5px; overflow: hidden; }
+.color-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #999; cursor: pointer; }
+.color-btn.selected { border: 2px solid black; }
 
-.controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    align-items: center;
-    margin-bottom: 15px;
-}
+/* Clear button */
+#clearGridBtn { padding: 8px 16px; margin-left: 10px; }
 
-.color-group {
-    display: flex;
-    gap: 8px;
-}
+/* Summary */
+#summary { margin: 10px 0; padding: 8px; background: #e3f2fd; border-left: 4px solid #2196f3; font-size: 14px; }
 
-.color-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 0 1px #ccc;
-    cursor: pointer;
-}
-
-.color-btn.selected {
-    border: 3px solid black;
-}
-
-#clearGridBtn {
-    padding: 8px 16px;
-    cursor: pointer;
-}
-
-/* ================= TABLE ================= */
-
-.table-container {
-    overflow-x: auto;
-    border: 1px solid #ccc;
-    background: white;
-    padding: 5px;
-    touch-action: none;
-}
-
-table {
-    border-collapse: collapse;
-    font-size: 11px;
-    white-space: nowrap;
-}
-
-th,
-td {
-    border: 1px solid #ccc;
-    padding: 4px;
-    text-align: center;
-}
-
-th {
-    background: #eeeeee;
-    font-weight: bold;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-}
-
-.zone-row td {
-    background: #e0e0e0;
-    font-weight: bold;
-    text-align: left;
-    padding-left: 8px;
-}
-
-td.active-cell {
-    border: 2px solid #000;
-}
+/* Table */
+.table-container { overflow-x: auto; border: 1px solid #ccc; background: white; padding: 5px; touch-action: none; }
+table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+th { background: #eeeeee; font-weight: bold; position: sticky; top: 0; z-index: 1; }
+td:first-child { background: #fafafa; font-weight: bold; position: sticky; left: 0; z-index: 1; }
+td.active { border: 2px solid black; }
+.zone-row td { background: #eeeeee; font-weight: bold; text-align: left; padding-left: 8px; }
+td:hover { cursor: pointer; }
