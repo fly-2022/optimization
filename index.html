@@ -14,13 +14,13 @@
 
     <div class="controls">
 
-        <div class="segmented">
+        <div class="segmented mode-group">
             <div class="segment-highlight" id="modeHighlight"></div>
             <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
             <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
         </div>
 
-        <div class="segmented">
+        <div class="segmented shift-group">
             <div class="segment-highlight" id="shiftHighlight"></div>
             <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
             <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
@@ -45,9 +45,12 @@
     </div>
 
     <h3>Manning Summary</h3>
-    <div class="summary-container">
-        <table id="manningSummary"></table>
+
+    <div class="summary-controls">
+        <button id="copySummaryBtn">Copy Manning Summary</button>
     </div>
+
+    <pre id="manningSummary"></pre>
 
     <script src="script.js"></script>
 </body>

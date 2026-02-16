@@ -1,7 +1,7 @@
 body {
-    font-family: Arial, sans-serif;
-    padding: 15px;
-    background: #f5f7fa;
+    font-family: Arial;
+    padding: 20px;
+    background: #f7f9fc;
 }
 
 .controls {
@@ -11,7 +11,6 @@ body {
     margin-bottom: 15px;
 }
 
-/* Segmented buttons */
 .segmented {
     position: relative;
     display: flex;
@@ -28,7 +27,6 @@ body {
     cursor: pointer;
     font-weight: bold;
     z-index: 2;
-    transition: color 0.2s ease;
 }
 
 .segment-highlight {
@@ -36,19 +34,11 @@ body {
     top: 0;
     bottom: 0;
     width: 50%;
-    transition: transform 0.25s ease;
+    border-radius: 8px;
+    transition: 0.25s ease;
     z-index: 1;
 }
 
-#modeHighlight {
-    background: #4CAF50;
-}
-
-#shiftHighlight {
-    background: #b0bec5;
-}
-
-/* Color buttons */
 .color-group {
     display: flex;
     border: 1px solid #ccc;
@@ -59,17 +49,20 @@ body {
 .color-btn {
     width: 28px;
     height: 28px;
-    border: 1px solid #999;
+    border: none;
     cursor: pointer;
 }
 
 .color-btn.selected {
-    border: 3px solid black;
+    outline: 2px solid black;
 }
 
-/* Table */
+#clearGridBtn {
+    padding: 8px 16px;
+}
+
 .table-container {
-    overflow-x: auto;
+    overflow: auto;
     border: 1px solid #ccc;
     background: white;
 }
@@ -87,26 +80,52 @@ td {
     text-align: center;
 }
 
-td.zone-header {
-    background: #ddd;
+.zone-header {
+    background: #eee;
     font-weight: bold;
     text-align: left;
+    padding-left: 6px;
 }
 
-td.label-cell {
-    background: #fafafa;
-    font-weight: bold;
-    position: sticky;
-    left: 0;
+.time-header th {
+    background: #f0f0f0;
+    font-size: 10px;
 }
 
-td.active {
+td.counter-cell.active {
     border: 2px solid black;
 }
 
-.summary-container {
-    margin-top: 20px;
-    border: 1px solid #ccc;
+.subtotal-row td {
+    background: #e8f5e9;
+    font-weight: bold;
+}
+
+.grandtotal-row td {
+    background: #fff3e0;
+    font-weight: bold;
+}
+
+#manningSummary {
     background: white;
-    overflow-x: auto;
+    padding: 10px;
+    border: 1px solid #ccc;
+    white-space: pre;
+}
+
+.summary-controls {
+    margin: 10px 0;
+}
+
+#copySummaryBtn {
+    padding: 8px 14px;
+    border: none;
+    background: #2196F3;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#copySummaryBtn.copied {
+    background: #4CAF50;
 }
