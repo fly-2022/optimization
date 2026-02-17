@@ -364,6 +364,13 @@ function setShift(shift) {
         morningBtn.classList.remove("active");
     }
 
+    // 🔥 ADD THIS
+    if (currentMode === "arrival") {
+        currentColor = "#4CAF50";
+    } else {
+        currentColor = "#FF9800";
+    }
+
     isDragging = false;   // <--- add this
     dragMode = "add";     // <--- add this
 
@@ -378,6 +385,8 @@ nightBtn.onclick = () => setShift("night");
 /* ---------------- INIT ---------------- */
 setMode("arrival");
 setShift("morning");
+
+
 
 /* ---------------- Excel Template Loading ---------------- */
 async function loadExcelTemplate() {
