@@ -97,7 +97,7 @@ function generateTimeSlots() {
             if (hour > endHour || (hour === endHour && minute > endMinute)) break;
         } else { // night
             // stop when we reach the next day endHour:endMinute
-            if (hour === endHour && minute > endMinute) break;
+            if (hour === endHour && minute === endMinute) break;
         }
     }
 
