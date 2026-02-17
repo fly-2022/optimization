@@ -312,102 +312,89 @@ function updateMainRoster() {
     tbody.innerHTML = "";
 
     const times = generateTimeSlots();
-    const officerMap = {}; // officerNum => [{counter, startIndex, endIndex}]
+    const officerMap = {};
 
-    // Collect all active cells
+    // collect all active cells by officer
     document.querySelectorAll(".counter-cell.active").forEach(cell => {
         const officerNum = cell.dataset.officer;
         if (!officerMap[officerNum]) officerMap[officerNum] = [];
-        officerMap[officerNum].push({
-            counter: cell.dataset.counter,
-            timeIndex: parseInt(cell.dataset.time)
+        officerMap[officerNum].push(parseInt(cell.dataset.time));
+    });
+
+    // for each officer, generate roster chronologically
+    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
+        let slots = officerMap[officerNum];
+        slots.sort((a, b) => a - b);
+
+        let prevEnd = null;
+
+        // group consecutive slots on the same counter
+        let currentGroup = null;
+        slots.forEach((timeIndex, idx) => {
+            const cell = document.querySelector(`.counter-cell.active[data-time="${timeIndex}"][data-officer="${officerNum}"]`);
+            const counter = cell.dataset.counter;
+
+            if (!currentGroup) {
+                currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
+            } else if (counter === currentGroup.counter && timeIndex === currentGroup.endIndex + 1) {
+                currentGroup.endIndex = timeIndex;
+            } else {
+                // output previous group
+                appendRosterRow(currentGroup, prevEnd, officerNum, times);
+                prevEnd = currentGroup.endIndex;
+                currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
+            }
+
+            // output last group at the end
+            if (idx === slots.length - 1) {
+                appendRosterRow(currentGroup, prevEnd, officerNum, times);
+            }
         });
     });
 
-    // For each officer, sort by time and group continuous slots
-    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
-        const slots = officerMap[officerNum];
-        slots.sort((a, b) => a.timeIndex - b.timeIndex);
-
-        let grouped = [];
-        let currentGroup = null;
-
-        slots.forEach(slot => {
-            if (!currentGroup) {
-                currentGroup = { counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
-            } else if (slot.counter === currentGroup.counter && slot.timeIndex === currentGroup.endIndex + 1) {
-                // consecutive slot
-                currentGroup.endIndex = slot.timeIndex;
-            } else {
-                grouped.push(currentGroup);
-                currentGroup = { counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
-            }
-        });
-        if (currentGroup) grouped.push(currentGroup);
-
-        // Add breaks between deployments
-        let lastEnd = -1;
-        grouped.forEach(group => {
-            // break before this slot
-            if (group.startIndex > lastEnd + 1) {
-                const trBreak = document.createElement("tr");
-                const tdOfficer = document.createElement("td");
-                tdOfficer.innerText = officerNum;
-                const tdCounter = document.createElement("td");
-                tdCounter.innerText = "Break";
-                const tdStart = document.createElement("td");
-                tdStart.innerText = formatTime(times[lastEnd + 1] || times[0]);
-                const tdEnd = document.createElement("td");
-                tdEnd.innerText = formatTime(times[group.startIndex - 1]);
-                trBreak.appendChild(tdOfficer);
-                trBreak.appendChild(tdCounter);
-                trBreak.appendChild(tdStart);
-                trBreak.appendChild(tdEnd);
-                tbody.appendChild(trBreak);
-            }
-
-            // active deployment
-            const tr = document.createElement("tr");
-            const tdOfficer = document.createElement("td");
-            tdOfficer.innerText = officerNum;
-            const tdCounter = document.createElement("td");
-            tdCounter.innerText = group.counter;
-            const tdStart = document.createElement("td");
-            tdStart.innerText = formatTime(times[group.startIndex]);
-            const tdEnd = document.createElement("td");
-            tdEnd.innerText = formatTime(times[group.endIndex]);
-            tr.appendChild(tdOfficer);
-            tr.appendChild(tdCounter);
-            tr.appendChild(tdStart);
-            tr.appendChild(tdEnd);
-            tbody.appendChild(tr);
-
-            lastEnd = group.endIndex;
-        });
-
-        // break after last deployment
-        if (lastEnd < times.length - 1) {
+    function appendRosterRow(group, prevEnd, officerNum, times) {
+        // Add break if there is a gap
+        if (prevEnd !== null && group.startIndex > prevEnd + 1) {
             const trBreak = document.createElement("tr");
+            trBreak.classList.add("break-row");
             const tdOfficer = document.createElement("td");
             tdOfficer.innerText = officerNum;
             const tdCounter = document.createElement("td");
             tdCounter.innerText = "Break";
             const tdStart = document.createElement("td");
-            tdStart.innerText = formatTime(times[lastEnd + 1]);
+            tdStart.innerText = formatTime(times[prevEnd + 1]);
             const tdEnd = document.createElement("td");
-            tdEnd.innerText = formatTime(times[times.length - 1]);
+            tdEnd.innerText = formatTime(times[group.startIndex]);
             trBreak.appendChild(tdOfficer);
             trBreak.appendChild(tdCounter);
             trBreak.appendChild(tdStart);
             trBreak.appendChild(tdEnd);
             tbody.appendChild(trBreak);
         }
-    });
+
+        // Add deployment
+        const tr = document.createElement("tr");
+        const tdOfficer = document.createElement("td");
+        tdOfficer.innerText = officerNum;
+        const tdCounter = document.createElement("td");
+        tdCounter.innerText = group.counter;
+        const tdStart = document.createElement("td");
+        tdStart.innerText = formatTime(times[group.startIndex]);
+        const tdEnd = document.createElement("td");
+        // end time is the next slot after the last occupied
+        tdEnd.innerText = formatTime(times[group.endIndex + 1] || times[group.endIndex]);
+        tr.appendChild(tdOfficer);
+        tr.appendChild(tdCounter);
+        tr.appendChild(tdStart);
+        tr.appendChild(tdEnd);
+        tbody.appendChild(tr);
+    }
 
     function formatTime(hhmm) {
         return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
     }
 }
+
 
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
@@ -691,6 +678,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                         .filter(c => c.parentElement.firstChild.innerText === counter)[0];
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
+                                    cell.dataset.officer = officer;  // <- important!
                                 }
                                 assigned = true;
                                 assignedOfficers++;
@@ -738,6 +726,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     const cell = emptyCells[i];
                     cell.classList.add("active");
                     cell.style.background = currentColor;
+                    // assign officer number
+                    cell.dataset.officer = officer;  // <- new
                 }
                 remainingToAdd -= needed;
             });
@@ -752,6 +742,8 @@ document.addEventListener("DOMContentLoaded", function () {
                         const cell = emptyCells[i];
                         cell.classList.add("active");
                         cell.style.background = currentColor;
+                        // assign officer number
+                        cell.dataset.officer = officer;  // <- new
                     }
                     remainingToAdd -= toAdd;
                 });
