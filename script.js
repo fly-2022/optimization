@@ -492,10 +492,17 @@ document.addEventListener("DOMContentLoaded", function () {
             const endIndex = times.findIndex(t => t === specialEnd);
 
             if (startIndex !== -1 && endIndex !== -1) {
+
+                // calculate total 3rd officers to assign
+                let totalThirdOfficers = Math.floor(officerCount / 3);
+                let assignedOfficers = 0;
+
                 for (let officer = 1; officer <= officerCount; officer++) {
                     if (officer % 3 !== 0) continue; // only every 3rd officer
+                    if (assignedOfficers >= totalThirdOfficers) break; // stop if all assigned
 
                     for (let t = startIndex; t <= endIndex; t++) { // <= include last slot
+                        if (assignedOfficers >= totalThirdOfficers) break;
 
                         let assigned = false; // track if this officer got assigned for this time
 
@@ -527,16 +534,18 @@ document.addEventListener("DOMContentLoaded", function () {
                                 cell.classList.add("active");
                                 cell.style.background = currentColor;
                                 assigned = true;
+                                assignedOfficers++; // count this officer as assigned
                                 break; // stop after assigning this officer
                             }
                         }
 
-                        // if all zones are full (50%), skip assigning
+                        // if all zones are full (50%), this officer may skip assignment
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
 
         updateAll();
