@@ -140,9 +140,10 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
-                attachCellEvents(cell);  // ✅ Attach events per cell
+                // DO NOT call attachCellEvents here if using global table handlers
                 row.appendChild(cell);
             });
+
             table.appendChild(row);
         });
 
@@ -162,8 +163,12 @@ function renderTable() {
         table.appendChild(subtotalRow);
     });
 
+    // Keep your **existing global table event delegation** intact
+    // ✅ This ensures manual selection works for all modes/shifts
+
     updateAll();
 }
+
 
 
 // -------------------- Event Delegation --------------------
