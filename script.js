@@ -235,27 +235,34 @@ function toggleCell(cell) {
     if (dragMode === "add") {
         cell.style.background = currentColor;
         cell.classList.add("active");
-    } else {
-        cell.style.background = "";
-        cell.classList.remove("active");
+        // Assign officer number manually
+        if (!cell.dataset.officer) {
+            const officerNumber = prompt("Enter officer number:", "1");
+            if (officerNumber) cell.dataset.officer = officerNumber;
+        } else {
+            cell.style.background = "";
+            cell.classList.remove("active");
+            cell.dataset.officer = ""; // remove officer number
+        }
+        updateAll();
     }
-    updateAll();
-}
 
-function updateAll() {
-    updateSubtotals();
-    updateGrandTotal();
-    updateManningSummary();
-}
+    function updateAll() {
+        updateSubtotals();
+        updateGrandTotal();
+        updateManningSummary();
+        updateMainRoster(); // ← add this line
+    }
 
-function updateSubtotals() {
-    document.querySelectorAll(".subtotal-cell").forEach(td => {
-        let zone = td.dataset.zone;
-        let time = td.dataset.time;
-        let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
-        let sum = cells.filter(c => c.classList.contains("active")).length;
-        td.innerText = sum;
-    });
+    function updateSubtotals() {
+        document.querySelectorAll(".subtotal-cell").forEach(td => {
+            let zone = td.dataset.zone;
+            let time = td.dataset.time;
+            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
+            let sum = cells.filter(c => c.classList.contains("active")).length;
+            td.innerText = sum;
+        });
+    }
 }
 
 function updateGrandTotal() { }
@@ -520,6 +527,8 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (rowCounter === counter) {
                             cell.classList.add("active");
                             cell.style.background = currentColor;
+                            // NEW: assign officer number to the cell
+                            cell.dataset.officer = officer;
                         }
                     });
                 }
@@ -586,6 +595,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                         .filter(c => c.parentElement.firstChild.innerText === counter)[0];
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
+                                    // NEW: track officer number
+                                    cell.dataset.officer = officer;
                                 }
                                 assigned = true;
                                 assignedOfficers++;
@@ -633,6 +644,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     const cell = emptyCells[i];
                     cell.classList.add("active");
                     cell.style.background = currentColor;
+
+                    // NEW: track officer number
+                    cell.dataset.officer = count + 1; // or the actual officer number you want to show
                 }
                 remainingToAdd -= needed;
             });
@@ -729,4 +743,81 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
     });
 
     return emptyCells;
+}
+
+/* ==================== Main Roster Update ==================== */
+function updateMainRoster() {
+    const tbody = document.querySelector("#mainRosterTable tbody");
+    tbody.innerHTML = ""; // clear previous rows
+
+    const times = generateTimeSlots();
+
+    // Get list of all officers by checking cell.dataset.counter that is active
+    const officerMap = {}; // { officerNumber: [{counter, startTime, endTime}, ...] }
+
+    zones[currentMode].forEach(zone => {
+        zone.counters.forEach(counter => {
+            let startIndex = null;
+
+            times.forEach((time, tIndex) => {
+                const cell = document.querySelector(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"][data-counter="${counter}"]`);
+                if (!cell) return;
+
+                if (cell.classList.contains("active")) {
+                    if (startIndex === null) startIndex = tIndex;
+                } else {
+                    if (startIndex !== null) {
+                        // Found end of block
+                        const officerNum = counter.match(/\d+/)[0]; // assume counter contains officer number if needed
+                        if (!officerMap[officerNum]) officerMap[officerNum] = [];
+                        officerMap[officerNum].push({
+                            counter: counter,
+                            startTime: times[startIndex],
+                            endTime: times[tIndex - 1] // last active slot
+                        });
+                        startIndex = null;
+                    }
+                }
+            });
+
+            // If the last cell was active till end
+            if (startIndex !== null) {
+                const officerNum = counter.match(/\d+/)[0];
+                if (!officerMap[officerNum]) officerMap[officerNum] = [];
+                officerMap[officerNum].push({
+                    counter: counter,
+                    startTime: times[startIndex],
+                    endTime: times[times.length - 1]
+                });
+            }
+        });
+    });
+
+    // Populate table
+    Object.keys(officerMap)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .forEach(officerNum => {
+            officerMap[officerNum].forEach(slot => {
+                const tr = document.createElement("tr");
+
+                const tdOfficer = document.createElement("td");
+                tdOfficer.innerText = officerNum;
+
+                const tdCounter = document.createElement("td");
+                tdCounter.innerText = slot.counter;
+
+                const tdStart = document.createElement("td");
+                tdStart.innerText = slot.startTime.slice(0, 2) + ":" + slot.startTime.slice(2);
+
+                const tdEnd = document.createElement("td");
+                tdEnd.innerText = slot.endTime.slice(0, 2) + ":" + slot.endTime.slice(2);
+
+                tr.appendChild(tdOfficer);
+                tr.appendChild(tdCounter);
+                tr.appendChild(tdStart);
+                tr.appendChild(tdEnd);
+
+                tbody.appendChild(tr);
+            });
+        });
 }
