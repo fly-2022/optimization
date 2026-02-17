@@ -8,6 +8,14 @@ let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
 
+// Store all cell states per mode/shift
+const cellStates = {
+    "arrival_morning": {},
+    "arrival_night": {},
+    "departure_morning": {},
+    "departure_night": {}
+};
+
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
 const manningSummaryEl = document.getElementById("manningSummary");
@@ -101,10 +109,8 @@ function generateTimeSlots() {
     return slots;
 }
 
-
-/* ==================== renderTable ==================== */
-function renderTable() {
-    historyStack = [];
+/* ==================== renderTableOnce ==================== */
+function renderTableOnce() {
     table.innerHTML = "";
     const times = generateTimeSlots();
 
@@ -141,6 +147,7 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
+                cell.dataset.counter = counter;
                 row.appendChild(cell);
             });
 
@@ -165,7 +172,11 @@ function renderTable() {
         table.appendChild(subtotalRow);
     });
 
-    // ---------------- Event Delegation --------------------
+    attachTableEvents();
+}
+
+/* ==================== Table Event Handling ==================== */
+function attachTableEvents() {
     table.addEventListener("pointerdown", e => {
         const cell = e.target.closest(".counter-cell");
         if (!cell) return;
@@ -191,6 +202,36 @@ function renderTable() {
 
     document.addEventListener("pointerup", () => isDragging = false);
 
+    // Restore previous selections
+    restoreCellStates();
+}
+
+/* ==================== Save / Restore Cell States ==================== */
+function saveCellStates() {
+    const key = `${currentMode}_${currentShift}`;
+    cellStates[key] = {};
+    document.querySelectorAll(".counter-cell").forEach(cell => {
+        const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
+        cellStates[key][id] = {
+            active: cell.classList.contains("active"),
+            color: cell.style.background
+        };
+    });
+}
+
+function restoreCellStates() {
+    const key = `${currentMode}_${currentShift}`;
+    const state = cellStates[key] || {};
+    document.querySelectorAll(".counter-cell").forEach(cell => {
+        const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
+        if (state[id] && state[id].active) {
+            cell.classList.add("active");
+            cell.style.background = state[id].color;
+        } else {
+            cell.classList.remove("active");
+            cell.style.background = "";
+        }
+    });
     updateAll();
 }
 
@@ -272,7 +313,9 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
 function setMode(mode) {
+    saveCellStates();
     currentMode = mode;
+
     if (mode === "arrival") {
         currentColor = "#4CAF50";
         modeHighlight.style.transform = "translateX(0%)";
@@ -286,11 +329,13 @@ function setMode(mode) {
         departureBtn.classList.add("active");
         arrivalBtn.classList.remove("active");
     }
-    renderTable();
+    renderTableOnce();
 }
 
 function setShift(shift) {
+    saveCellStates();
     currentShift = shift;
+
     if (shift === "morning") {
         shiftHighlight.style.transform = "translateX(0%)";
         shiftHighlight.style.background = "#b0bec5";
@@ -302,7 +347,7 @@ function setShift(shift) {
         nightBtn.classList.add("active");
         morningBtn.classList.remove("active");
     }
-    renderTable();
+    renderTableOnce();
 }
 
 arrivalBtn.onclick = () => setMode("arrival");
@@ -314,6 +359,7 @@ nightBtn.onclick = () => setShift("night");
 setMode("arrival");
 setShift("morning");
 
+/* ---------------- Excel Template Loading ---------------- */
 async function loadExcelTemplate() {
     try {
         const response = await fetch("ROSTER.xlsx");
