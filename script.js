@@ -409,7 +409,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
-
         const sheetData = excelData[sheetName];
 
         if (!sheetData) {
@@ -419,6 +418,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const times = generateTimeSlots();
 
+        // --------------------- ORIGINAL EXCEL ASSIGNMENT ---------------------
         for (let officer = 1; officer <= officerCount; officer++) {
 
             const officerRows = sheetData.filter(row =>
@@ -453,9 +453,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
             });
         }
+        // --------------------- END ORIGINAL EXCEL ASSIGNMENT ---------------------
+
+        // --------------------- EVERY 3RD OFFICER SPECIAL PERIOD ---------------------
+        if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
+
+            // dynamically find start and end for the special period (20:30 → last slot)
+            const specialStart = "2030";
+            const specialEnd = times[times.length - 1]; // last assignable slot based on Excel
+
+            const startIndex = times.findIndex(t => t === specialStart);
+            const endIndex = times.findIndex(t => t === specialEnd);
+
+            if (startIndex !== -1 && endIndex !== -1) {
+                for (let officer = 1; officer <= officerCount; officer++) {
+                    if (officer % 3 !== 0) continue; // only every 3rd officer
+
+                    for (let t = startIndex; t <= endIndex; t++) { // <= to include last slot
+                        zones[currentMode].forEach(zone => {
+                            if (zone.name === "BIKES") return;
+
+                            // find all empty cells in this zone & time
+                            let emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(c => !c.classList.contains("active"));
+
+                            // sort back-to-front by counter number (like addOfficersGlobal)
+                            emptyCells.sort((a, b) => {
+                                const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
+                                const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+                                return numB - numA;
+                            });
+
+                            // assign first available empty cell
+                            if (emptyCells.length > 0) {
+                                const cell = emptyCells[0];
+                                cell.classList.add("active");
+                                cell.style.background = currentColor;
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        // --------------------- END SPECIAL PERIOD ---------------------
 
         updateAll();
     }
+
 
 
     function addOfficersGlobal(count, startTime, endTime) {
