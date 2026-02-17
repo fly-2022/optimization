@@ -111,11 +111,17 @@ function generateTimeSlots() {
 
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
+    const key = `${currentMode}_${currentShift}`;
+    if (renderedTables[key]) {
+        // Table already exists, just restore previous selections
+        restoreCellStates();
+        return;
+    }
+
     table.innerHTML = "";
     const times = generateTimeSlots();
 
     zones[currentMode].forEach(zone => {
-        // Zone header
         let zoneRow = document.createElement("tr");
         let zoneCell = document.createElement("td");
         zoneCell.colSpan = times.length + 1;
@@ -124,7 +130,6 @@ function renderTableOnce() {
         zoneRow.appendChild(zoneCell);
         table.appendChild(zoneRow);
 
-        // Time row
         let timeRow = document.createElement("tr");
         timeRow.className = "time-header";
         timeRow.innerHTML = "<th></th>";
@@ -135,7 +140,6 @@ function renderTableOnce() {
         });
         table.appendChild(timeRow);
 
-        // Counter rows
         zone.counters.forEach(counter => {
             let row = document.createElement("tr");
             let label = document.createElement("td");
@@ -154,7 +158,6 @@ function renderTableOnce() {
             table.appendChild(row);
         });
 
-        // Subtotal row
         let subtotalRow = document.createElement("tr");
         subtotalRow.className = "subtotal-row";
         let subtotalLabel = document.createElement("td");
@@ -173,6 +176,7 @@ function renderTableOnce() {
     });
 
     attachTableEvents();
+    renderedTables[key] = true;
 }
 
 /* ==================== Table Event Handling ==================== */
@@ -312,6 +316,14 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
 });
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
+// Keep track of which mode/shift tables have been rendered
+const renderedTables = {
+    "arrival_morning": false,
+    "arrival_night": false,
+    "departure_morning": false,
+    "departure_night": false
+};
+
 function setMode(mode) {
     saveCellStates();
     currentMode = mode;
