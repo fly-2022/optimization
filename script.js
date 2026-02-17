@@ -59,55 +59,34 @@ document.querySelectorAll(".color-btn").forEach(btn => {
     });
 });
 
-/* ==================== generateTimeSlots ==================== */
 function generateTimeSlots() {
     const slots = [];
-    let startHour, startMinute, endHour, endMinute;
+
+    let start, end;
 
     if (currentShift === "morning") {
-        startHour = 10; startMinute = 0;
-        endHour = 22; endMinute = 0;
-
-        // subtract 15 min to make last slot inclusive
-        endMinute -= 15;
-        if (endMinute < 0) {
-            endHour -= 1;
-            endMinute = 60 + endMinute; // 45
-        }
-    } else { // night shift
-        startHour = 22; startMinute = 0;
-        endHour = 10; endMinute = 0; // next day
-        // no subtraction here
+        start = 10 * 60;        // 1000
+        end = 22 * 60;          // 2200
+    } else {
+        start = 22 * 60;        // 2200
+        end = 34 * 60;          // 1000 next day (22+12)
     }
 
-    let hour = startHour;
-    let minute = startMinute;
+    for (let time = start; time < end; time += 15) {
+        let minutes = time % (24 * 60);
+        let hh = Math.floor(minutes / 60);
+        let mm = minutes % 60;
 
-    while (true) {
-        const hhmm = String(hour).padStart(2, "0") + String(minute).padStart(2, "0");
+        let hhmm =
+            String(hh).padStart(2, "0") +
+            String(mm).padStart(2, "0");
+
         slots.push(hhmm);
-
-        // increment 15 min
-        minute += 15;
-        if (minute >= 60) {
-            hour += 1;
-            minute -= 60;
-        }
-
-        // wrap past midnight
-        if (hour >= 24) hour -= 24;
-
-        // stop condition
-        if (currentShift === "morning") {
-            if (hour > endHour || (hour === endHour && minute > endMinute)) break;
-        } else { // night shift
-            // stop when we reach endHour:endMinute next day
-            if (hour === endHour && minute === endMinute) break;
-        }
     }
 
     return slots;
 }
+
 
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
