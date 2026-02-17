@@ -486,65 +486,68 @@ document.addEventListener("DOMContentLoaded", function () {
         if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
 
             const specialStart = "2030";
-            const specialEnd = times[times.length - 1]; // last assignable slot
-
+            const specialEnd = times[times.length - 1]; // last slot
             const startIndex = times.findIndex(t => t === specialStart);
             const endIndex = times.findIndex(t => t === specialEnd);
 
             if (startIndex !== -1 && endIndex !== -1) {
 
-                // calculate total 3rd officers to assign
-                let totalThirdOfficers = Math.floor(officerCount / 3);
-                let assignedOfficers = 0;
+                const totalOfficers = officerCount;
+                const officersToAssign = Math.floor(totalOfficers / 4); // 1 officer per group of 4
+                let assignedCount = 0;
 
-                for (let officer = 1; officer <= officerCount; officer++) {
-                    if (officer % 3 !== 0) continue; // only every 3rd officer
-                    if (assignedOfficers >= totalThirdOfficers) break; // stop if all assigned
+                for (let officer = 1; officer <= totalOfficers; officer++) {
+                    if (officer % 4 !== 0) continue; // only 4th officer in group
+                    if (assignedCount >= officersToAssign) break;
 
-                    for (let t = startIndex; t <= endIndex; t++) { // <= include last slot
-                        if (assignedOfficers >= totalThirdOfficers) break;
+                    for (let t = startIndex; t <= endIndex; t++) {
 
-                        let assigned = false; // track if this officer got assigned for this time
+                        let assigned = false;
 
-                        // sort zones by current active count (ascending)
-                        const assignZones = zones[currentMode]
-                            .filter(z => z.name !== "BIKES")
-                            .map(z => {
-                                const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${z.name}"][data-time="${t}"]`)]
-                                    .filter(c => c.classList.contains("active")).length;
-                                return { zone: z, activeCount };
-                            })
-                            .sort((a, b) => a.activeCount - b.activeCount); // fewest filled first
+                        // 1️⃣ Prioritize zones under 50% manning
+                        const underHalfZones = zones[currentMode].filter(z => z.name !== "BIKES").filter(zone => {
+                            const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)];
+                            const activeCount = cells.filter(c => c.classList.contains("active")).length;
+                            return activeCount < Math.ceil(zone.counters.length / 2);
+                        });
 
-                        for (let zInfo of assignZones) {
-                            const zone = zInfo.zone;
-                            const activeCount = zInfo.activeCount;
-                            const maxAllowed = Math.ceil(zone.counters.length / 2); // 50% limit
-
+                        for (let z = 0; z < underHalfZones.length; z++) {
+                            const zone = underHalfZones[z];
                             const emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => !c.classList.contains("active"))
-                                .sort((a, b) => {
-                                    const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                    const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                    return numB - numA;
-                                });
-
-                            if (!assigned && emptyCells.length > 0 && activeCount < maxAllowed) {
+                                .filter(c => !c.classList.contains("active"));
+                            if (emptyCells.length > 0) {
                                 const cell = emptyCells[0];
                                 cell.classList.add("active");
                                 cell.style.background = currentColor;
                                 assigned = true;
-                                assignedOfficers++; // count this officer as assigned
-                                break; // stop after assigning this officer
+                                break;
                             }
                         }
 
-                        // if all zones are full (50%), this officer may skip assignment
+                        // 2️⃣ If all under-50% zones are full, assign to any available zone
+                        if (!assigned) {
+                            const allZones = zones[currentMode].filter(z => z.name !== "BIKES");
+                            for (let z = 0; z < allZones.length; z++) {
+                                const zone = allZones[z];
+                                const emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                    .filter(c => !c.classList.contains("active"));
+                                if (emptyCells.length > 0) {
+                                    const cell = emptyCells[0];
+                                    cell.classList.add("active");
+                                    cell.style.background = currentColor;
+                                    break;
+                                }
+                            }
+                        }
+
+                        assignedCount++;
+                        break; // move to next officer
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
 
 
