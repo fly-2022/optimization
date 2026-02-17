@@ -96,12 +96,12 @@ function generateTimeSlots() {
 
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
-    const key = `${currentMode}_${currentShift}`;
-    if (renderedTables[key]) {
-        // Table already exists, just restore previous selections
-        restoreCellStates();
-        return;
-    }
+    // const key = `${currentMode}_${currentShift}`;
+    // if (renderedTables[key]) {
+    //     // Table already exists, just restore previous selections
+    //     restoreCellStates();
+    //     return;
+    // }
 
     table.innerHTML = "";
     tableEventsAttached = false;   // ← ADD THIS LINE
@@ -162,7 +162,7 @@ function renderTableOnce() {
     });
 
     attachTableEvents();
-    renderedTables[key] = true;
+    // renderedTables[key] = true;
 }
 
 /* ==================== Table Event Handling ==================== */
