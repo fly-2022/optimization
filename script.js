@@ -500,40 +500,37 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (officer % 4 !== 0) continue; // only every 4th officer
                     if (assignedOfficers >= officersToAssign) break;
 
-                    // Try to assign this officer to a single counter across all slots
                     let assigned = false;
 
-                    // 1️⃣ Prioritize zones under 50% manning
-                    const candidateZones = zones[currentMode]
-                        .filter(z => z.name !== "BIKES")
-                        .sort((a, b) => b.counters.length - a.counters.length); // back counters first
+                    // back-first priority zones under 50% rule
+                    const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
 
                     for (let z = 0; z < candidateZones.length; z++) {
                         const zone = candidateZones[z];
 
-                        // check each counter in this zone (back first)
+                        // back-first counters
                         const counters = [...zone.counters].reverse();
+
                         for (let c = 0; c < counters.length; c++) {
                             const counter = counters[c];
 
                             // check if counter is free for all slots in special period
                             let isFree = true;
                             for (let t = startIndex; t <= endIndex; t++) {
-                                const cell = document.querySelector(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)
-                                    .parentElement.querySelector(`td:first-child:contains("${counter}")`);
                                 const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
                                     .filter(cell => cell.parentElement.firstChild.innerText === counter);
-                                if (allCells.length === 0 || allCells[0].classList.contains("active")) {
+
+                                if (!allCells.length || allCells[0].classList.contains("active")) {
                                     isFree = false;
                                     break;
                                 }
                             }
 
                             if (isFree) {
-                                // assign this counter for all slots
+                                // assign counter for all slots
                                 for (let t = startIndex; t <= endIndex; t++) {
                                     const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                        .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
+                                        .filter(c => c.parentElement.firstChild.innerText === counter)[0];
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
                                 }
@@ -542,12 +539,14 @@ document.addEventListener("DOMContentLoaded", function () {
                                 break;
                             }
                         }
+
                         if (assigned) break;
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
 
 
