@@ -1,3 +1,9 @@
+/* ================= EXCEL MAIN TEMPLATE SYSTEM ================= */
+
+let excelWorkbook = null;
+let excelData = {};
+
+
 let currentMode = "arrival";
 let currentShift = "morning";
 let currentColor = "#4CAF50";
@@ -266,10 +272,30 @@ nightBtn.onclick = () => setShift("night");
 setMode("arrival");
 setShift("morning");
 
+async function loadExcelTemplate() {
+    try {
+        const response = await fetch("ROSTER.xlsm");
+        const arrayBuffer = await response.arrayBuffer();
+        excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
+
+        excelWorkbook.SheetNames.forEach(sheetName => {
+            const sheet = excelWorkbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet);
+            excelData[sheetName.toLowerCase()] = json;
+        });
+
+        console.log("Excel template loaded.");
+    } catch (err) {
+        console.error("Excel loading failed:", err);
+    }
+}
+
 
 /* ================= MANPOWER SYSTEM ================= */
 
 document.addEventListener("DOMContentLoaded", function () {
+
+    loadExcelTemplate();
 
     let manpowerType = "main";
     let historyStack = [];
@@ -325,6 +351,63 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         updateAll();
     }
+
+    function applyMainTemplate(officerCount) {
+
+        if (!excelWorkbook) {
+            alert("Excel template not loaded.");
+            return;
+        }
+
+        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+
+        const sheetData = excelData[sheetName];
+
+        if (!sheetData) {
+            alert("No sheet found for " + sheetName);
+            return;
+        }
+
+        const times = generateTimeSlots();
+
+        for (let officer = 1; officer <= officerCount; officer++) {
+
+            const officerRows = sheetData.filter(row =>
+                parseInt(row.Officer) === officer
+            );
+
+            officerRows.forEach(row => {
+
+                const counter = row.Counter;
+                const start = row.Start.replace(":", "");
+                const end = row.End.replace(":", "");
+
+                let startIndex = times.findIndex(t => t === start);
+                let endIndex = times.findIndex(t => t === end);
+
+                if (startIndex === -1 || endIndex === -1) return;
+
+                for (let t = startIndex; t < endIndex; t++) {
+
+                    let allCells = [...document.querySelectorAll(
+                        `.counter-cell[data-time="${t}"]`
+                    )];
+
+                    allCells.forEach(cell => {
+                        const rowCounter = cell.parentElement.firstChild.innerText;
+                        if (rowCounter === counter) {
+                            cell.classList.add("active");
+                            cell.style.background = currentColor;
+                        }
+                    });
+                }
+
+            });
+        }
+
+        updateAll();
+    }
+
 
     function addOfficersGlobal(count, startTime, endTime) {
         const times = generateTimeSlots();
@@ -412,8 +495,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (manpowerType === "main") {
-            alert("Main template upload to be implemented later.");
+            applyMainTemplate(count);
         }
+
     });
 
     removeBtn.addEventListener("click", () => {
