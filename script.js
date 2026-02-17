@@ -1,4 +1,4 @@
-/* ================= EXCEL MAIN TEMPLATE SYSTEM ================= */ 
+/* ================= EXCEL MAIN TEMPLATE SYSTEM ================= */
 
 let excelWorkbook = null;
 let excelData = {};
@@ -267,7 +267,7 @@ function updateSubtotals() {
     });
 }
 
-function updateGrandTotal() {}
+function updateGrandTotal() { }
 
 function updateManningSummary() {
     const times = generateTimeSlots();
@@ -341,6 +341,10 @@ function setMode(mode) {
         departureBtn.classList.add("active");
         arrivalBtn.classList.remove("active");
     }
+
+    isDragging = false;   // <--- add this
+    dragMode = "add";     // <--- add this
+
     renderTableOnce();
 }
 
@@ -359,6 +363,10 @@ function setShift(shift) {
         nightBtn.classList.add("active");
         morningBtn.classList.remove("active");
     }
+
+    isDragging = false;   // <--- add this
+    dragMode = "add";     // <--- add this
+
     renderTableOnce();
 }
 
