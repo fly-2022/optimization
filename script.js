@@ -428,8 +428,22 @@ document.addEventListener("DOMContentLoaded", function () {
             officerRows.forEach(row => {
 
                 const counter = row.Counter;
-                const start = row.Start.replace(":", "");
-                const end = row.End.replace(":", "");
+                function normalizeExcelTime(value) {
+                    if (!value) return "";
+
+                    let str = value.toString().trim();
+
+                    // If Excel returns HH:MM:SS
+                    if (str.includes(":")) {
+                        str = str.substring(0, 5);
+                        return str.replace(":", "");
+                    }
+
+                    return str.padStart(4, "0");
+                }
+
+                const start = normalizeExcelTime(row.Start);
+                const end = normalizeExcelTime(row.End);
 
                 let startIndex = times.findIndex(t => t === start);
                 let endIndex = times.findIndex(t => t === end);
@@ -450,6 +464,9 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     });
                 }
+
+                console.log("Officer", officer, "Counter", counter, "Start", start, "End", end);
+                console.log("startIndex:", startIndex, "endIndex:", endIndex);
 
             });
         }
