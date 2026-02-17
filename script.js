@@ -140,7 +140,9 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
-                // attachCellEvents(cell);  <-- REMOVE THIS
+
+                attachCellEvents(cell);
+
                 row.appendChild(cell);
             });
             table.appendChild(row);
