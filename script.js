@@ -514,8 +514,12 @@ document.addEventListener("DOMContentLoaded", function () {
                                 return numB - numA;
                             });
 
-                            // assign first available empty cell if not already assigned
-                            if (!assigned && emptyCells.length > 0) {
+                            // 50% limit logic
+                            const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(c => c.classList.contains("active")).length;
+                            const maxAllowed = Math.ceil(zone.counters.length / 2); // 50% rule
+
+                            if (!assigned && emptyCells.length > 0 && activeCount < maxAllowed) {
                                 const cell = emptyCells[0];
                                 cell.classList.add("active");
                                 cell.style.background = currentColor;
