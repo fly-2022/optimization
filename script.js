@@ -486,7 +486,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
 
             const specialStart = "2030";
-            const specialEnd = times[times.length - 1]; // last assignable slot based on Excel
+            const specialEnd = times[times.length - 1]; // last assignable slot
 
             const startIndex = times.findIndex(t => t === specialStart);
             const endIndex = times.findIndex(t => t === specialEnd);
@@ -499,40 +499,45 @@ document.addEventListener("DOMContentLoaded", function () {
 
                         let assigned = false; // track if this officer got assigned for this time
 
-                        for (let z = 0; z < zones[currentMode].length; z++) {
-                            const zone = zones[currentMode][z];
-                            if (zone.name === "BIKES") continue;
+                        // sort zones by current active count (ascending)
+                        const assignZones = zones[currentMode]
+                            .filter(z => z.name !== "BIKES")
+                            .map(z => {
+                                const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${z.name}"][data-time="${t}"]`)]
+                                    .filter(c => c.classList.contains("active")).length;
+                                return { zone: z, activeCount };
+                            })
+                            .sort((a, b) => a.activeCount - b.activeCount); // fewest filled first
 
-                            // find all empty cells in this zone & time
-                            let emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => !c.classList.contains("active"));
+                        for (let zInfo of assignZones) {
+                            const zone = zInfo.zone;
+                            const activeCount = zInfo.activeCount;
+                            const maxAllowed = Math.ceil(zone.counters.length / 2); // 50% limit
 
-                            // sort back-to-front by counter number
-                            emptyCells.sort((a, b) => {
-                                const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                return numB - numA;
-                            });
-
-                            // 50% limit logic
-                            const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => c.classList.contains("active")).length;
-                            const maxAllowed = Math.ceil(zone.counters.length / 2); // 50% rule
+                            const emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(c => !c.classList.contains("active"))
+                                .sort((a, b) => {
+                                    const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
+                                    const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+                                    return numB - numA;
+                                });
 
                             if (!assigned && emptyCells.length > 0 && activeCount < maxAllowed) {
                                 const cell = emptyCells[0];
                                 cell.classList.add("active");
                                 cell.style.background = currentColor;
                                 assigned = true;
-                                break; // stop checking other zones for this time
+                                break; // stop after assigning this officer
                             }
                         }
 
+                        // if all zones are full (50%), skip assigning
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
         updateAll();
     }
