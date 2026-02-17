@@ -9,6 +9,11 @@ let isDragging = false;
 let dragMode = "add";
 let tableEventsAttached = false;
 
+function resetDragState() {
+    isDragging = false;
+    dragMode = "add";
+}
+
 // Store all cell states per mode/shift
 const cellStates = {
     "arrival_morning": {},
@@ -311,6 +316,7 @@ const renderedTables = {
 };
 
 function setMode(mode) {
+    resetDragState();
     saveCellStates();
     currentMode = mode;
 
@@ -335,6 +341,7 @@ function setMode(mode) {
 }
 
 function setShift(shift) {
+    resetDragState();
     saveCellStates();
     currentShift = shift;
 
