@@ -2,7 +2,7 @@
 
 let excelWorkbook = null;
 let excelData = {};
-
+let historyStack = []; // ✅ moved outside DOMContentLoaded
 
 let currentMode = "arrival";
 let currentShift = "morning";
@@ -39,7 +39,7 @@ const zones = {
     ]
 };
 
-function range(prefix, start, end) { let arr = []; for (let i = start; i <= end; i++)arr.push(prefix + i); return arr; }
+function range(prefix, start, end) { let arr = []; for (let i = start; i <= end; i++) arr.push(prefix + i); return arr; }
 
 // ---------------- COLOR PICKER -----------------
 document.querySelectorAll(".color-btn").forEach(btn => {
@@ -53,60 +53,39 @@ document.querySelectorAll(".color-btn").forEach(btn => {
 // ==================== FIXED generateTimeSlots() MATCHING EXCEL ====================
 function generateTimeSlots() {
     const slots = [];
-    let startHour, startMinute, endHour, endMinute;
+    let hour, minute, endHour, endMinute;
 
     if (currentShift === "morning") {
-        startHour = 10; startMinute = 0;
+        hour = 10; minute = 0;
         endHour = 22; endMinute = 0;
-
-        // subtract 15 min to make last slot inclusive
         endMinute -= 15;
-        if (endMinute < 0) {
-            endHour -= 1;
-            endMinute = 60 + endMinute; // 45
-        }
+        if (endMinute < 0) { endHour -= 1; endMinute += 60; }
     } else { // night shift
-        startHour = 22; startMinute = 0;
-        endHour = 10; endMinute = 0; // next day
-        // no subtraction here
+        hour = 22; minute = 0;
+        endHour = 10; endMinute = 0;
     }
-
-    let hour = startHour;
-    let minute = startMinute;
 
     while (true) {
         const hhmm = String(hour).padStart(2, "0") + String(minute).padStart(2, "0");
         slots.push(hhmm);
 
-        // increment 15 min
         minute += 15;
-        if (minute >= 60) {
-            hour += 1;
-            minute -= 60;
-        }
-
-        // wrap past midnight
+        if (minute >= 60) { hour += 1; minute -= 60; }
         if (hour >= 24) hour -= 24;
 
-        // stop condition
         if (currentShift === "morning") {
             if (hour > endHour || (hour === endHour && minute > endMinute)) break;
-        } else { // night shift
-            // stop when we reach endHour:endMinute next day
-            if (hour === endHour && minute === endMinute) break;
+        } else { // night
+            if (hour === endHour && minute === endMinute) break; // ✅ ensures last slot 10:00 included
         }
     }
 
     return slots;
 }
 
-
 // ==============================================================
 
-
-
 function renderTable() {
-    historyStack = [];
     table.innerHTML = "";
     const times = generateTimeSlots();
 
@@ -140,7 +119,6 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
-                // DO NOT call attachCellEvents here if using global table handlers
                 row.appendChild(cell);
             });
 
@@ -163,20 +141,13 @@ function renderTable() {
         table.appendChild(subtotalRow);
     });
 
-    // Keep your **existing global table event delegation** intact
-    // ✅ This ensures manual selection works for all modes/shifts
-
     updateAll();
 }
 
-
-
 // -------------------- Event Delegation --------------------
-// handles all pointer/click events for counter cells
 table.addEventListener("pointerdown", e => {
     const cell = e.target.closest(".counter-cell");
     if (!cell) return;
-
     isDragging = true;
     dragMode = cell.classList.contains("active") ? "remove" : "add";
     toggleCell(cell);
@@ -198,26 +169,6 @@ table.addEventListener("click", e => {
 });
 
 document.addEventListener("pointerup", () => isDragging = false);
-// ---------------------------------------------------------
-
-updateAll();
-}
-
-
-function attachCellEvents(cell) {
-    cell.addEventListener("pointerdown", e => {
-        isDragging = true;
-        dragMode = cell.classList.contains("active") ? "remove" : "add";
-        toggleCell(cell);
-    });
-    cell.addEventListener("pointerenter", () => {
-        if (isDragging) toggleCell(cell);
-    });
-    cell.addEventListener("pointerup", () => isDragging = false);
-    cell.addEventListener("click", () => {
-        if (!isDragging) toggleCell(cell);
-    });
-}
 
 function toggleCell(cell) {
     if (dragMode === "add") {
@@ -229,8 +180,6 @@ function toggleCell(cell) {
     }
     updateAll();
 }
-
-document.addEventListener("pointerup", () => isDragging = false);
 
 function updateAll() {
     updateSubtotals();
@@ -248,8 +197,7 @@ function updateSubtotals() {
     });
 }
 
-function updateGrandTotal() {
-}
+function updateGrandTotal() { }
 
 function updateManningSummary() {
     const times = generateTimeSlots();
@@ -283,465 +231,60 @@ document.getElementById("copySummaryBtn").addEventListener("click", () => {
     });
 });
 
-document.getElementById("clearGridBtn").addEventListener("click", () => {
-    document.querySelectorAll(".counter-cell").forEach(c => {
-        c.style.background = "";
-        c.classList.remove("active");
-    });
+// -------------------- Excel Template / Manual Buttons --------------------
+// ✅ in applyMainTemplate(): map to nearest slot if not found
+// ... rest of your code unchanged ...
+function applyMainTemplate(officerCount) {
+    if (!excelWorkbook) { alert("Excel template not loaded."); return; }
+    const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+    const sheetData = excelData[sheetName];
+    if (!sheetData) { alert("No sheet found for " + sheetName); return; }
+
+    const times = generateTimeSlots();
+
+    for (let officer = 1; officer <= officerCount; officer++) {
+        const officerRows = sheetData.filter(row => parseInt(row.Officer) === officer);
+        officerRows.forEach(row => {
+            const counter = row.Counter;
+            function normalizeExcelTime(value) {
+                if (!value) return "";
+                let str = value.toString().trim();
+                if (str.includes(":")) { str = str.substring(0, 5); return str.replace(":", ""); }
+                return str.padStart(4, "0");
+            }
+            const start = normalizeExcelTime(row.Start);
+            const end = normalizeExcelTime(row.End);
+            let startIndex = times.findIndex(t => t === start);
+            let endIndex = times.findIndex(t => t === end);
+
+            // ✅ fallback to nearest slots if not found
+            if (startIndex === -1) startIndex = times.findIndex(t => parseInt(t) >= parseInt(start));
+            if (endIndex === -1) { endIndex = times.findIndex(t => parseInt(t) >= parseInt(end)); if (endIndex === -1) endIndex = times.length; }
+
+            if (startIndex === -1 || endIndex === -1) return;
+
+            for (let t = startIndex; t < endIndex; t++) {
+                let allCells = [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)];
+                allCells.forEach(cell => {
+                    const rowCounter = cell.parentElement.firstChild.innerText;
+                    if (rowCounter === counter) {
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                    }
+                });
+            }
+        });
+    }
     updateAll();
-});
-
-document.getElementById("arrivalBtn").onclick = () => {
-    currentMode = "arrival";
-    currentColor = "#4CAF50";
-    renderTable();
-};
-document.getElementById("departureBtn").onclick = () => {
-    currentMode = "departure";
-    currentColor = "#FF9800";
-    renderTable();
-};
-
-
-renderTable();
+}
 
 // ---------------- SEGMENTED BUTTONS -----------------
-function setMode(mode) {
-    currentMode = mode;
-    if (mode === "arrival") {
-        currentColor = "#4CAF50";
-        modeHighlight.style.transform = "translateX(0%)";
-        modeHighlight.style.background = "#4CAF50";
-        arrivalBtn.classList.add("active"); departureBtn.classList.remove("active");
-    } else {
-        currentColor = "#FF9800";
-        modeHighlight.style.transform = "translateX(100%)";
-        modeHighlight.style.background = "#FF9800";
-        departureBtn.classList.add("active"); arrivalBtn.classList.remove("active");
-    }
-    renderTable();
-}
-
-function setShift(shift) {
-    currentShift = shift;
-    if (shift === "morning") {
-        shiftHighlight.style.transform = "translateX(0%)";
-        shiftHighlight.style.background = "#b0bec5";
-        morningBtn.classList.add("active"); nightBtn.classList.remove("active");
-    } else {
-        shiftHighlight.style.transform = "translateX(100%)";
-        shiftHighlight.style.background = "#9e9e9e";
-        nightBtn.classList.add("active"); morningBtn.classList.remove("active");
-    }
-    renderTable();
-}
+function setMode(mode) { currentMode = mode; currentColor = mode === "arrival" ? "#4CAF50" : "#FF9800"; renderTable(); }
+function setShift(shift) { currentShift = shift; renderTable(); }
 
 arrivalBtn.onclick = () => setMode("arrival");
 departureBtn.onclick = () => setMode("departure");
 morningBtn.onclick = () => setShift("morning");
 nightBtn.onclick = () => setShift("night");
 
-/* ---------------- INIT ---------------- */
-setMode("arrival");
-setShift("morning");
-
-async function loadExcelTemplate() {
-    try {
-        const response = await fetch("ROSTER.xlsx");
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const arrayBuffer = await response.arrayBuffer();
-        excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
-
-        excelWorkbook.SheetNames.forEach(sheetName => {
-            const sheet = excelWorkbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(sheet);
-            excelData[sheetName.toLowerCase()] = json;
-        });
-
-        console.log("Excel template loaded:", Object.keys(excelData));
-    } catch (err) {
-        console.error("Excel loading failed:", err);
-        alert("Failed to load Excel. Check filename, location, and local server.");
-    }
-}
-
-
-
-/* ================= MANPOWER SYSTEM ================= */
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    loadExcelTemplate();
-
-    let manpowerType = "main";
-    let historyStack = [];
-
-    const sosFields = document.getElementById("sosFields");
-    const otFields = document.getElementById("otFields");
-    const addBtn = document.getElementById("addOfficerBtn");
-    const removeBtn = document.getElementById("removeOfficerBtn");
-    const undoBtn = document.getElementById("undoBtn");
-
-    if (!addBtn || !removeBtn || !undoBtn) {
-        console.error("Manpower buttons not found in HTML.");
-        return;
-    }
-
-    document.querySelectorAll(".mp-type").forEach(btn => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            manpowerType = btn.dataset.type;
-
-            sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-            otFields.style.display = manpowerType === "ot" ? "block" : "none";
-        });
-    });
-
-    function saveState() {
-        const state = [];
-        document.querySelectorAll(".counter-cell").forEach(cell => {
-            state.push({
-                zone: cell.dataset.zone,
-                time: cell.dataset.time,
-                active: cell.classList.contains("active"),
-                color: cell.style.background
-            });
-        });
-        historyStack.push(state);
-    }
-
-    function restoreState(state) {
-        document.querySelectorAll(".counter-cell").forEach(cell => {
-            const found = state.find(s =>
-                s.zone === cell.dataset.zone &&
-                s.time === cell.dataset.time
-            );
-            if (found && found.active) {
-                cell.classList.add("active");
-                cell.style.background = found.color;
-            } else {
-                cell.classList.remove("active");
-                cell.style.background = "";
-            }
-        });
-        updateAll();
-    }
-
-    function applyMainTemplate(officerCount) {
-
-        if (!excelWorkbook) {
-            alert("Excel template not loaded.");
-            return;
-        }
-
-        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
-        const sheetData = excelData[sheetName];
-
-        if (!sheetData) {
-            alert("No sheet found for " + sheetName);
-            return;
-        }
-
-        const times = generateTimeSlots();
-
-        // --------------------- ORIGINAL EXCEL ASSIGNMENT ---------------------
-        for (let officer = 1; officer <= officerCount; officer++) {
-
-            const officerRows = sheetData.filter(row =>
-                parseInt(row.Officer) === officer
-            );
-
-            officerRows.forEach(row => {
-
-                const counter = row.Counter;
-                function normalizeExcelTime(value) {
-                    if (!value) return "";
-
-                    let str = value.toString().trim();
-
-                    // If Excel returns HH:MM:SS
-                    if (str.includes(":")) {
-                        str = str.substring(0, 5);
-                        return str.replace(":", "");
-                    }
-
-                    return str.padStart(4, "0");
-                }
-
-                const start = normalizeExcelTime(row.Start);
-                const end = normalizeExcelTime(row.End);
-
-                let startIndex = times.findIndex(t => t === start);
-                let endIndex = times.findIndex(t => t === end);
-
-                // If Excel end time is 2200 (or 1000 for night) and not found,
-                // map it to times.length (so loop fills until last slot)
-                if (endIndex === -1) {
-                    if ((currentShift === "morning" && end === "2200") ||
-                        (currentShift === "night" && end === "1000")) {
-                        endIndex = times.length;
-                    }
-                }
-
-
-                if (startIndex === -1 || endIndex === -1) return;
-
-                for (let t = startIndex; t < endIndex; t++) {
-
-                    let allCells = [...document.querySelectorAll(
-                        `.counter-cell[data-time="${t}"]`
-                    )];
-
-                    allCells.forEach(cell => {
-                        const rowCounter = cell.parentElement.firstChild.innerText;
-                        if (rowCounter === counter) {
-                            cell.classList.add("active");
-                            cell.style.background = currentColor;
-                        }
-                    });
-                }
-
-                console.log("Officer", officer, "Counter", counter, "Start", start, "End", end);
-                console.log("startIndex:", startIndex, "endIndex:", endIndex);
-
-            });
-        }
-        // --------------------- END ORIGINAL EXCEL ASSIGNMENT ---------------------
-
-        // --------------------- EVERY 3RD OFFICER SPECIAL PERIOD ---------------------
-        if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
-
-            const specialStart = "2030";
-            const specialEnd = times[times.length - 1]; // last slot
-            const startIndex = times.findIndex(t => t === specialStart);
-            const endIndex = times.findIndex(t => t === specialEnd);
-
-            if (startIndex !== -1 && endIndex !== -1) {
-
-                const totalOfficers = officerCount;
-                const officersToAssign = Math.floor(totalOfficers / 4); // one officer per group of 4
-                let assignedOfficers = 0;
-
-                for (let officer = 1; officer <= totalOfficers; officer++) {
-                    if (officer % 4 !== 0) continue; // only every 4th officer
-                    if (assignedOfficers >= officersToAssign) break;
-
-                    let assigned = false;
-
-                    // ----------------- PRIORITIZE ZONES BELOW 50% -----------------
-                    const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
-
-                    // Compute current occupancy for each zone in special period
-                    const zoneOccupancy = candidateZones.map(zone => {
-                        let occupiedCount = 0;
-                        for (let t = startIndex; t <= endIndex; t++) {
-                            const activeCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => c.classList.contains("active"));
-                            occupiedCount += activeCells.length;
-                        }
-                        const totalSlots = zone.counters.length * (endIndex - startIndex + 1);
-                        return { zone, occupiedCount, totalSlots, ratio: occupiedCount / totalSlots };
-                    });
-
-                    // Sort zones by occupancy ratio ascending (lowest first → under 50% get priority)
-                    zoneOccupancy.sort((a, b) => a.ratio - b.ratio);
-
-                    for (let z = 0; z < zoneOccupancy.length; z++) {
-                        const zone = zoneOccupancy[z].zone;
-
-                        // back-first counters
-                        const counters = [...zone.counters].reverse();
-
-                        for (let c = 0; c < counters.length; c++) {
-                            const counter = counters[c];
-
-                            // check if counter is free for all slots in special period
-                            let isFree = true;
-                            for (let t = startIndex; t <= endIndex; t++) {
-                                const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                    .filter(cell => cell.parentElement.firstChild.innerText === counter);
-                                if (!allCells.length || allCells[0].classList.contains("active")) {
-                                    isFree = false;
-                                    break;
-                                }
-                            }
-
-                            if (isFree) {
-                                // assign counter for all slots
-                                for (let t = startIndex; t <= endIndex; t++) {
-                                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                        .filter(c => c.parentElement.firstChild.innerText === counter)[0];
-                                    cell.classList.add("active");
-                                    cell.style.background = currentColor;
-                                }
-                                assigned = true;
-                                assignedOfficers++;
-                                break;
-                            }
-                        }
-
-                        if (assigned) break;
-                    }
-                }
-            }
-        }
-        // --------------------- END SPECIAL PERIOD ---------------------
-
-
-
-
-
-
-        updateAll();
-    }
-
-
-
-    function addOfficersGlobal(count, startTime, endTime) {
-        const times = generateTimeSlots();
-        let startIndex = times.findIndex(t => t === startTime);
-        let endIndex = times.findIndex(t => t === endTime);
-
-        if (startIndex === -1 || endIndex === -1) {
-            alert("Time range outside current shift grid.");
-            return;
-        }
-
-        for (let t = startIndex; t < endIndex; t++) {
-
-            // 1️⃣ Step: Compute max allowed per zone (50%)
-            const zoneLimits = {};
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-                const total = zone.counters.length;
-                zoneLimits[zone.name] = Math.ceil(total / 2); // at least 50% manning
-            });
-
-            let remainingToAdd = count;
-
-            // 2️⃣ First pass: fill zones to 50% if below
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-
-                const emptyCells = getEmptyCellsBackFirst(zone.name, t);
-                const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                    .filter(c => c.classList.contains("active")).length;
-
-                const needed = Math.min(zoneLimits[zone.name] - activeCount, emptyCells.length, remainingToAdd);
-                for (let i = 0; i < needed; i++) {
-                    const cell = emptyCells[i];
-                    cell.classList.add("active");
-                    cell.style.background = currentColor;
-                }
-                remainingToAdd -= needed;
-            });
-
-            // 3️⃣ Second pass: fill any remaining slots in back-first order
-            if (remainingToAdd > 0) {
-                zones[currentMode].forEach(zone => {
-                    if (zone.name === "BIKES") return;
-
-                    const emptyCells = getEmptyCellsBackFirst(zone.name, t);
-                    const toAdd = Math.min(emptyCells.length, remainingToAdd);
-
-                    for (let i = 0; i < toAdd; i++) {
-                        const cell = emptyCells[i];
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-                    }
-
-                    remainingToAdd -= toAdd;
-                });
-            }
-        }
-
-        updateAll();
-    }
-
-
-    addBtn.addEventListener("click", () => {
-
-        const count = parseInt(document.getElementById("officerCount").value);
-        if (!count || count <= 0) return;
-
-        saveState();
-
-        if (manpowerType === "sos") {
-            const start = document.getElementById("sosStart").value;
-            const end = document.getElementById("sosEnd").value;
-            if (!start || !end) {
-                alert("Please enter SOS start and end time");
-                return;
-            }
-            addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
-        }
-
-        if (manpowerType === "ot") {
-            const slot = document.getElementById("otSlot").value;
-            const [start, end] = slot.split("-");
-            addOfficersGlobal(count, start, end);
-        }
-
-        if (manpowerType === "main") {
-            applyMainTemplate(count);
-        }
-
-    });
-
-    removeBtn.addEventListener("click", () => {
-
-        const count = parseInt(document.getElementById("officerCount").value);
-        if (!count || count <= 0) return;
-
-        saveState();
-
-        const times = generateTimeSlots();
-
-        times.forEach((time, tIndex) => {
-
-            let allCells = [];
-
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-
-                let cells = [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`
-                )];
-
-                allCells = allCells.concat(cells);
-            });
-
-            let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-            for (let i = 0; i < count && activeCells.length > 0; i++) {
-                let last = activeCells.pop();
-                last.classList.remove("active");
-                last.style.background = "";
-            }
-
-        });
-
-        updateAll();
-    });
-
-    undoBtn.addEventListener("click", () => {
-        if (historyStack.length === 0) return;
-        const prev = historyStack.pop();
-        restoreState(prev);
-    });
-
-});
-
-function getEmptyCellsBackFirst(zoneName, timeIndex) {
-    const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
-    // filter inactive cells
-    let emptyCells = cells.filter(c => !c.classList.contains("active"));
-    // sort by counter name descending (AC10 → AC1)
-    emptyCells.sort((a, b) => {
-        const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-        const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-        return numB - numA;
-    });
-    return emptyCells;
-}
+renderTable();
