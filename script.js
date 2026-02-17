@@ -59,17 +59,15 @@ function generateTimeSlots() {
         startHour = 10; startMinute = 0;
         endHour = 22; endMinute = 0; // Excel end time
 
-        // subtract 15 min to make last slot inclusive
         endMinute -= 15;
         if (endMinute < 0) {
             endHour -= 1;
-            endMinute = 60 + endMinute; // 60 + (-15) = 45
+            endMinute = 60 + endMinute;
         }
     } else { // night shift
         startHour = 22; startMinute = 0;
-        endHour = 10; endMinute = 0; // Excel end time next day
+        endHour = 10; endMinute = 0;
 
-        // subtract 15 min to stop at last assignable slot
         endMinute -= 15;
         if (endMinute < 0) {
             endHour -= 1;
@@ -98,8 +96,8 @@ function generateTimeSlots() {
         if (currentShift === "morning") {
             if (hour > endHour || (hour === endHour && minute > endMinute)) break;
         } else { // night
-            // stop when we reach endHour:endMinute next day or looped past startHour
-            if ((hour === endHour && minute > endMinute) || (hour === startHour && slots.length > 1)) break;
+            // stop when we reach the next day endHour:endMinute
+            if (hour === endHour && minute > endMinute) break;
         }
     }
 
