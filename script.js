@@ -235,564 +235,498 @@ function toggleCell(cell) {
     if (dragMode === "add") {
         cell.style.background = currentColor;
         cell.classList.add("active");
-        // Assign officer number manually
-        if (!cell.dataset.officer) {
-            const officerNumber = prompt("Enter officer number:", "1");
-            if (officerNumber) cell.dataset.officer = officerNumber;
-        } else {
-            cell.style.background = "";
-            cell.classList.remove("active");
-            cell.dataset.officer = ""; // remove officer number
-        }
-        updateAll();
+    } else {
+        cell.style.background = "";
+        cell.classList.remove("active");
     }
+    updateAll();
+}
 
-    function updateAll() {
-        updateSubtotals();
-        updateGrandTotal();
-        updateManningSummary();
-    }
+function updateAll() {
+    updateSubtotals();
+    updateGrandTotal();
+    updateManningSummary();
+}
 
-    function updateSubtotals() {
-        document.querySelectorAll(".subtotal-cell").forEach(td => {
-            let zone = td.dataset.zone;
-            let time = td.dataset.time;
-            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
-            let sum = cells.filter(c => c.classList.contains("active")).length;
-            td.innerText = sum;
-        });
-    }
+function updateSubtotals() {
+    document.querySelectorAll(".subtotal-cell").forEach(td => {
+        let zone = td.dataset.zone;
+        let time = td.dataset.time;
+        let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
+        let sum = cells.filter(c => c.classList.contains("active")).length;
+        td.innerText = sum;
+    });
+}
 
-    function updateGrandTotal() { }
+function updateGrandTotal() { }
 
-    function updateManningSummary() {
-        const times = generateTimeSlots();
-        let text = "";
+function updateManningSummary() {
+    const times = generateTimeSlots();
+    let text = "";
 
-        times.forEach((time, i) => {
-            let totalCars = 0;
-            let zoneBreakdown = [];
+    times.forEach((time, i) => {
+        let totalCars = 0;
+        let zoneBreakdown = [];
 
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-                let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${i}"]`)];
-                let count = cells.filter(c => c.classList.contains("active")).length;
-                totalCars += count;
-                zoneBreakdown.push(count);
-            });
-
-            let bikeCells = [...document.querySelectorAll(`.counter-cell[data-zone="BIKES"][data-time="${i}"]`)];
-            let bikeCount = bikeCells.filter(c => c.classList.contains("active")).length;
-
-            text += `${time}: ${String(totalCars).padStart(2, "0")}/${String(bikeCount).padStart(2, "0")}\n${zoneBreakdown.join("/")}\n\n`;
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${i}"]`)];
+            let count = cells.filter(c => c.classList.contains("active")).length;
+            totalCars += count;
+            zoneBreakdown.push(count);
         });
 
-        manningSummary.textContent = text;
+        let bikeCells = [...document.querySelectorAll(`.counter-cell[data-zone="BIKES"][data-time="${i}"]`)];
+        let bikeCount = bikeCells.filter(c => c.classList.contains("active")).length;
+
+        text += `${time}: ${String(totalCars).padStart(2, "0")}/${String(bikeCount).padStart(2, "0")}\n${zoneBreakdown.join("/")}\n\n`;
+    });
+
+    manningSummary.textContent = text;
+}
+
+/* ---------------- Button Event Listeners ----------------- */
+document.getElementById("copySummaryBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText(manningSummary.textContent).then(() => {
+        let btn = document.getElementById("copySummaryBtn");
+        btn.classList.add("copied");
+        btn.innerText = "Copied ✓";
+        setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.innerText = "Copy Manning Summary";
+        }, 2000);
+    });
+});
+
+document.getElementById("clearGridBtn").addEventListener("click", () => {
+    document.querySelectorAll(".counter-cell").forEach(c => {
+        c.style.background = "";
+        c.classList.remove("active");
+    });
+    updateAll();
+});
+
+/* ---------------- Mode & Shift Segmented Buttons ----------------- */
+// Keep track of which mode/shift tables have been rendered
+const renderedTables = {
+    "arrival_morning": false,
+    "arrival_night": false,
+    "departure_morning": false,
+    "departure_night": false
+};
+
+function setMode(mode) {
+    resetDragState();
+    saveCellStates();
+    currentMode = mode;
+
+    if (mode === "arrival") {
+        currentColor = "#4CAF50";
+        modeHighlight.style.transform = "translateX(0%)";
+        modeHighlight.style.background = "#4CAF50";
+        arrivalBtn.classList.add("active");
+        departureBtn.classList.remove("active");
+    } else {
+        currentColor = "#FF9800";
+        modeHighlight.style.transform = "translateX(100%)";
+        modeHighlight.style.background = "#FF9800";
+        departureBtn.classList.add("active");
+        arrivalBtn.classList.remove("active");
     }
 
-    /* ---------------- Button Event Listeners ----------------- */
-    document.getElementById("copySummaryBtn").addEventListener("click", () => {
-        navigator.clipboard.writeText(manningSummary.textContent).then(() => {
-            let btn = document.getElementById("copySummaryBtn");
-            btn.classList.add("copied");
-            btn.innerText = "Copied ✓";
-            setTimeout(() => {
-                btn.classList.remove("copied");
-                btn.innerText = "Copy Manning Summary";
-            }, 2000);
+    isDragging = false;   // <--- add this
+    dragMode = "add";     // <--- add this
+
+    renderTableOnce();
+}
+
+function setShift(shift) {
+    resetDragState();
+    saveCellStates();
+    currentShift = shift;
+
+    if (shift === "morning") {
+        shiftHighlight.style.transform = "translateX(0%)";
+        shiftHighlight.style.background = "#b0bec5";
+        morningBtn.classList.add("active");
+        nightBtn.classList.remove("active");
+    } else {
+        shiftHighlight.style.transform = "translateX(100%)";
+        shiftHighlight.style.background = "#9e9e9e";
+        nightBtn.classList.add("active");
+        morningBtn.classList.remove("active");
+    }
+
+    // 🔥 ADD THIS
+    if (currentMode === "arrival") {
+        currentColor = "#4CAF50";
+    } else {
+        currentColor = "#FF9800";
+    }
+
+    isDragging = false;   // <--- add this
+    dragMode = "add";     // <--- add this
+
+    renderTableOnce();
+}
+
+arrivalBtn.onclick = () => setMode("arrival");
+departureBtn.onclick = () => setMode("departure");
+morningBtn.onclick = () => setShift("morning");
+nightBtn.onclick = () => setShift("night");
+
+/* ---------------- INIT ---------------- */
+setMode("arrival");
+setShift("morning");
+
+
+
+/* ---------------- Excel Template Loading ---------------- */
+async function loadExcelTemplate() {
+    try {
+        const response = await fetch("ROSTER.xlsx");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
+
+        excelWorkbook.SheetNames.forEach(sheetName => {
+            const sheet = excelWorkbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet);
+            excelData[sheetName.toLowerCase()] = json;
+        });
+
+        console.log("Excel template loaded:", Object.keys(excelData));
+    } catch (err) {
+        console.error("Excel loading failed:", err);
+        alert("Failed to load Excel. Check filename, location, and local server.");
+    }
+}
+
+/* ================= MANPOWER SYSTEM ================= */
+document.addEventListener("DOMContentLoaded", function () {
+    attachTableEvents();
+
+    loadExcelTemplate();
+
+    let manpowerType = "main";
+    let historyStack = [];
+
+    const sosFields = document.getElementById("sosFields");
+    const otFields = document.getElementById("otFields");
+    const addBtn = document.getElementById("addOfficerBtn");
+    const removeBtn = document.getElementById("removeOfficerBtn");
+    const undoBtn = document.getElementById("undoBtn");
+
+    if (!addBtn || !removeBtn || !undoBtn) {
+        console.error("Manpower buttons not found in HTML.");
+        return;
+    }
+
+    // -------------------- Select Manpower Type --------------------
+    document.querySelectorAll(".mp-type").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            manpowerType = btn.dataset.type;
+
+            sosFields.style.display = manpowerType === "sos" ? "block" : "none";
+            otFields.style.display = manpowerType === "ot" ? "block" : "none";
         });
     });
 
-    document.getElementById("clearGridBtn").addEventListener("click", () => {
-        document.querySelectorAll(".counter-cell").forEach(c => {
-            c.style.background = "";
-            c.classList.remove("active");
+    // -------------------- Save / Restore State --------------------
+    function saveState() {
+        const state = [];
+        document.querySelectorAll(".counter-cell").forEach(cell => {
+            state.push({
+                zone: cell.dataset.zone,
+                time: cell.dataset.time,
+                active: cell.classList.contains("active"),
+                color: cell.style.background
+            });
+        });
+        historyStack.push(state);
+    }
+
+    function restoreState(state) {
+        document.querySelectorAll(".counter-cell").forEach(cell => {
+            const found = state.find(s => s.zone === cell.dataset.zone && s.time === cell.dataset.time);
+            if (found && found.active) {
+                cell.classList.add("active");
+                cell.style.background = found.color;
+            } else {
+                cell.classList.remove("active");
+                cell.style.background = "";
+            }
         });
         updateAll();
-    });
-
-    /* ---------------- Mode & Shift Segmented Buttons ----------------- */
-    // Keep track of which mode/shift tables have been rendered
-    const renderedTables = {
-        "arrival_morning": false,
-        "arrival_night": false,
-        "departure_morning": false,
-        "departure_night": false
-    };
-
-    function setMode(mode) {
-        resetDragState();
-        saveCellStates();
-        currentMode = mode;
-
-        if (mode === "arrival") {
-            currentColor = "#4CAF50";
-            modeHighlight.style.transform = "translateX(0%)";
-            modeHighlight.style.background = "#4CAF50";
-            arrivalBtn.classList.add("active");
-            departureBtn.classList.remove("active");
-        } else {
-            currentColor = "#FF9800";
-            modeHighlight.style.transform = "translateX(100%)";
-            modeHighlight.style.background = "#FF9800";
-            departureBtn.classList.add("active");
-            arrivalBtn.classList.remove("active");
-        }
-
-        isDragging = false;   // <--- add this
-        dragMode = "add";     // <--- add this
-
-        renderTableOnce();
     }
 
-    function setShift(shift) {
-        resetDragState();
-        saveCellStates();
-        currentShift = shift;
-
-        if (shift === "morning") {
-            shiftHighlight.style.transform = "translateX(0%)";
-            shiftHighlight.style.background = "#b0bec5";
-            morningBtn.classList.add("active");
-            nightBtn.classList.remove("active");
-        } else {
-            shiftHighlight.style.transform = "translateX(100%)";
-            shiftHighlight.style.background = "#9e9e9e";
-            nightBtn.classList.add("active");
-            morningBtn.classList.remove("active");
-        }
-
-        // 🔥 ADD THIS
-        if (currentMode === "arrival") {
-            currentColor = "#4CAF50";
-        } else {
-            currentColor = "#FF9800";
-        }
-
-        isDragging = false;   // <--- add this
-        dragMode = "add";     // <--- add this
-
-        renderTableOnce();
-    }
-
-    arrivalBtn.onclick = () => setMode("arrival");
-    departureBtn.onclick = () => setMode("departure");
-    morningBtn.onclick = () => setShift("morning");
-    nightBtn.onclick = () => setShift("night");
-
-    /* ---------------- INIT ---------------- */
-    setMode("arrival");
-    setShift("morning");
-
-
-
-    /* ---------------- Excel Template Loading ---------------- */
-    async function loadExcelTemplate() {
-        try {
-            const response = await fetch("ROSTER.xlsx");
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-            const arrayBuffer = await response.arrayBuffer();
-            excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
-
-            excelWorkbook.SheetNames.forEach(sheetName => {
-                const sheet = excelWorkbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(sheet);
-                excelData[sheetName.toLowerCase()] = json;
-            });
-
-            console.log("Excel template loaded:", Object.keys(excelData));
-        } catch (err) {
-            console.error("Excel loading failed:", err);
-            alert("Failed to load Excel. Check filename, location, and local server.");
-        }
-    }
-
-    /* ================= MANPOWER SYSTEM ================= */
-    document.addEventListener("DOMContentLoaded", function () {
-        attachTableEvents();
-
-        loadExcelTemplate();
-
-        let manpowerType = "main";
-        let historyStack = [];
-
-        const sosFields = document.getElementById("sosFields");
-        const otFields = document.getElementById("otFields");
-        const addBtn = document.getElementById("addOfficerBtn");
-        const removeBtn = document.getElementById("removeOfficerBtn");
-        const undoBtn = document.getElementById("undoBtn");
-
-        if (!addBtn || !removeBtn || !undoBtn) {
-            console.error("Manpower buttons not found in HTML.");
+    // -------------------- Main Template Assignment --------------------
+    function applyMainTemplate(officerCount) {
+        if (!excelWorkbook) {
+            alert("Excel template not loaded.");
             return;
         }
 
-        // -------------------- Select Manpower Type --------------------
-        document.querySelectorAll(".mp-type").forEach(btn => {
-            btn.addEventListener("click", () => {
-                document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
+        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+        const sheetData = excelData[sheetName];
 
-                manpowerType = btn.dataset.type;
-
-                sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-                otFields.style.display = manpowerType === "ot" ? "block" : "none";
-            });
-        });
-
-        // -------------------- Save / Restore State --------------------
-        function saveState() {
-            const state = [];
-            document.querySelectorAll(".counter-cell").forEach(cell => {
-                state.push({
-                    zone: cell.dataset.zone,
-                    time: cell.dataset.time,
-                    active: cell.classList.contains("active"),
-                    color: cell.style.background
-                });
-            });
-            historyStack.push(state);
+        if (!sheetData) {
+            alert("No sheet found for " + sheetName);
+            return;
         }
 
-        function restoreState(state) {
-            document.querySelectorAll(".counter-cell").forEach(cell => {
-                const found = state.find(s => s.zone === cell.dataset.zone && s.time === cell.dataset.time);
-                if (found && found.active) {
-                    cell.classList.add("active");
-                    cell.style.background = found.color;
-                } else {
-                    cell.classList.remove("active");
-                    cell.style.background = "";
+        const times = generateTimeSlots();
+
+        // --------------------- Original Excel Assignment ---------------------
+        for (let officer = 1; officer <= officerCount; officer++) {
+            const officerRows = sheetData.filter(row => parseInt(row.Officer) === officer);
+
+            officerRows.forEach(row => {
+                const counter = row.Counter;
+
+                function normalizeExcelTime(value) {
+                    if (!value) return "";
+                    let str = value.toString().trim();
+                    if (str.includes(":")) {
+                        str = str.substring(0, 5);
+                        return str.replace(":", "");
+                    }
+                    return str.padStart(4, "0");
                 }
-            });
-            updateAll();
-        }
 
-        // -------------------- Main Template Assignment --------------------
-        function applyMainTemplate(officerCount) {
-            if (!excelWorkbook) {
-                alert("Excel template not loaded.");
-                return;
-            }
+                const start = normalizeExcelTime(row.Start);
+                const end = normalizeExcelTime(row.End);
 
-            const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
-            const sheetData = excelData[sheetName];
+                let startIndex = times.findIndex(t => t === start);
+                let endIndex = times.findIndex(t => t === end);
 
-            if (!sheetData) {
-                alert("No sheet found for " + sheetName);
-                return;
-            }
-
-            const times = generateTimeSlots();
-
-            // --------------------- Original Excel Assignment ---------------------
-            for (let officer = 1; officer <= officerCount; officer++) {
-                const officerRows = sheetData.filter(row => parseInt(row.Officer) === officer);
-
-                officerRows.forEach(row => {
-                    const counter = row.Counter;
-
-                    function normalizeExcelTime(value) {
-                        if (!value) return "";
-                        let str = value.toString().trim();
-                        if (str.includes(":")) {
-                            str = str.substring(0, 5);
-                            return str.replace(":", "");
-                        }
-                        return str.padStart(4, "0");
-                    }
-
-                    const start = normalizeExcelTime(row.Start);
-                    const end = normalizeExcelTime(row.End);
-
-                    let startIndex = times.findIndex(t => t === start);
-                    let endIndex = times.findIndex(t => t === end);
-
-                    if (endIndex === -1) {
-                        if ((currentShift === "morning" && end === "2200") ||
-                            (currentShift === "night" && end === "1000")) {
-                            endIndex = times.length;
-                        }
-                    }
-
-                    if (startIndex === -1 || endIndex === -1) return;
-
-                    for (let t = startIndex; t < endIndex; t++) {
-                        let allCells = [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)];
-                        allCells.forEach(cell => {
-                            const rowCounter = cell.parentElement.firstChild.innerText;
-                            if (rowCounter === counter) {
-                                cell.classList.add("active");
-                                cell.style.background = currentColor;
-                                // NEW: assign officer number to the cell
-                                cell.dataset.officer = officer;
-                            }
-                        });
-                    }
-
-                    console.log("Officer", officer, "Counter", counter, "Start", start, "End", end);
-                    console.log("startIndex:", startIndex, "endIndex:", endIndex);
-                });
-            }
-
-            // --------------------- Every 3rd Officer Special Period ---------------------
-            if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
-                const specialStart = "2030";
-                const specialEnd = times[times.length - 1]; // last slot
-                const startIndex = times.findIndex(t => t === specialStart);
-                const endIndex = times.findIndex(t => t === specialEnd);
-
-                if (startIndex !== -1 && endIndex !== -1) {
-                    const totalOfficers = officerCount;
-                    const officersToAssign = Math.floor(totalOfficers / 4); // one officer per group of 4
-                    let assignedOfficers = 0;
-
-                    for (let officer = 1; officer <= totalOfficers; officer++) {
-                        if (officer % 4 !== 0) continue; // only every 4th officer
-                        if (assignedOfficers >= officersToAssign) break;
-
-                        let assigned = false;
-
-                        // ----------------- Prioritize Zones Below 50% -----------------
-                        const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
-
-                        const zoneOccupancy = candidateZones.map(zone => {
-                            let occupiedCount = 0;
-                            for (let t = startIndex; t <= endIndex; t++) {
-                                const activeCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                    .filter(c => c.classList.contains("active"));
-                                occupiedCount += activeCells.length;
-                            }
-                            const totalSlots = zone.counters.length * (endIndex - startIndex + 1);
-                            return { zone, occupiedCount, totalSlots, ratio: occupiedCount / totalSlots };
-                        });
-
-                        zoneOccupancy.sort((a, b) => a.ratio - b.ratio);
-
-                        for (let z = 0; z < zoneOccupancy.length; z++) {
-                            const zone = zoneOccupancy[z].zone;
-                            const counters = [...zone.counters].reverse();
-
-                            for (let c = 0; c < counters.length; c++) {
-                                const counter = counters[c];
-                                let isFree = true;
-
-                                for (let t = startIndex; t <= endIndex; t++) {
-                                    const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                        .filter(cell => cell.parentElement.firstChild.innerText === counter);
-                                    if (!allCells.length || allCells[0].classList.contains("active")) {
-                                        isFree = false;
-                                        break;
-                                    }
-                                }
-
-                                if (isFree) {
-                                    for (let t = startIndex; t <= endIndex; t++) {
-                                        const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                            .filter(c => c.parentElement.firstChild.innerText === counter)[0];
-                                        cell.classList.add("active");
-                                        cell.style.background = currentColor;
-                                        // NEW: track officer number
-                                        cell.dataset.officer = officer;
-                                    }
-                                    assigned = true;
-                                    assignedOfficers++;
-                                    break;
-                                }
-                            }
-                            if (assigned) break;
-                        }
+                if (endIndex === -1) {
+                    if ((currentShift === "morning" && end === "2200") ||
+                        (currentShift === "night" && end === "1000")) {
+                        endIndex = times.length;
                     }
                 }
-            }
-            updateAll();
-        }
 
-        // -------------------- Add Officers Global --------------------
-        function addOfficersGlobal(count, startTime, endTime) {
-            const times = generateTimeSlots();
-            let startIndex = times.findIndex(t => t === startTime);
-            let endIndex = times.findIndex(t => t === endTime);
+                if (startIndex === -1 || endIndex === -1) return;
 
-            if (startIndex === -1 || endIndex === -1) {
-                alert("Time range outside current shift grid.");
-                return;
-            }
-
-            for (let t = startIndex; t < endIndex; t++) {
-                const zoneLimits = {};
-                zones[currentMode].forEach(zone => {
-                    if (zone.name === "BIKES") return;
-                    const total = zone.counters.length;
-                    zoneLimits[zone.name] = Math.ceil(total / 2); // at least 50% manning
-                });
-
-                let remainingToAdd = count;
-
-                // First pass: fill zones to 50%
-                zones[currentMode].forEach(zone => {
-                    if (zone.name === "BIKES") return;
-                    const emptyCells = getEmptyCellsBackFirst(zone.name, t);
-                    const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                        .filter(c => c.classList.contains("active")).length;
-
-                    const needed = Math.min(zoneLimits[zone.name] - activeCount, emptyCells.length, remainingToAdd);
-                    for (let i = 0; i < needed; i++) {
-                        const cell = emptyCells[i];
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-
-                        // NEW: track officer number
-                        cell.dataset.officer = count + 1; // or the actual officer number you want to show
-                    }
-                    remainingToAdd -= needed;
-                });
-
-                // Second pass: fill remaining
-                if (remainingToAdd > 0) {
-                    zones[currentMode].forEach(zone => {
-                        if (zone.name === "BIKES") return;
-                        const emptyCells = getEmptyCellsBackFirst(zone.name, t);
-                        const toAdd = Math.min(emptyCells.length, remainingToAdd);
-                        for (let i = 0; i < toAdd; i++) {
-                            const cell = emptyCells[i];
+                for (let t = startIndex; t < endIndex; t++) {
+                    let allCells = [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)];
+                    allCells.forEach(cell => {
+                        const rowCounter = cell.parentElement.firstChild.innerText;
+                        if (rowCounter === counter) {
                             cell.classList.add("active");
                             cell.style.background = currentColor;
                         }
-                        remainingToAdd -= toAdd;
                     });
                 }
-            }
-            updateAll();
+
+                console.log("Officer", officer, "Counter", counter, "Start", start, "End", end);
+                console.log("startIndex:", startIndex, "endIndex:", endIndex);
+            });
         }
 
-        // -------------------- Button Clicks --------------------
-        addBtn.addEventListener("click", () => {
-            const count = parseInt(document.getElementById("officerCount").value);
-            if (!count || count <= 0) return;
+        // --------------------- Every 3rd Officer Special Period ---------------------
+        if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
+            const specialStart = "2030";
+            const specialEnd = times[times.length - 1]; // last slot
+            const startIndex = times.findIndex(t => t === specialStart);
+            const endIndex = times.findIndex(t => t === specialEnd);
 
-            saveState();
+            if (startIndex !== -1 && endIndex !== -1) {
+                const totalOfficers = officerCount;
+                const officersToAssign = Math.floor(totalOfficers / 4); // one officer per group of 4
+                let assignedOfficers = 0;
 
-            if (manpowerType === "sos") {
-                const start = document.getElementById("sosStart").value;
-                const end = document.getElementById("sosEnd").value;
-                if (!start || !end) {
-                    alert("Please enter SOS start and end time");
-                    return;
+                for (let officer = 1; officer <= totalOfficers; officer++) {
+                    if (officer % 4 !== 0) continue; // only every 4th officer
+                    if (assignedOfficers >= officersToAssign) break;
+
+                    let assigned = false;
+
+                    // ----------------- Prioritize Zones Below 50% -----------------
+                    const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
+
+                    const zoneOccupancy = candidateZones.map(zone => {
+                        let occupiedCount = 0;
+                        for (let t = startIndex; t <= endIndex; t++) {
+                            const activeCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(c => c.classList.contains("active"));
+                            occupiedCount += activeCells.length;
+                        }
+                        const totalSlots = zone.counters.length * (endIndex - startIndex + 1);
+                        return { zone, occupiedCount, totalSlots, ratio: occupiedCount / totalSlots };
+                    });
+
+                    zoneOccupancy.sort((a, b) => a.ratio - b.ratio);
+
+                    for (let z = 0; z < zoneOccupancy.length; z++) {
+                        const zone = zoneOccupancy[z].zone;
+                        const counters = [...zone.counters].reverse();
+
+                        for (let c = 0; c < counters.length; c++) {
+                            const counter = counters[c];
+                            let isFree = true;
+
+                            for (let t = startIndex; t <= endIndex; t++) {
+                                const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                    .filter(cell => cell.parentElement.firstChild.innerText === counter);
+                                if (!allCells.length || allCells[0].classList.contains("active")) {
+                                    isFree = false;
+                                    break;
+                                }
+                            }
+
+                            if (isFree) {
+                                for (let t = startIndex; t <= endIndex; t++) {
+                                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                        .filter(c => c.parentElement.firstChild.innerText === counter)[0];
+                                    cell.classList.add("active");
+                                    cell.style.background = currentColor;
+                                }
+                                assigned = true;
+                                assignedOfficers++;
+                                break;
+                            }
+                        }
+                        if (assigned) break;
+                    }
                 }
-                addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
             }
+        }
+        updateAll();
+    }
 
-            if (manpowerType === "ot") {
-                const slot = document.getElementById("otSlot").value;
-                const [start, end] = slot.split("-");
-                addOfficersGlobal(count, start, end);
-            }
+    // -------------------- Add Officers Global --------------------
+    function addOfficersGlobal(count, startTime, endTime) {
+        const times = generateTimeSlots();
+        let startIndex = times.findIndex(t => t === startTime);
+        let endIndex = times.findIndex(t => t === endTime);
 
-            if (manpowerType === "main") {
-                applyMainTemplate(count);
-            }
-        });
+        if (startIndex === -1 || endIndex === -1) {
+            alert("Time range outside current shift grid.");
+            return;
+        }
 
-        removeBtn.addEventListener("click", () => {
-            const count = parseInt(document.getElementById("officerCount").value);
-            if (!count || count <= 0) return;
+        for (let t = startIndex; t < endIndex; t++) {
+            const zoneLimits = {};
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                const total = zone.counters.length;
+                zoneLimits[zone.name] = Math.ceil(total / 2); // at least 50% manning
+            });
 
-            saveState();
+            let remainingToAdd = count;
 
-            const times = generateTimeSlots();
+            // First pass: fill zones to 50%
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                const emptyCells = getEmptyCellsBackFirst(zone.name, t);
+                const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                    .filter(c => c.classList.contains("active")).length;
 
-            times.forEach((time, tIndex) => {
-                let allCells = [];
+                const needed = Math.min(zoneLimits[zone.name] - activeCount, emptyCells.length, remainingToAdd);
+                for (let i = 0; i < needed; i++) {
+                    const cell = emptyCells[i];
+                    cell.classList.add("active");
+                    cell.style.background = currentColor;
+                }
+                remainingToAdd -= needed;
+            });
+
+            // Second pass: fill remaining
+            if (remainingToAdd > 0) {
                 zones[currentMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
-                    let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
-                    allCells = allCells.concat(cells);
+                    const emptyCells = getEmptyCellsBackFirst(zone.name, t);
+                    const toAdd = Math.min(emptyCells.length, remainingToAdd);
+                    for (let i = 0; i < toAdd; i++) {
+                        const cell = emptyCells[i];
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                    }
+                    remainingToAdd -= toAdd;
                 });
-
-                let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-                for (let i = 0; i < count && activeCells.length > 0; i++) {
-                    let last = activeCells.pop();
-                    last.classList.remove("active");
-                    last.style.background = "";
-                }
-            });
-            updateAll();
-        });
-
-        undoBtn.addEventListener("click", () => {
-            if (historyStack.length === 0) return;
-            const prev = historyStack.pop();
-            restoreState(prev);
-        });
-    });
-
-    /* -------------------- Utility: Empty Cells Back-First -------------------- */
-    function getEmptyCellsBackFirst(zoneName, timeIndex) {
-        const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
-        let emptyCells = cells.filter(c => !c.classList.contains("active"));
-
-        emptyCells.sort((a, b) => {
-            const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-            const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-            return numB - numA;
-        });
-
-        return emptyCells;
+            }
+        }
+        updateAll();
     }
 
-    function updateMainRoster() {
-        const rosterTableBody = document.querySelector("#mainRosterTable tbody");
-        rosterTableBody.innerHTML = ""; // clear previous content
+    // -------------------- Button Clicks --------------------
+    addBtn.addEventListener("click", () => {
+        const count = parseInt(document.getElementById("officerCount").value);
+        if (!count || count <= 0) return;
 
-        const times = generateTimeSlots();
-        const officerMap = {}; // { officerNumber: [{counter, startIndex, endIndex}] }
+        saveState();
 
-        // Loop through all active cells
-        document.querySelectorAll(".counter-cell.active").forEach(cell => {
-            const counter = cell.dataset.counter;
-            const timeIndex = parseInt(cell.dataset.time);
-
-            // Assume officer number is stored in cell.dataset.officer (we’ll set this when assigning)
-            const officer = cell.dataset.officer;
-            if (!officer) return;
-
-            if (!officerMap[officer]) officerMap[officer] = [];
-
-            let existing = officerMap[officer].find(r => r.counter === counter && r.endIndex === timeIndex - 1);
-            if (existing) {
-                existing.endIndex = timeIndex; // extend existing slot
-            } else {
-                officerMap[officer].push({ counter, startIndex: timeIndex, endIndex: timeIndex });
+        if (manpowerType === "sos") {
+            const start = document.getElementById("sosStart").value;
+            const end = document.getElementById("sosEnd").value;
+            if (!start || !end) {
+                alert("Please enter SOS start and end time");
+                return;
             }
-        });
-
-        // Convert to table rows
-        Object.keys(officerMap).sort((a, b) => a - b).forEach(officer => {
-            officerMap[officer].forEach(slot => {
-                const tr = document.createElement("tr");
-
-                const startTime = times[slot.startIndex];
-                const endTimeIndex = slot.endIndex + 1 < times.length ? slot.endIndex + 1 : slot.endIndex;
-                const endTime = times[endTimeIndex];
-
-                tr.innerHTML = `
-                <td>${officer}</td>
-                <td>${slot.counter}</td>
-                <td>${formatHHMM(times[slot.startIndex])}</td>
-                <td>${formatHHMM(times[slot.endIndex] + 15)}</td>
-            `;
-                rosterTableBody.appendChild(tr);
-            });
-        });
-        // Helper to convert HHMM -> HH:MM
-        function formatHHMM(time) {
-            let t = time.toString().padStart(4, "0");
-            return t.substring(0, 2) + ":" + t.substring(2, 4);
+            addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
         }
 
+        if (manpowerType === "ot") {
+            const slot = document.getElementById("otSlot").value;
+            const [start, end] = slot.split("-");
+            addOfficersGlobal(count, start, end);
+        }
 
-    }
+        if (manpowerType === "main") {
+            applyMainTemplate(count);
+        }
+    });
+
+    removeBtn.addEventListener("click", () => {
+        const count = parseInt(document.getElementById("officerCount").value);
+        if (!count || count <= 0) return;
+
+        saveState();
+
+        const times = generateTimeSlots();
+
+        times.forEach((time, tIndex) => {
+            let allCells = [];
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
+                allCells = allCells.concat(cells);
+            });
+
+            let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+            for (let i = 0; i < count && activeCells.length > 0; i++) {
+                let last = activeCells.pop();
+                last.classList.remove("active");
+                last.style.background = "";
+            }
+        });
+        updateAll();
+    });
+
+    undoBtn.addEventListener("click", () => {
+        if (historyStack.length === 0) return;
+        const prev = historyStack.pop();
+        restoreState(prev);
+    });
+});
+
+/* -------------------- Utility: Empty Cells Back-First -------------------- */
+function getEmptyCellsBackFirst(zoneName, timeIndex) {
+    const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
+    let emptyCells = cells.filter(c => !c.classList.contains("active"));
+
+    emptyCells.sort((a, b) => {
+        const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
+        const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+        return numB - numA;
+    });
+
+    return emptyCells;
 }
