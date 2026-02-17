@@ -50,17 +50,31 @@ document.querySelectorAll(".color-btn").forEach(btn => {
     });
 });
 
-// ================= FIXED generateTimeSlots() =================
+// ==================== FIXED generateTimeSlots() MATCHING EXCEL ====================
 function generateTimeSlots() {
     const slots = [];
     let startHour, startMinute, endHour, endMinute;
 
     if (currentShift === "morning") {
         startHour = 10; startMinute = 0;
-        endHour = 21; endMinute = 45;
+        endHour = 22; endMinute = 0; // Excel end time
+
+        // subtract 15 min to make last slot inclusive
+        endMinute -= 15;
+        if (endMinute < 0) {
+            endHour -= 1;
+            endMinute = 60 + endMinute; // 60 + (-15) = 45
+        }
     } else { // night shift
         startHour = 22; startMinute = 0;
-        endHour = 9; endMinute = 45; // next day
+        endHour = 10; endMinute = 0; // Excel end time next day
+
+        // subtract 15 min to stop at last assignable slot
+        endMinute -= 15;
+        if (endMinute < 0) {
+            endHour -= 1;
+            endMinute = 60 + endMinute;
+        }
     }
 
     let hour = startHour;
@@ -92,6 +106,7 @@ function generateTimeSlots() {
     return slots;
 }
 // ==============================================================
+
 
 
 function renderTable() {
@@ -589,5 +604,4 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
         return numB - numA;
     });
     return emptyCells;
-
 }
