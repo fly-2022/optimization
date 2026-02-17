@@ -173,7 +173,7 @@ function attachTableEvents() {
         toggleCell(cell);
     });
 
-    table.addEventListener("pointerenter", e => {
+    table.addEventListener("pointerover", e => {
         if (!isDragging) return;
         const cell = e.target.closest(".counter-cell");
         if (!cell) return;
