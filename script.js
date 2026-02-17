@@ -246,7 +246,7 @@ function updateAll() {
     updateSubtotals();
     updateGrandTotal();
     updateManningSummary();
-    updateMainRoster();  // <--- add this line
+    updateMainRoster();  // compact roster
 }
 
 function updateSubtotals() {
@@ -286,87 +286,6 @@ function updateManningSummary() {
     manningSummary.textContent = text;
 }
 
-function updateMainRoster() {
-    const tbody = document.querySelector("#mainRosterTable tbody");
-    tbody.innerHTML = "";
-
-    const times = generateTimeSlots();
-    const officerMap = {}; // { officerNumber: [{counter, startIndex, endIndex}, ...] }
-
-    // Iterate all cells
-    zones[currentMode].forEach(zone => {
-        zone.counters.forEach(counter => {
-            let currentStart = null;
-            let currentOfficer = null;
-
-            times.forEach((time, tIndex) => {
-                const cell = document.querySelector(`.counter-cell[data-zone="${zone.name}"][data-counter="${counter}"][data-time="${tIndex}"]`);
-                if (!cell) return;
-
-                const officerNum = cell.dataset.officer || "1"; // fallback 1
-
-                if (cell.classList.contains("active")) {
-                    if (currentStart === null) {
-                        currentStart = tIndex;
-                        currentOfficer = officerNum;
-                    }
-                } else {
-                    if (currentStart !== null) {
-                        if (!officerMap[currentOfficer]) officerMap[currentOfficer] = [];
-                        officerMap[currentOfficer].push({
-                            counter: counter,
-                            startIndex: currentStart,
-                            endIndex: tIndex - 1
-                        });
-                        currentStart = null;
-                        currentOfficer = null;
-                    }
-                }
-            });
-
-            // handle last block at end of shift
-            if (currentStart !== null) {
-                if (!officerMap[currentOfficer]) officerMap[currentOfficer] = [];
-                officerMap[currentOfficer].push({
-                    counter: counter,
-                    startIndex: currentStart,
-                    endIndex: times.length - 1
-                });
-            }
-        });
-    });
-
-    // Populate table sorted by officer number
-    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
-        officerMap[officerNum].forEach(slot => {
-            const tr = document.createElement("tr");
-
-            const tdOfficer = document.createElement("td");
-            tdOfficer.innerText = officerNum;
-
-            const tdCounter = document.createElement("td");
-            tdCounter.innerText = slot.counter;
-
-            const tdStart = document.createElement("td");
-            const startTime = times[slot.startIndex];
-            tdStart.innerText = startTime.slice(0, 2) + ":" + startTime.slice(2);
-
-            const tdEnd = document.createElement("td");
-            const endTime = times[slot.endIndex];
-            tdEnd.innerText = endTime.slice(0, 2) + ":" + endTime.slice(2);
-
-            tr.appendChild(tdOfficer);
-            tr.appendChild(tdCounter);
-            tr.appendChild(tdStart);
-            tr.appendChild(tdEnd);
-
-            tbody.appendChild(tr);
-        });
-    });
-}
-
-
-
 /* ---------------- Button Event Listeners ----------------- */
 document.getElementById("copySummaryBtn").addEventListener("click", () => {
     navigator.clipboard.writeText(manningSummary.textContent).then(() => {
@@ -387,6 +306,109 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
     });
     updateAll();
 });
+
+function updateMainRoster() {
+    const tbody = document.querySelector("#mainRosterTable tbody");
+    tbody.innerHTML = "";
+
+    const times = generateTimeSlots();
+    const officerMap = {}; // officerNum => [{counter, startIndex, endIndex}]
+
+    // Collect all active cells
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        const officerNum = cell.dataset.officer;
+        if (!officerMap[officerNum]) officerMap[officerNum] = [];
+        officerMap[officerNum].push({
+            counter: cell.dataset.counter,
+            timeIndex: parseInt(cell.dataset.time)
+        });
+    });
+
+    // For each officer, sort by time and group continuous slots
+    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
+        const slots = officerMap[officerNum];
+        slots.sort((a, b) => a.timeIndex - b.timeIndex);
+
+        let grouped = [];
+        let currentGroup = null;
+
+        slots.forEach(slot => {
+            if (!currentGroup) {
+                currentGroup = { counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
+            } else if (slot.counter === currentGroup.counter && slot.timeIndex === currentGroup.endIndex + 1) {
+                // consecutive slot
+                currentGroup.endIndex = slot.timeIndex;
+            } else {
+                grouped.push(currentGroup);
+                currentGroup = { counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
+            }
+        });
+        if (currentGroup) grouped.push(currentGroup);
+
+        // Add breaks between deployments
+        let lastEnd = -1;
+        grouped.forEach(group => {
+            // break before this slot
+            if (group.startIndex > lastEnd + 1) {
+                const trBreak = document.createElement("tr");
+                const tdOfficer = document.createElement("td");
+                tdOfficer.innerText = officerNum;
+                const tdCounter = document.createElement("td");
+                tdCounter.innerText = "Break";
+                const tdStart = document.createElement("td");
+                tdStart.innerText = formatTime(times[lastEnd + 1] || times[0]);
+                const tdEnd = document.createElement("td");
+                tdEnd.innerText = formatTime(times[group.startIndex - 1]);
+                trBreak.appendChild(tdOfficer);
+                trBreak.appendChild(tdCounter);
+                trBreak.appendChild(tdStart);
+                trBreak.appendChild(tdEnd);
+                tbody.appendChild(trBreak);
+            }
+
+            // active deployment
+            const tr = document.createElement("tr");
+            const tdOfficer = document.createElement("td");
+            tdOfficer.innerText = officerNum;
+            const tdCounter = document.createElement("td");
+            tdCounter.innerText = group.counter;
+            const tdStart = document.createElement("td");
+            tdStart.innerText = formatTime(times[group.startIndex]);
+            const tdEnd = document.createElement("td");
+            tdEnd.innerText = formatTime(times[group.endIndex]);
+            tr.appendChild(tdOfficer);
+            tr.appendChild(tdCounter);
+            tr.appendChild(tdStart);
+            tr.appendChild(tdEnd);
+            tbody.appendChild(tr);
+
+            lastEnd = group.endIndex;
+        });
+
+        // break after last deployment
+        if (lastEnd < times.length - 1) {
+            const trBreak = document.createElement("tr");
+            const tdOfficer = document.createElement("td");
+            tdOfficer.innerText = officerNum;
+            const tdCounter = document.createElement("td");
+            tdCounter.innerText = "Break";
+            const tdStart = document.createElement("td");
+            tdStart.innerText = formatTime(times[lastEnd + 1]);
+            const tdEnd = document.createElement("td");
+            tdEnd.innerText = formatTime(times[times.length - 1]);
+            trBreak.appendChild(tdOfficer);
+            trBreak.appendChild(tdCounter);
+            trBreak.appendChild(tdStart);
+            trBreak.appendChild(tdEnd);
+            tbody.appendChild(trBreak);
+        }
+    });
+
+    function formatTime(hhmm) {
+        return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+    }
+}
+
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
 // Keep track of which mode/shift tables have been rendered
@@ -602,6 +624,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (rowCounter === counter) {
                             cell.classList.add("active");
                             cell.style.background = currentColor;
+                            cell.dataset.officer = officer; // <-- ADD THIS
                         }
                     });
                 }
