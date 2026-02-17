@@ -110,14 +110,18 @@ function generateTimeSlots() {
 }
 
 /* ==================== renderTableOnce ==================== */
-/* ==================== renderTable ==================== */
-function renderTable() {
-    historyStack = [];
+function renderTableOnce() {
+    const key = `${currentMode}_${currentShift}`;
+    if (renderedTables[key]) {
+        // Table already exists, just restore previous selections
+        restoreCellStates();
+        return;
+    }
+
     table.innerHTML = "";
     const times = generateTimeSlots();
 
     zones[currentMode].forEach(zone => {
-        // Zone header
         let zoneRow = document.createElement("tr");
         let zoneCell = document.createElement("td");
         zoneCell.colSpan = times.length + 1;
@@ -126,7 +130,6 @@ function renderTable() {
         zoneRow.appendChild(zoneCell);
         table.appendChild(zoneRow);
 
-        // Time row
         let timeRow = document.createElement("tr");
         timeRow.className = "time-header";
         timeRow.innerHTML = "<th></th>";
@@ -137,7 +140,6 @@ function renderTable() {
         });
         table.appendChild(timeRow);
 
-        // Counter rows
         zone.counters.forEach(counter => {
             let row = document.createElement("tr");
             let label = document.createElement("td");
@@ -149,13 +151,13 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
+                cell.dataset.counter = counter;
                 row.appendChild(cell);
             });
 
             table.appendChild(row);
         });
 
-        // Subtotal row
         let subtotalRow = document.createElement("tr");
         subtotalRow.className = "subtotal-row";
         let subtotalLabel = document.createElement("td");
@@ -173,32 +175,9 @@ function renderTable() {
         table.appendChild(subtotalRow);
     });
 
-    // ---------------- Event Delegation --------------------
-    // Handle dragging and clicking for manual select/unselect
-    table.querySelectorAll(".counter-cell").forEach(cell => {
-        cell.onpointerdown = e => {
-            e.preventDefault();
-            isDragging = true;
-            dragMode = cell.classList.contains("active") ? "remove" : "add";
-            toggleCell(cell);
-        };
-
-        cell.onpointerenter = e => {
-            if (!isDragging) return;
-            toggleCell(cell);
-        };
-
-        cell.onclick = e => {
-            if (!isDragging) toggleCell(cell);
-        };
-    });
-
-    // Make sure dragging stops even if pointer leaves table
-    document.onpointerup = () => isDragging = false;
-
-    updateAll();
+    attachTableEvents();
+    renderedTables[key] = true;
 }
-
 
 /* ==================== Table Event Handling ==================== */
 function attachTableEvents() {
