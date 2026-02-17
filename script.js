@@ -161,14 +161,14 @@ function renderTableOnce() {
         table.appendChild(subtotalRow);
     });
 
-    attachTableEvents();
+    // attachTableEvents();
     // renderedTables[key] = true;
 }
 
 /* ==================== Table Event Handling ==================== */
 function attachTableEvents() {
 
-    if (tableEventsAttached) return;   // ← ADD THIS LINE
+    // if (tableEventsAttached) return;   // ← ADD THIS LINE
 
     table.addEventListener("pointerdown", e => {
         const cell = e.target.closest(".counter-cell");
@@ -195,7 +195,7 @@ function attachTableEvents() {
 
     document.addEventListener("pointerup", () => isDragging = false);
 
-    tableEventsAttached = true;   // ← ADD THIS LINE
+    // tableEventsAttached = true;   // ← ADD THIS LINE
 
     // Restore previous selections
     restoreCellStates();
@@ -405,6 +405,8 @@ async function loadExcelTemplate() {
 
 /* ================= MANPOWER SYSTEM ================= */
 document.addEventListener("DOMContentLoaded", function () {
+    attachTableEvents();
+
     loadExcelTemplate();
 
     let manpowerType = "main";
