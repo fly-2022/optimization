@@ -7,6 +7,7 @@ let currentShift = "morning";
 let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
+let tableEventsAttached = false;
 
 // Store all cell states per mode/shift
 const cellStates = {
@@ -98,6 +99,7 @@ function renderTableOnce() {
     }
 
     table.innerHTML = "";
+    tableEventsAttached = false;   // ← ADD THIS LINE
     const times = generateTimeSlots();
 
     zones[currentMode].forEach(zone => {
@@ -160,6 +162,9 @@ function renderTableOnce() {
 
 /* ==================== Table Event Handling ==================== */
 function attachTableEvents() {
+
+    if (tableEventsAttached) return;   // ← ADD THIS LINE
+
     table.addEventListener("pointerdown", e => {
         const cell = e.target.closest(".counter-cell");
         if (!cell) return;
@@ -184,6 +189,8 @@ function attachTableEvents() {
     });
 
     document.addEventListener("pointerup", () => isDragging = false);
+
+    tableEventsAttached = true;   // ← ADD THIS LINE
 
     // Restore previous selections
     restoreCellStates();
