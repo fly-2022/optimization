@@ -493,60 +493,62 @@ document.addEventListener("DOMContentLoaded", function () {
             if (startIndex !== -1 && endIndex !== -1) {
 
                 const totalOfficers = officerCount;
-                const officersToAssign = Math.floor(totalOfficers / 4); // 1 officer per group of 4
-                let assignedCount = 0;
+                const officersToAssign = Math.floor(totalOfficers / 4); // one officer per group of 4
+                let assignedOfficers = 0;
 
                 for (let officer = 1; officer <= totalOfficers; officer++) {
-                    if (officer % 4 !== 0) continue; // only 4th officer in group
-                    if (assignedCount >= officersToAssign) break;
+                    if (officer % 4 !== 0) continue; // only every 4th officer
+                    if (assignedOfficers >= officersToAssign) break;
 
-                    for (let t = startIndex; t <= endIndex; t++) {
+                    // Try to assign this officer to a single counter across all slots
+                    let assigned = false;
 
-                        let assigned = false;
+                    // 1️⃣ Prioritize zones under 50% manning
+                    const candidateZones = zones[currentMode]
+                        .filter(z => z.name !== "BIKES")
+                        .sort((a, b) => b.counters.length - a.counters.length); // back counters first
 
-                        // 1️⃣ Prioritize zones under 50% manning
-                        const underHalfZones = zones[currentMode].filter(z => z.name !== "BIKES").filter(zone => {
-                            const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)];
-                            const activeCount = cells.filter(c => c.classList.contains("active")).length;
-                            return activeCount < Math.ceil(zone.counters.length / 2);
-                        });
+                    for (let z = 0; z < candidateZones.length; z++) {
+                        const zone = candidateZones[z];
 
-                        for (let z = 0; z < underHalfZones.length; z++) {
-                            const zone = underHalfZones[z];
-                            const emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => !c.classList.contains("active"));
-                            if (emptyCells.length > 0) {
-                                const cell = emptyCells[0];
-                                cell.classList.add("active");
-                                cell.style.background = currentColor;
-                                assigned = true;
-                                break;
-                            }
-                        }
+                        // check each counter in this zone (back first)
+                        const counters = [...zone.counters].reverse();
+                        for (let c = 0; c < counters.length; c++) {
+                            const counter = counters[c];
 
-                        // 2️⃣ If all under-50% zones are full, assign to any available zone
-                        if (!assigned) {
-                            const allZones = zones[currentMode].filter(z => z.name !== "BIKES");
-                            for (let z = 0; z < allZones.length; z++) {
-                                const zone = allZones[z];
-                                const emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                    .filter(c => !c.classList.contains("active"));
-                                if (emptyCells.length > 0) {
-                                    const cell = emptyCells[0];
-                                    cell.classList.add("active");
-                                    cell.style.background = currentColor;
+                            // check if counter is free for all slots in special period
+                            let isFree = true;
+                            for (let t = startIndex; t <= endIndex; t++) {
+                                const cell = document.querySelector(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)
+                                    .parentElement.querySelector(`td:first-child:contains("${counter}")`);
+                                const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                    .filter(cell => cell.parentElement.firstChild.innerText === counter);
+                                if (allCells.length === 0 || allCells[0].classList.contains("active")) {
+                                    isFree = false;
                                     break;
                                 }
                             }
-                        }
 
-                        assignedCount++;
-                        break; // move to next officer
+                            if (isFree) {
+                                // assign this counter for all slots
+                                for (let t = startIndex; t <= endIndex; t++) {
+                                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                        .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
+                                    cell.classList.add("active");
+                                    cell.style.background = currentColor;
+                                }
+                                assigned = true;
+                                assignedOfficers++;
+                                break;
+                            }
+                        }
+                        if (assigned) break;
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
 
 
