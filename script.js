@@ -140,32 +140,31 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
-
-                // ALWAYS attach events, so manual selection works in any mode/shift
-                attachCellEvents(cell);
-
+                attachCellEvents(cell);  // ✅ Attach events per cell
                 row.appendChild(cell);
             });
-
+            table.appendChild(row);
         });
-        table.appendChild(row);
+
+        let subtotalRow = document.createElement("tr");
+        subtotalRow.className = "subtotal-row";
+        let subtotalLabel = document.createElement("td");
+        subtotalLabel.innerText = "Subtotal";
+        subtotalRow.appendChild(subtotalLabel);
+
+        times.forEach((t, i) => {
+            let td = document.createElement("td");
+            td.className = "subtotal-cell";
+            td.dataset.zone = zone.name;
+            td.dataset.time = i;
+            subtotalRow.appendChild(td);
+        });
+        table.appendChild(subtotalRow);
     });
 
-    let subtotalRow = document.createElement("tr");
-    subtotalRow.className = "subtotal-row";
-    let subtotalLabel = document.createElement("td");
-    subtotalLabel.innerText = "Subtotal";
-    subtotalRow.appendChild(subtotalLabel);
+    updateAll();
+}
 
-    times.forEach((t, i) => {
-        let td = document.createElement("td");
-        td.className = "subtotal-cell";
-        td.dataset.zone = zone.name;
-        td.dataset.time = i;
-        subtotalRow.appendChild(td);
-    });
-    table.appendChild(subtotalRow);
-});
 
 // -------------------- Event Delegation --------------------
 // handles all pointer/click events for counter cells
