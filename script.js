@@ -485,7 +485,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // --------------------- EVERY 3RD OFFICER SPECIAL PERIOD ---------------------
         if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
 
-            // dynamically find start and end for the special period (20:30 → last slot)
             const specialStart = "2030";
             const specialEnd = times[times.length - 1]; // last assignable slot based on Excel
 
@@ -496,13 +495,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 for (let officer = 1; officer <= officerCount; officer++) {
                     if (officer % 3 !== 0) continue; // only every 3rd officer
 
-                    for (let t = startIndex; t <= endIndex; t++) { // <= to include last slot
+                    for (let t = startIndex; t <= endIndex; t++) { // <= include last slot
 
                         let assigned = false; // track if this officer got assigned for this time
 
                         for (let z = 0; z < zones[currentMode].length; z++) {
                             const zone = zones[currentMode][z];
-                            if (zone.name === "BIKES") return;
+                            if (zone.name === "BIKES") continue;
 
                             // find all empty cells in this zone & time
                             let emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
@@ -511,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             // sort back-to-front by counter number
                             emptyCells.sort((a, b) => {
                                 const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                const numB = parseInt(b.parentElement.firstChild.firstChild.innerText.replace(/\D/g, ''));
+                                const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
                                 return numB - numA;
                             });
 
@@ -530,7 +529,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
-
 
         updateAll();
     }
@@ -683,5 +681,4 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
         return numB - numA;
     });
     return emptyCells;
-
 }
