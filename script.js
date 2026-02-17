@@ -502,11 +502,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     let assigned = false;
 
-                    // back-first priority zones under 50% rule
+                    // ----------------- PRIORITIZE ZONES BELOW 50% -----------------
                     const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
 
-                    for (let z = 0; z < candidateZones.length; z++) {
-                        const zone = candidateZones[z];
+                    // Compute current occupancy for each zone in special period
+                    const zoneOccupancy = candidateZones.map(zone => {
+                        let occupiedCount = 0;
+                        for (let t = startIndex; t <= endIndex; t++) {
+                            const activeCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(c => c.classList.contains("active"));
+                            occupiedCount += activeCells.length;
+                        }
+                        const totalSlots = zone.counters.length * (endIndex - startIndex + 1);
+                        return { zone, occupiedCount, totalSlots, ratio: occupiedCount / totalSlots };
+                    });
+
+                    // Sort zones by occupancy ratio ascending (lowest first → under 50% get priority)
+                    zoneOccupancy.sort((a, b) => a.ratio - b.ratio);
+
+                    for (let z = 0; z < zoneOccupancy.length; z++) {
+                        const zone = zoneOccupancy[z].zone;
 
                         // back-first counters
                         const counters = [...zone.counters].reverse();
@@ -519,7 +534,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             for (let t = startIndex; t <= endIndex; t++) {
                                 const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
                                     .filter(cell => cell.parentElement.firstChild.innerText === counter);
-
                                 if (!allCells.length || allCells[0].classList.contains("active")) {
                                     isFree = false;
                                     break;
