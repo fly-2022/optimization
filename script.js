@@ -57,10 +57,10 @@ function generateTimeSlots() {
 
     if (currentShift === "morning") {
         startHour = 10; startMinute = 0;
-        endHour = 22; endMinute = 0;
+        endHour = 21; endMinute = 45;
     } else { // night shift
         startHour = 22; startMinute = 0;
-        endHour = 10; endMinute = 0; // next day
+        endHour = 9; endMinute = 45; // next day
     }
 
     let hour = startHour;
@@ -589,4 +589,5 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
         return numB - numA;
     });
     return emptyCells;
+
 }
