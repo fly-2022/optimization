@@ -502,7 +502,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                         for (let z = 0; z < zones[currentMode].length; z++) {
                             const zone = zones[currentMode][z];
-                            if (zone.name === "BIKES") continue;
+                            if (zone.name === "BIKES") return;
 
                             // find all empty cells in this zone & time
                             let emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
@@ -683,4 +683,5 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
         return numB - numA;
     });
     return emptyCells;
+
 }
