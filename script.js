@@ -497,32 +497,40 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (officer % 3 !== 0) continue; // only every 3rd officer
 
                     for (let t = startIndex; t <= endIndex; t++) { // <= to include last slot
-                        zones[currentMode].forEach(zone => {
-                            if (zone.name === "BIKES") return;
+
+                        let assigned = false; // track if this officer got assigned for this time
+
+                        for (let z = 0; z < zones[currentMode].length; z++) {
+                            const zone = zones[currentMode][z];
+                            if (zone.name === "BIKES") continue;
 
                             // find all empty cells in this zone & time
                             let emptyCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
                                 .filter(c => !c.classList.contains("active"));
 
-                            // sort back-to-front by counter number (like addOfficersGlobal)
+                            // sort back-to-front by counter number
                             emptyCells.sort((a, b) => {
                                 const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-                                const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+                                const numB = parseInt(b.parentElement.firstChild.firstChild.innerText.replace(/\D/g, ''));
                                 return numB - numA;
                             });
 
-                            // assign first available empty cell
-                            if (emptyCells.length > 0) {
+                            // assign first available empty cell if not already assigned
+                            if (!assigned && emptyCells.length > 0) {
                                 const cell = emptyCells[0];
                                 cell.classList.add("active");
                                 cell.style.background = currentColor;
+                                assigned = true;
+                                break; // stop checking other zones for this time
                             }
-                        });
+                        }
+
                     }
                 }
             }
         }
         // --------------------- END SPECIAL PERIOD ---------------------
+
 
         updateAll();
     }
