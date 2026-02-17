@@ -266,14 +266,6 @@ document.getElementById("departureBtn").onclick = () => {
     currentColor = "#FF9800";
     renderTable();
 };
-document.getElementById("morningBtn").onclick = () => {
-    currentShift = "morning";
-    renderTable();
-};
-document.getElementById("nightBtn").onclick = () => {
-    currentShift = "night";
-    renderTable();
-};
 
 
 renderTable();
