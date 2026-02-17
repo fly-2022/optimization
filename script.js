@@ -98,13 +98,14 @@ function generateTimeSlots() {
         if (currentShift === "morning") {
             if (hour > endHour || (hour === endHour && minute > endMinute)) break;
         } else { // night
-            // stop when we reach endHour:endMinute next day
-            if (hour === endHour && minute > endMinute) break;
+            // stop when we reach endHour:endMinute next day or looped past startHour
+            if ((hour === endHour && minute > endMinute) || (hour === startHour && slots.length > 1)) break;
         }
     }
 
     return slots;
 }
+
 // ==============================================================
 
 
