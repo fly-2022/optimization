@@ -448,6 +448,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 let startIndex = times.findIndex(t => t === start);
                 let endIndex = times.findIndex(t => t === end);
 
+                // If Excel end time is 2200 (or 1000 for night) and not found,
+                // map it to times.length (so loop fills until last slot)
+                if (endIndex === -1) {
+                    if ((currentShift === "morning" && end === "2200") ||
+                        (currentShift === "night" && end === "1000")) {
+                        endIndex = times.length;
+                    }
+                }
+
+
                 if (startIndex === -1 || endIndex === -1) return;
 
                 for (let t = startIndex; t < endIndex; t++) {
