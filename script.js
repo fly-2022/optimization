@@ -50,18 +50,49 @@ document.querySelectorAll(".color-btn").forEach(btn => {
     });
 });
 
-// ---------------- CLEAR GRID -----------------
+// ================= FIXED generateTimeSlots() =================
 function generateTimeSlots() {
-    let slots = [];
-    let start = currentShift === "morning" ? 10 : 22;
-    for (let i = 0; i < 48; i++) {
-        let total = start * 60 + i * 15;
-        let hour = Math.floor((total % 1440) / 60);
-        let minute = total % 60;
-        slots.push(String(hour).padStart(2, "0") + String(minute).padStart(2, "0"));
+    const slots = [];
+    let startHour, startMinute, endHour, endMinute;
+
+    if (currentShift === "morning") {
+        startHour = 10; startMinute = 0;
+        endHour = 22; endMinute = 0;
+    } else { // night shift
+        startHour = 22; startMinute = 0;
+        endHour = 10; endMinute = 0; // next day
     }
+
+    let hour = startHour;
+    let minute = startMinute;
+
+    while (true) {
+        const hhmm = String(hour).padStart(2, "0") + String(minute).padStart(2, "0");
+        slots.push(hhmm);
+
+        // increment 15 min
+        minute += 15;
+        if (minute >= 60) {
+            hour += 1;
+            minute -= 60;
+        }
+
+        // wrap hour past midnight
+        if (hour >= 24) hour -= 24;
+
+        // stop condition
+        if (currentShift === "morning") {
+            if (hour > endHour || (hour === endHour && minute > endMinute)) break;
+        } else { // night
+            // stop when we reach endHour:endMinute next day
+            if (hour === endHour && minute > endMinute) break;
+        }
+    }
+
     return slots;
 }
+// ==============================================================
+
 
 function renderTable() {
     historyStack = [];
