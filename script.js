@@ -274,7 +274,8 @@ setShift("morning");
 
 async function loadExcelTemplate() {
     try {
-        const response = await fetch("ROSTER.xlsm");
+        const response = await fetch("ROSTER.xlsx");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
         excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
 
@@ -284,11 +285,13 @@ async function loadExcelTemplate() {
             excelData[sheetName.toLowerCase()] = json;
         });
 
-        console.log("Excel template loaded.");
+        console.log("Excel template loaded:", Object.keys(excelData));
     } catch (err) {
         console.error("Excel loading failed:", err);
+        alert("Failed to load Excel. Check filename, location, and local server.");
     }
 }
+
 
 
 /* ================= MANPOWER SYSTEM ================= */
