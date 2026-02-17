@@ -141,59 +141,62 @@ function renderTable() {
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
 
+                // ALWAYS attach events, so manual selection works in any mode/shift
                 attachCellEvents(cell);
 
                 row.appendChild(cell);
             });
-            table.appendChild(row);
+
         });
-
-        let subtotalRow = document.createElement("tr");
-        subtotalRow.className = "subtotal-row";
-        let subtotalLabel = document.createElement("td");
-        subtotalLabel.innerText = "Subtotal";
-        subtotalRow.appendChild(subtotalLabel);
-
-        times.forEach((t, i) => {
-            let td = document.createElement("td");
-            td.className = "subtotal-cell";
-            td.dataset.zone = zone.name;
-            td.dataset.time = i;
-            subtotalRow.appendChild(td);
-        });
-        table.appendChild(subtotalRow);
+        table.appendChild(row);
     });
 
-    // -------------------- Event Delegation --------------------
-    // handles all pointer/click events for counter cells
-    table.addEventListener("pointerdown", e => {
-        const cell = e.target.closest(".counter-cell");
-        if (!cell) return;
+    let subtotalRow = document.createElement("tr");
+    subtotalRow.className = "subtotal-row";
+    let subtotalLabel = document.createElement("td");
+    subtotalLabel.innerText = "Subtotal";
+    subtotalRow.appendChild(subtotalLabel);
 
-        isDragging = true;
-        dragMode = cell.classList.contains("active") ? "remove" : "add";
-        toggleCell(cell);
+    times.forEach((t, i) => {
+        let td = document.createElement("td");
+        td.className = "subtotal-cell";
+        td.dataset.zone = zone.name;
+        td.dataset.time = i;
+        subtotalRow.appendChild(td);
     });
+    table.appendChild(subtotalRow);
+});
 
-    table.addEventListener("pointerenter", e => {
-        if (!isDragging) return;
-        const cell = e.target.closest(".counter-cell");
-        if (!cell) return;
-        toggleCell(cell);
-    });
+// -------------------- Event Delegation --------------------
+// handles all pointer/click events for counter cells
+table.addEventListener("pointerdown", e => {
+    const cell = e.target.closest(".counter-cell");
+    if (!cell) return;
 
-    table.addEventListener("pointerup", () => isDragging = false);
+    isDragging = true;
+    dragMode = cell.classList.contains("active") ? "remove" : "add";
+    toggleCell(cell);
+});
 
-    table.addEventListener("click", e => {
-        const cell = e.target.closest(".counter-cell");
-        if (!cell) return;
-        if (!isDragging) toggleCell(cell);
-    });
+table.addEventListener("pointerenter", e => {
+    if (!isDragging) return;
+    const cell = e.target.closest(".counter-cell");
+    if (!cell) return;
+    toggleCell(cell);
+});
 
-    document.addEventListener("pointerup", () => isDragging = false);
-    // ---------------------------------------------------------
+table.addEventListener("pointerup", () => isDragging = false);
 
-    updateAll();
+table.addEventListener("click", e => {
+    const cell = e.target.closest(".counter-cell");
+    if (!cell) return;
+    if (!isDragging) toggleCell(cell);
+});
+
+document.addEventListener("pointerup", () => isDragging = false);
+// ---------------------------------------------------------
+
+updateAll();
 }
 
 
