@@ -144,7 +144,7 @@ function renderTable() {
                 cell.className = "counter-cell";
                 cell.dataset.zone = zone.name;
                 cell.dataset.time = i;
-                attachCellEvents(cell);
+                // attachCellEvents(cell);  <-- REMOVE THIS
                 row.appendChild(cell);
             });
             table.appendChild(row);
@@ -166,8 +166,38 @@ function renderTable() {
         table.appendChild(subtotalRow);
     });
 
+    // -------------------- Event Delegation --------------------
+    // handles all pointer/click events for counter cells
+    table.addEventListener("pointerdown", e => {
+        const cell = e.target.closest(".counter-cell");
+        if (!cell) return;
+
+        isDragging = true;
+        dragMode = cell.classList.contains("active") ? "remove" : "add";
+        toggleCell(cell);
+    });
+
+    table.addEventListener("pointerenter", e => {
+        if (!isDragging) return;
+        const cell = e.target.closest(".counter-cell");
+        if (!cell) return;
+        toggleCell(cell);
+    });
+
+    table.addEventListener("pointerup", () => isDragging = false);
+
+    table.addEventListener("click", e => {
+        const cell = e.target.closest(".counter-cell");
+        if (!cell) return;
+        if (!isDragging) toggleCell(cell);
+    });
+
+    document.addEventListener("pointerup", () => isDragging = false);
+    // ---------------------------------------------------------
+
     updateAll();
 }
+
 
 function attachCellEvents(cell) {
     cell.addEventListener("pointerdown", e => {
