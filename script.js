@@ -913,81 +913,79 @@ document.addEventListener("DOMContentLoaded", function () {
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
+        const otColor = currentColor;
+        const otMode = currentMode;
 
-        // OT patterns based on slot
+        // Map OT patterns based on slot
         const otPatterns = {
             "0600-1100": [
-                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
-                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
-                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+                { work: ["0600-0730", "0815-1030"], break: ["0730-0815"] },
+                { work: ["0600-0815", "0945-1030"], break: ["0815-0945"] },
+                { work: ["0600-0900", "0945-1030"], break: ["0900-0945"] }
             ],
             "1100-1600": [
-                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
-                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
-                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+                { work: ["1100-1230", "1315-1530"], break: ["1230-1315"] },
+                { work: ["1100-1315", "1400-1530"], break: ["1315-1400"] },
+                { work: ["1100-1400", "1445-1530"], break: ["1400-1445"] }
             ],
             "1600-2100": [
-                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
-                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
-                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+                { work: ["1600-1730", "1815-2030"], break: ["1730-1815"] },
+                { work: ["1600-1815", "1900-2030"], break: ["1815-1900"] },
+                { work: ["1600-1900", "1945-2030"], break: ["1900-1945"] }
             ]
         };
 
-        const patternSet = otPatterns[otStart + "-" + otEnd];
-        if (!patternSet) {
-            alert("No OT pattern defined for this slot");
+        const patterns = otPatterns[`${otStart}-${otEnd}`];
+        if (!patterns) {
+            alert("OT slot pattern not found.");
             return;
         }
 
-        let otMode = currentMode;
-        let otColor = currentColor;
-
-        // Get real indices in the times array
-        let startIndex = times.findIndex(t => t === otStart);
-        let endIndex = times.findIndex(t => t === otEnd);
-        if (startIndex === -1) { alert("OT start outside shift"); return; }
-        if (endIndex === -1) endIndex = times.length;
-
-        // ------------------- ALLOCATE OFFICERS -------------------
+        // Randomly pick a pattern for each officer
         for (let officer = 1; officer <= count; officer++) {
-            // Pick a random pattern for this officer
-            const pattern = patternSet[Math.floor(Math.random() * patternSet.length)];
+            const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            // Loop through zones to find lowest manned zones first
-            const zonesToUse = zones[otMode].filter(z => z.name !== "BIKES");
-            // Sort by current manning ratio
-            zonesToUse.sort((a, b) => {
-                const aCount = [...document.querySelectorAll(`.counter-cell[data-zone="${a.name}"]`)]
-                    .filter(c => c.classList.contains("active")).length;
-                const bCount = [...document.querySelectorAll(`.counter-cell[data-zone="${b.name}"]`)]
-                    .filter(c => c.classList.contains("active")).length;
-                return aCount - bCount;
-            });
+            pattern.work.forEach(workSlot => {
+                const [wStart, wEnd] = workSlot;
+                let startIndex = times.findIndex(t => t === wStart);
+                let endIndex = times.findIndex(t => t === wEnd);
+                if (startIndex === -1) startIndex = 0;
+                if (endIndex === -1) endIndex = times.length;
 
-            // Assign officer to lowest manned zone first, next officer to next lowest, etc.
-            const zone = zonesToUse[(officer - 1) % zonesToUse.length];
-
-            // ------------------- FILL WORK PERIODS -------------------
-            [pattern.work1, pattern.work2].forEach(slot => {
-                const slotStart = startIndex + slot[0];
-                const slotEnd = startIndex + slot[1];
-                for (let i = slotStart; i < slotEnd; i++) {
+                for (let i = startIndex; i < endIndex; i++) {
                     const timeStr = times[i];
-                    const emptyCells = getEmptyCellsBackFirst(zone.name, timeStr);
-                    if (emptyCells.length > 0) {
-                        const cell = emptyCells[0];
-                        if (!cell.classList.contains("active")) {
-                            cell.classList.add("active");
-                            cell.style.background = otColor;
-                            cell.dataset.officer = officer;
+
+                    // find zone with lowest manning (skip BIKES)
+                    let bestZone = null;
+                    let lowestCount = Infinity;
+
+                    zones[otMode].forEach(zone => {
+                        if (zone.name === "BIKES") return;
+                        const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
+                            .filter(c => c.classList.contains("active")).length;
+
+                        if (activeCount < lowestCount) {
+                            lowestCount = activeCount;
+                            bestZone = zone;
                         }
-                    }
+                    });
+
+                    if (!bestZone) continue;
+
+                    const emptyCells = getEmptyCellsBackFirst(bestZone.name, i);
+                    if (emptyCells.length === 0) continue;
+
+                    const cell = emptyCells[0];
+                    cell.classList.add("active");
+                    cell.style.background = otColor;
+                    cell.dataset.officer = officer;
                 }
             });
         }
 
         updateAll();
     }
+
 
 
     // -------------------- Add Officers Global --------------------
