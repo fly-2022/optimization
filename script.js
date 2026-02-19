@@ -255,6 +255,7 @@ function updateAll() {
     updateGrandTotal();
     updateManningSummary();
     updateMainRoster();  // compact roster
+    updateSOSRoster();
 }
 
 function updateSubtotals() {
@@ -874,78 +875,66 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
-        let startIndex = times.findIndex(t => t === otStart);
-        let endIndex = times.findIndex(t => t === otEnd);
+        const startIndex = times.findIndex(t => t === otStart);
+        const endIndex = times.findIndex(t => t === otEnd);
 
         if (startIndex === -1) {
             alert("OT start time outside current shift.");
             return;
         }
-        if (endIndex === -1) {
-            endIndex = times.length;
-        }
 
-        // OT release 30 mins before end
-        let releaseIndex = Math.max(startIndex, endIndex - 2);
+        const releaseIndex = (endIndex === -1 ? times.length : endIndex); // full grid until end
 
         const otMode = currentMode;
         const otColor = currentColor;
 
-        // ------------------- Calculate how many officers per zone -------------------
+        // ---------------- PROPORTIONAL ZONE ASSIGNMENT ----------------
         const zoneCounts = {};
         zones[otMode].forEach(zone => {
             if (zone.name === "BIKES") return;
-            const currentActive = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time]`)]
+            zoneCounts[zone.name] = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time]`)]
                 .filter(c => c.classList.contains("active")).length;
-            zoneCounts[zone.name] = currentActive;
         });
 
-        // Sort zones by current count ascending
+        // sort zones by current occupancy (lowest first)
         const sortedZones = Object.keys(zoneCounts).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
 
-        // Assign OT officers proportionally
+        // assign officers proportionally
         const zoneAssignments = {};
-        let remainingOT = count;
-
-        sortedZones.forEach(zone => {
-            // assign at least 1 if zone has fewest
-            const assign = Math.min(remainingOT, 1);
-            zoneAssignments[zone] = assign;
-            remainingOT -= assign;
-        });
-
-        // Distribute remaining OT to zones one by one
-        while (remainingOT > 0) {
+        let remaining = count;
+        sortedZones.forEach(z => { zoneAssignments[z] = 1; remaining--; });
+        while (remaining > 0) {
             for (let z of sortedZones) {
-                zoneAssignments[z] = (zoneAssignments[z] || 0) + 1;
-                remainingOT--;
-                if (remainingOT <= 0) break;
+                zoneAssignments[z]++;
+                remaining--;
+                if (remaining <= 0) break;
             }
         }
 
-        // ------------------- Get OT break patterns -------------------
+        // ---------------- GET BREAK OPTIONS ----------------
         const breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
+        // ---------------- DEPLOY OFFICERS ----------------
         let officerNumber = 1;
+
         for (let zoneName of sortedZones) {
             const numOfficers = zoneAssignments[zoneName];
+
             for (let i = 0; i < numOfficers; i++) {
-                // pick a break randomly
+                // pick one random pattern break for this officer
                 const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
 
                 let currentIndex = startIndex;
 
                 while (currentIndex < releaseIndex) {
+                    // skip break slots
                     if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                         currentIndex = chosenBreak.endIndex + 1;
                         continue;
                     }
 
                     const emptyCells = getEmptyCellsBackFirst(zoneName, currentIndex);
-                    if (!emptyCells.length) {
-                        currentIndex++;
-                        continue;
-                    }
+                    if (!emptyCells.length) { currentIndex++; continue; }
 
                     const cell = emptyCells[0];
                     cell.classList.add("active");
@@ -962,32 +951,19 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    // OT break patterns mapped to 45-min durations
+    // ---------------- BREAK OPTIONS ----------------
     function getOTBreakOptions(slot) {
         const patternMap = {
-            "0600-1100": [
-                ["0730", "0815"],
-                ["0815", "0900"],
-                ["0900", "0945"]
-            ],
-            "1100-1600": [
-                ["1230", "1315"],
-                ["1315", "1400"],
-                ["1400", "1445"]
-            ],
-            "1600-2100": [
-                ["1730", "1815"],
-                ["1815", "1900"],
-                ["1900", "1945"]
-            ]
+            "1100-1600": [["1230", "1315"], ["1315", "1400"], ["1400", "1445"]],
+            "1600-2100": [["1730", "1815"], ["1815", "1900"], ["1900", "1945"]],
+            "0600-1100": [["0730", "0815"], ["0815", "0900"], ["0900", "0945"]]
         };
 
         const times = generateTimeSlots();
-        const options = patternMap[slot] || [];
 
-        return options.map(([start, end]) => ({
-            startIndex: times.findIndex(t => t === start),
-            endIndex: times.findIndex(t => t === end)
+        return (patternMap[slot] || []).map(([s, e]) => ({
+            startIndex: times.findIndex(t => t === s),
+            endIndex: times.findIndex(t => t === e)
         })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
     }
 
