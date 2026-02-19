@@ -8,6 +8,7 @@ let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
 let tableEventsAttached = false;
+let otGlobalCounter = 0;
 
 function resetDragState() {
     isDragging = false;
@@ -324,8 +325,8 @@ function updateMainRoster() {
     const officerMap = {};
 
     // collect all active cells by officer
-    // document.querySelectorAll(".counter-cell.active").forEach(cell => {
-    document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        // document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
         const officerNum = cell.dataset.officer;
         if (!officerMap[officerNum]) officerMap[officerNum] = [];
         officerMap[officerNum].push(parseInt(cell.dataset.time));
@@ -1008,7 +1009,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            const officerLabel = "OT" + officer;
+            otGlobalCounter++;
+            const officerLabel = "OT" + otGlobalCounter;
 
             // ---------------- PRE BREAK COUNTER ----------------
             let counter1 = getBestCounter(pattern.work1Start, times);
@@ -1366,4 +1368,40 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
     );
 
     return emptyCells;
+}
+
+function copyMainRoster() {
+    copyTable("mainRosterTable");
+}
+
+function copySOSRoster() {
+    copyTable("sosRosterTable");
+}
+
+function copyOTRoster() {
+    copyTable("otRosterTable");
+}
+
+function copyTable(tableId) {
+
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    let text = "";
+
+    const rows = table.querySelectorAll("tr");
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll("th, td");
+        let rowText = [];
+
+        cells.forEach(cell => {
+            rowText.push(cell.innerText.trim());
+        });
+
+        text += rowText.join("\t") + "\n";
+    });
+
+    navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
 }
