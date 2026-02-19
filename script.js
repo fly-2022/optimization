@@ -1138,9 +1138,23 @@ document.addEventListener("DOMContentLoaded", function () {
 // }
 
 function getEmptyCellsBackFirst(zoneName, timeIndex) {
-    const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
+
+    const times = generateTimeSlots();
+    const timeStr = times[timeIndex];   // 🔥 convert index to "HH:MM"
+
+    const cells = [
+        ...document.querySelectorAll(
+            `.counter-cell[data-zone="${zoneName}"][data-time="${timeStr}"]`
+        )
+    ];
+
     let emptyCells = cells.filter(c => !c.classList.contains("active"));
-    emptyCells.sort((a, b) => parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, '')) -
-        parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, '')));
+
+    // Back counters first (highest counter number first)
+    emptyCells.sort((a, b) =>
+        parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, '')) -
+        parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''))
+    );
+
     return emptyCells;
 }
