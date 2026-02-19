@@ -874,10 +874,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
-        const tbody = document.querySelector("#otRosterTable tbody");
-
-        if (tbody) tbody.innerHTML = "";
-
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
 
@@ -886,76 +882,87 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         if (endIndex === -1) {
-            endIndex = times.length; // deploy until end of grid if OT end is outside
+            endIndex = times.length;
         }
 
-        // Release 30 mins before end (2 slots of 15 mins)
+        // OT release 30 mins before end
         let releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        // Get break options for this OT slot
-        let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
+        const otMode = currentMode;
+        const otColor = currentColor;
 
-        const otMode = currentMode;   // current mode
-        const otColor = currentColor; // current color
+        // ------------------- Calculate how many officers per zone -------------------
+        const zoneCounts = {};
+        zones[otMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+            const currentActive = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time]`)]
+                .filter(c => c.classList.contains("active")).length;
+            zoneCounts[zone.name] = currentActive;
+        });
 
-        for (let officer = 1; officer <= count; officer++) {
-            // Pick a break pattern randomly
-            const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
+        // Sort zones by current count ascending
+        const sortedZones = Object.keys(zoneCounts).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
 
-            let currentIndex = startIndex;
+        // Assign OT officers proportionally
+        const zoneAssignments = {};
+        let remainingOT = count;
 
-            while (currentIndex < releaseIndex) {
-                // Skip break slots
-                if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
-                    currentIndex = chosenBreak.endIndex + 1;
-                    continue;
-                }
+        sortedZones.forEach(zone => {
+            // assign at least 1 if zone has fewest
+            const assign = Math.min(remainingOT, 1);
+            zoneAssignments[zone] = assign;
+            remainingOT -= assign;
+        });
 
-                // Find the lowest manned zone
-                let bestZone = null;
-                let lowestRatio = 1;
+        // Distribute remaining OT to zones one by one
+        while (remainingOT > 0) {
+            for (let z of sortedZones) {
+                zoneAssignments[z] = (zoneAssignments[z] || 0) + 1;
+                remainingOT--;
+                if (remainingOT <= 0) break;
+            }
+        }
 
-                zones[otMode].forEach(zone => {
-                    if (zone.name === "BIKES") return;
+        // ------------------- Get OT break patterns -------------------
+        const breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-                    const timeStr = times[currentIndex];
+        let officerNumber = 1;
+        for (let zoneName of sortedZones) {
+            const numOfficers = zoneAssignments[zoneName];
+            for (let i = 0; i < numOfficers; i++) {
+                // pick a break randomly
+                const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
 
-                    const activeCount = [...document.querySelectorAll(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`
-                    )].filter(c => c.classList.contains("active")).length;
+                let currentIndex = startIndex;
 
-                    // avoid division by zero
-                    const ratio = activeCount / (zone.counters?.length || 1);
-
-                    if (ratio < lowestRatio) {
-                        lowestRatio = ratio;
-                        bestZone = zone;
+                while (currentIndex < releaseIndex) {
+                    if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
+                        currentIndex = chosenBreak.endIndex + 1;
+                        continue;
                     }
-                });
 
-                if (!bestZone) break; // no zone found, stop
+                    const emptyCells = getEmptyCellsBackFirst(zoneName, currentIndex);
+                    if (!emptyCells.length) {
+                        currentIndex++;
+                        continue;
+                    }
 
-                const emptyCells = getEmptyCellsBackFirst(bestZone.name, currentIndex);
+                    const cell = emptyCells[0];
+                    cell.classList.add("active");
+                    cell.style.background = otColor;
+                    cell.dataset.officer = officerNumber;
 
-                if (!emptyCells.length) {
                     currentIndex++;
-                    continue;
                 }
 
-                const cell = emptyCells[0];
-
-                cell.classList.add("active");
-                cell.style.background = otColor;
-                cell.dataset.officer = officer;
-
-                currentIndex++;
+                officerNumber++;
             }
         }
 
         updateAll();
     }
 
-    // OT break patterns mapped to time ranges
+    // OT break patterns mapped to 45-min durations
     function getOTBreakOptions(slot) {
         const patternMap = {
             "0600-1100": [
@@ -983,7 +990,6 @@ document.addEventListener("DOMContentLoaded", function () {
             endIndex: times.findIndex(t => t === end)
         })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
     }
-
 
 
     // -------------------- Add Officers Global --------------------
