@@ -868,12 +868,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // ---------------- BREAK SLOT OPTIONS ----------------
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-        // Convert to indexes
-        breakOptions = breakOptions.map(slot => ({
-            startIndex: times.findIndex(t => t === slot[0]),
-            endIndex: times.findIndex(t => t === slot[1])
-        }));
-
         // =====================================================
         for (let officer = 1; officer <= count; officer++) {
 
