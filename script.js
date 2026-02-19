@@ -1153,7 +1153,7 @@ document.addEventListener("DOMContentLoaded", function () {
 function getEmptyCellsBackFirst(zoneName, timeIndex) {
 
     const times = generateTimeSlots();
-    const timeStr = times[timeIndex];   // 🔥 convert index to "HH:MM"
+    const timeStr = times[timeIndex];   // convert index → actual time string
 
     const cells = [
         ...document.querySelectorAll(
@@ -1163,7 +1163,6 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
 
     let emptyCells = cells.filter(c => !c.classList.contains("active"));
 
-    // Back counters first (highest counter number first)
     emptyCells.sort((a, b) =>
         parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, '')) -
         parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''))
