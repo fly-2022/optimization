@@ -934,8 +934,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     const timeStr = times[currentIndex];
 
                     const activeCount =
-                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
-                            .filter(c => c.classList.contains("active")).length;
+                        [...document.querySelectorAll(
+                            `.counter-cell[data-zone="${zone.name}"][data-time="${currentIndex}"]`
+                        )]
 
                     const ratio = activeCount / zone.counters.length;
 
@@ -1158,7 +1159,7 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
 
     const cells = [
         ...document.querySelectorAll(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${timeStr}"]`
+            `.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`
         )
     ];
 
