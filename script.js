@@ -1079,107 +1079,54 @@ document.addEventListener("DOMContentLoaded", function () {
             counter: emptyCells[0].dataset.counter
         };
     }
+
     function getOTPatterns(start, end, times) {
 
         const s = times.findIndex(t => t === start);
         const e = times.findIndex(t => t === end);
 
+        if (s === -1 || e === -1) return [];
+
         const release = e - 2;
+
+        function clamp(val) {
+            return Math.min(val, release);
+        }
 
         const patterns = [];
 
-        if (start === "1100") {
+        // 6 slots = 1.5h
+        // 9 slots = 2.25h
+        // 12 slots = 3h
+        // break = 3 slots (45 mins)
 
-            patterns.push({
-                work1Start: s,
-                work1End: s + 6,
-                breakStart: s + 6,
-                breakEnd: s + 9,
-                work2Start: s + 9,
-                work2End: release
-            });
+        patterns.push({
+            work1Start: s,
+            work1End: clamp(s + 6),
+            work2Start: clamp(s + 9),
+            work2End: release
+        });
 
-            patterns.push({
-                work1Start: s,
-                work1End: s + 9,
-                breakStart: s + 9,
-                breakEnd: s + 12,
-                work2Start: s + 12,
-                work2End: release
-            });
+        patterns.push({
+            work1Start: s,
+            work1End: clamp(s + 9),
+            work2Start: clamp(s + 12),
+            work2End: release
+        });
 
-            patterns.push({
-                work1Start: s,
-                work1End: s + 12,
-                breakStart: s + 12,
-                breakEnd: s + 15,
-                work2Start: s + 15,
-                work2End: release
-            });
-        }
+        patterns.push({
+            work1Start: s,
+            work1End: clamp(s + 12),
+            work2Start: clamp(s + 15),
+            work2End: release
+        });
 
-        if (start === "1600") {
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 6,
-                breakStart: s + 6,
-                breakEnd: s + 9,
-                work2Start: s + 9,
-                work2End: release
-            });
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 9,
-                breakStart: s + 9,
-                breakEnd: s + 12,
-                work2Start: s + 12,
-                work2End: release
-            });
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 12,
-                breakStart: s + 12,
-                breakEnd: s + 15,
-                work2Start: s + 15,
-                work2End: release
-            });
-        }
-
-        if (start === "0600") {
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 6,
-                breakStart: s + 6,
-                breakEnd: s + 9,
-                work2Start: s + 9,
-                work2End: release
-            });
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 9,
-                breakStart: s + 9,
-                breakEnd: s + 12,
-                work2Start: s + 12,
-                work2End: release
-            });
-
-            patterns.push({
-                work1Start: s,
-                work1End: s + 12,
-                breakStart: s + 12,
-                breakEnd: s + 15,
-                work2Start: s + 15,
-                work2End: release
-            });
-        }
-
-        return patterns;
+        return patterns.filter(p =>
+            p.work1Start < p.work1End &&
+            p.work2Start < p.work2End
+        );
     }
+
 
 
     // -------------------- Button Clicks --------------------
