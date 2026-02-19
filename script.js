@@ -912,106 +912,70 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
+
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
         if (tbody) tbody.innerHTML = "";
 
-        const otPatterns = {
-            "0600-1100": [
-                [["0600", "0730"], ["0815", "1030"]],
-                [["0600", "0815"], ["0900", "1030"]],
-                [["0600", "0900"], ["0945", "1030"]]
-            ],
-            "1100-1600": [
-                [["1100", "1230"], ["1315", "1530"]],
-                [["1100", "1315"], ["1400", "1530"]],
-                [["1100", "1400"], ["1445", "1530"]]
-            ],
-            "1600-2100": [
-                [["1600", "1730"], ["1815", "2030"]],
-                [["1600", "1815"], ["1900", "2030"]],
-                [["1600", "1900"], ["1945", "2030"]]
-            ]
-        };
+        const startIndex = times.findIndex(t => t === otStart);
+        let endIndex = times.findIndex(t => t === otEnd);
 
-        const patterns = otPatterns[`${otStart}-${otEnd}`];
-        if (!patterns) {
-            alert("No OT pattern defined for this slot.");
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
             return;
         }
 
+        if (endIndex === -1) endIndex = times.length;
+
+        const releaseIndex = Math.max(startIndex, endIndex - 2);
+
+        const patterns = getOTPatterns(otStart, otEnd, times);
+
         for (let officer = 1; officer <= count; officer++) {
+
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            let deploymentBlocks = []; // To record counter, start, end for OT roster
+            const officerLabel = "OT" + officer;
 
-            pattern.forEach(workSlot => {
-                const [blockStart, blockEnd] = workSlot;
-                let startIndex = times.findIndex(t => t === blockStart);
-                let endIndex = times.findIndex(t => t === blockEnd);
-                if (startIndex === -1) startIndex = 0;
-                if (endIndex === -1) endIndex = times.length;
+            // ---------------- PRE BREAK COUNTER ----------------
+            let counter1 = getBestCounter(pattern.work1Start, times);
 
-                // ---------------- Pick a single counter for this work block ----------------
-                let bestZone = null;
-                let lowestRatio = 1;
+            if (!counter1) continue;
 
-                zones[currentMode].forEach(zone => {
-                    if (zone.name === "BIKES") return;
+            for (let t = pattern.work1Start; t < pattern.work1End; t++) {
 
-                    // Compute current manning ratio
-                    const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${times[startIndex]}"]`)]
-                        .filter(c => c.classList.contains("active")).length;
-                    const ratio = activeCount / zone.counters.length;
-                    if (ratio < lowestRatio) {
-                        lowestRatio = ratio;
-                        bestZone = zone;
-                    }
-                });
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${times[t]}"][data-counter="${counter1.counter}"]`
+                );
 
-                if (!bestZone) return;
+                if (!cell || cell.classList.contains("active")) continue;
 
-                // Pick first empty counter for entire block
-                const emptyCells = getEmptyCellsBackFirst(bestZone.name, startIndex);
-                if (!emptyCells.length) return;
-                const counterCell = emptyCells[0];
-                const counterName = counterCell.dataset.counter;
+                cell.classList.add("active");
+                cell.style.background = currentColor;
+                cell.dataset.officer = officerLabel;
+            }
 
-                // Fill the grid for the entire block
-                for (let t = startIndex; t < endIndex; t++) {
-                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${bestZone.name}"][data-time="${times[t]}"]`)]
-                        .find(c => c.dataset.counter === counterName);
+            // ---------------- POST BREAK COUNTER ----------------
+            let counter2 = getBestCounter(pattern.work2Start, times);
 
-                    if (cell) {
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-                        cell.dataset.officer = officer;
-                    }
-                }
+            if (!counter2) continue;
 
-                deploymentBlocks.push({
-                    counter: counterName,
-                    start: blockStart,
-                    end: blockEnd
-                });
-            });
+            for (let t = pattern.work2Start; t < pattern.work2End; t++) {
 
-            // ---------------- OT Roster Table ----------------
-            if (tbody && deploymentBlocks.length) {
-                deploymentBlocks.forEach(block => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                    <td>OT ${officer}</td>
-                    <td>${block.counter}</td>
-                    <td>${block.start}</td>
-                    <td>${block.end}</td>
-                `;
-                    tbody.appendChild(row);
-                });
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${times[t]}"][data-counter="${counter2.counter}"]`
+                );
+
+                if (!cell || cell.classList.contains("active")) continue;
+
+                cell.classList.add("active");
+                cell.style.background = currentColor;
+                cell.dataset.officer = officerLabel;
             }
         }
 
         updateAll();
+        updateOTRosterTable();
     }
 
 
@@ -1082,6 +1046,141 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         updateAll();
     }
+
+    function getBestCounter(timeIndex, times) {
+
+        let bestZone = null;
+        let lowestRatio = Infinity;
+
+        zones[currentMode].forEach(zone => {
+
+            if (zone.name === "BIKES") return;
+
+            const activeCount =
+                [...document.querySelectorAll(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${times[timeIndex]}"]`
+                )].filter(c => c.classList.contains("active")).length;
+
+            const ratio = activeCount / zone.counters.length;
+
+            if (ratio < lowestRatio) {
+                lowestRatio = ratio;
+                bestZone = zone;
+            }
+        });
+
+        if (!bestZone) return null;
+
+        const emptyCells = getEmptyCellsBackFirst(bestZone.name, timeIndex);
+        if (!emptyCells.length) return null;
+
+        return {
+            zone: bestZone.name,
+            counter: emptyCells[0].dataset.counter
+        };
+    }
+    function getOTPatterns(start, end, times) {
+
+        const s = times.findIndex(t => t === start);
+        const e = times.findIndex(t => t === end);
+
+        const release = e - 2;
+
+        const patterns = [];
+
+        if (start === "1100") {
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 6,
+                breakStart: s + 6,
+                breakEnd: s + 9,
+                work2Start: s + 9,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 9,
+                breakStart: s + 9,
+                breakEnd: s + 12,
+                work2Start: s + 12,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 12,
+                breakStart: s + 12,
+                breakEnd: s + 15,
+                work2Start: s + 15,
+                work2End: release
+            });
+        }
+
+        if (start === "1600") {
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 6,
+                breakStart: s + 6,
+                breakEnd: s + 9,
+                work2Start: s + 9,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 9,
+                breakStart: s + 9,
+                breakEnd: s + 12,
+                work2Start: s + 12,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 12,
+                breakStart: s + 12,
+                breakEnd: s + 15,
+                work2Start: s + 15,
+                work2End: release
+            });
+        }
+
+        if (start === "0600") {
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 6,
+                breakStart: s + 6,
+                breakEnd: s + 9,
+                work2Start: s + 9,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 9,
+                breakStart: s + 9,
+                breakEnd: s + 12,
+                work2Start: s + 12,
+                work2End: release
+            });
+
+            patterns.push({
+                work1Start: s,
+                work1End: s + 12,
+                breakStart: s + 12,
+                breakEnd: s + 15,
+                work2Start: s + 15,
+                work2End: release
+            });
+        }
+
+        return patterns;
+    }
+
 
     // -------------------- Button Clicks --------------------
     addBtn.addEventListener("click", () => {
