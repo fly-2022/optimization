@@ -858,12 +858,12 @@ document.addEventListener("DOMContentLoaded", function () {
         otEnd = otEnd.padStart(5, '0');
 
         if (currentShift === "morning") {
-            // Morning shift allows 11:00-16:00 & 16:00-21:00
-            return (otStart === "11:00" && otEnd === "16:00") ||
-                (otStart === "16:00" && otEnd === "21:00");
+            // Morning shift allows 1100-1600 & 1600-2100
+            return (otStart === "1100" && otEnd === "1600") ||
+                (otStart === "1600" && otEnd === "2100");
         } else if (currentShift === "night") {
-            // Night shift allows 06:00-11:00 only
-            return otStart === "06:00" && otEnd === "11:00";
+            // Night shift allows 0600-1100 only
+            return otStart === "0600" && otEnd === "1100";
         }
 
         return false; // any other combination is invalid
