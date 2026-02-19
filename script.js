@@ -875,7 +875,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
-        tbody.innerHTML = "";
+
+        if (tbody) {
+            tbody.innerHTML = "";
+        }
+
 
         let startIndex = times.findIndex(t => t === otStart);
 
