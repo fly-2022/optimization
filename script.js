@@ -255,7 +255,7 @@ function updateAll() {
     updateGrandTotal();
     updateManningSummary();
     updateMainRoster();  // compact roster
-    updateSOSRoster();
+    // updateSOSRoster();
 }
 
 function updateSubtotals() {
@@ -872,23 +872,34 @@ document.addEventListener("DOMContentLoaded", function () {
         return false; // any other combination is invalid
     }
 
+    // ---------------- OT BREAKS ----------------
+    function getOTBreakOptions(slot) {
+        const patternMap = {
+            "1100-1600": [["1230", "1315"], ["1315", "1400"], ["1400", "1445"]],
+            "1600-2100": [["1730", "1815"], ["1815", "1900"], ["1900", "1945"]],
+            "0600-1100": [["0730", "0815"], ["0815", "0900"], ["0900", "0945"]]
+        };
 
+        const times = generateTimeSlots();
+
+        return (patternMap[slot] || []).map(([s, e]) => ({
+            startIndex: times.findIndex(t => t === s),
+            endIndex: times.findIndex(t => t === e)
+        })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
+    }
+
+    // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
         const startIndex = times.findIndex(t => t === otStart);
         const endIndex = times.findIndex(t => t === otEnd);
-
-        if (startIndex === -1) {
-            alert("OT start time outside current shift.");
-            return;
-        }
-
-        const releaseIndex = (endIndex === -1 ? times.length : endIndex); // full grid until end
+        if (startIndex === -1) { alert("OT start time outside current shift."); return; }
+        const releaseIndex = (endIndex === -1 ? times.length : endIndex);
 
         const otMode = currentMode;
         const otColor = currentColor;
 
-        // ---------------- PROPORTIONAL ZONE ASSIGNMENT ----------------
+        // count existing officers in zones
         const zoneCounts = {};
         zones[otMode].forEach(zone => {
             if (zone.name === "BIKES") return;
@@ -896,7 +907,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .filter(c => c.classList.contains("active")).length;
         });
 
-        // sort zones by current occupancy (lowest first)
+        // sort zones by current occupancy
         const sortedZones = Object.keys(zoneCounts).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
 
         // assign officers proportionally
@@ -911,23 +922,15 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // ---------------- GET BREAK OPTIONS ----------------
-        const breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
-
-        // ---------------- DEPLOY OFFICERS ----------------
         let officerNumber = 1;
 
         for (let zoneName of sortedZones) {
             const numOfficers = zoneAssignments[zoneName];
-
             for (let i = 0; i < numOfficers; i++) {
-                // pick one random pattern break for this officer
-                const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
-
+                const chosenBreak = getOTBreakOptions(`${otStart}-${otEnd}`)[Math.floor(Math.random() * 3)];
                 let currentIndex = startIndex;
 
                 while (currentIndex < releaseIndex) {
-                    // skip break slots
                     if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                         currentIndex = chosenBreak.endIndex + 1;
                         continue;
@@ -948,23 +951,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        updateAll();
-    }
-
-    // ---------------- BREAK OPTIONS ----------------
-    function getOTBreakOptions(slot) {
-        const patternMap = {
-            "1100-1600": [["1230", "1315"], ["1315", "1400"], ["1400", "1445"]],
-            "1600-2100": [["1730", "1815"], ["1815", "1900"], ["1900", "1945"]],
-            "0600-1100": [["0730", "0815"], ["0815", "0900"], ["0900", "0945"]]
-        };
-
-        const times = generateTimeSlots();
-
-        return (patternMap[slot] || []).map(([s, e]) => ({
-            startIndex: times.findIndex(t => t === s),
-            endIndex: times.findIndex(t => t === e)
-        })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
+        updateAll(); // keeps all buttons functional
     }
 
 
