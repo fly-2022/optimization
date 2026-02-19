@@ -873,66 +873,62 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
-        const times = generateTimeSlots();
 
-        // ---------------- FIX: declare startIndex and endIndex first ----------------
+        const times = generateTimeSlots();
+        const tbody = document.querySelector("#otRosterTable tbody");
+
+        if (tbody) {
+            tbody.innerHTML = "";
+        }
+
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
 
-        // If OT start is outside grid
         if (startIndex === -1) {
             alert("OT start time outside current shift.");
             return;
         }
 
-        // If OT end is outside grid, allow until grid ends
         if (endIndex === -1) {
-            endIndex = times.length;
+            endIndex = times.length; // deploy until grid ends
         }
 
-        const tbody = document.querySelector("#otRosterTable tbody");
-        if (tbody) {
-            tbody.innerHTML = "";
-        }
-
-        // Release 30 mins before end (assuming 15-min slots, 2 slots = 30 min)
+        // Release 30 mins before end (2 slots)
         let releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        // ---------------- BREAK SLOT OPTIONS ----------------
+        // Break options: 45 mins = 3 slots
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-        let otMode = currentMode;   // use the currently selected mode
-        let otColor = currentColor; // use the currently selected color
+        let otMode = currentMode;   // keep your current mode
+        let otColor = currentColor; // keep your current color
 
         for (let officer = 1; officer <= count; officer++) {
 
-            // Pick one break randomly
+            // Pick a break randomly
             const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
-
             let currentIndex = startIndex;
 
             while (currentIndex < releaseIndex) {
 
-                // 🔹 skip break slots
+                // Skip break slots
                 if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                     currentIndex = chosenBreak.endIndex + 1;
                     continue;
                 }
 
-                // Find lowest manned zone first
+                // ---- 50% manning logic ----
                 let bestZone = null;
-                let lowestRatio = 1;
+                let lowestRatio = Infinity;
 
                 zones[otMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
 
                     const timeStr = times[currentIndex];
+                    const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)];
+                    const activeCount = allCells.filter(c => c.classList.contains("active")).length;
+                    const totalCounters = allCells.length;
 
-                    const activeCount =
-                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
-                            .filter(c => c.classList.contains("active")).length;
-
-                    const ratio = activeCount / zone.counters.length;
+                    const ratio = activeCount / totalCounters;
 
                     if (ratio < lowestRatio) {
                         lowestRatio = ratio;
@@ -959,6 +955,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         updateAll();
     }
+
 
 
     // -------------------- Add Officers Global --------------------
