@@ -874,6 +874,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function allocateOTOfficers(count, otStart, otEnd) {
 
+        console.log("OT startIndex:", startIndex);
+        console.log("Times array:", times);
+        console.log("Zones available:", zones[otMode]);
+
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
 
@@ -1086,6 +1090,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         if (manpowerType === "ot") {
+
+            console.log("Current shift:", currentShift);
+            console.log("Selected OT slot:", start, end);
+
             const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
             const [start, end] = slot.split("-");
 
@@ -1094,6 +1102,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
+
+            console.log(generateTimeSlots());
 
             allocateOTOfficers(count, start, end);
         }
