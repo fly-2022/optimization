@@ -873,13 +873,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
-
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
 
-        if (tbody) {
-            tbody.innerHTML = "";
-        }
+        if (tbody) tbody.innerHTML = "";
 
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
@@ -888,47 +885,47 @@ document.addEventListener("DOMContentLoaded", function () {
             alert("OT start time outside current shift.");
             return;
         }
-
         if (endIndex === -1) {
-            endIndex = times.length; // deploy until grid ends
+            endIndex = times.length; // deploy until end of grid if OT end is outside
         }
 
-        // Release 30 mins before end (2 slots)
+        // Release 30 mins before end (2 slots of 15 mins)
         let releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        // Break options: 45 mins = 3 slots
+        // Get break options for this OT slot
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-        let otMode = currentMode;   // keep your current mode
-        let otColor = currentColor; // keep your current color
+        const otMode = currentMode;   // current mode
+        const otColor = currentColor; // current color
 
         for (let officer = 1; officer <= count; officer++) {
-
-            // Pick a break randomly
+            // Pick a break pattern randomly
             const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
+
             let currentIndex = startIndex;
 
             while (currentIndex < releaseIndex) {
-
                 // Skip break slots
                 if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                     currentIndex = chosenBreak.endIndex + 1;
                     continue;
                 }
 
-                // ---- 50% manning logic ----
+                // Find the lowest manned zone
                 let bestZone = null;
-                let lowestRatio = Infinity;
+                let lowestRatio = 1;
 
                 zones[otMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
 
                     const timeStr = times[currentIndex];
-                    const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)];
-                    const activeCount = allCells.filter(c => c.classList.contains("active")).length;
-                    const totalCounters = allCells.length;
 
-                    const ratio = activeCount / totalCounters;
+                    const activeCount = [...document.querySelectorAll(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`
+                    )].filter(c => c.classList.contains("active")).length;
+
+                    // avoid division by zero
+                    const ratio = activeCount / (zone.counters?.length || 1);
 
                     if (ratio < lowestRatio) {
                         lowestRatio = ratio;
@@ -936,15 +933,17 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 });
 
-                if (!bestZone) break;
+                if (!bestZone) break; // no zone found, stop
 
                 const emptyCells = getEmptyCellsBackFirst(bestZone.name, currentIndex);
+
                 if (!emptyCells.length) {
                     currentIndex++;
                     continue;
                 }
 
                 const cell = emptyCells[0];
+
                 cell.classList.add("active");
                 cell.style.background = otColor;
                 cell.dataset.officer = officer;
@@ -954,6 +953,35 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         updateAll();
+    }
+
+    // OT break patterns mapped to time ranges
+    function getOTBreakOptions(slot) {
+        const patternMap = {
+            "0600-1100": [
+                ["0730", "0815"],
+                ["0815", "0900"],
+                ["0900", "0945"]
+            ],
+            "1100-1600": [
+                ["1230", "1315"],
+                ["1315", "1400"],
+                ["1400", "1445"]
+            ],
+            "1600-2100": [
+                ["1730", "1815"],
+                ["1815", "1900"],
+                ["1900", "1945"]
+            ]
+        };
+
+        const times = generateTimeSlots();
+        const options = patternMap[slot] || [];
+
+        return options.map(([start, end]) => ({
+            startIndex: times.findIndex(t => t === start),
+            endIndex: times.findIndex(t => t === end)
+        })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
     }
 
 
