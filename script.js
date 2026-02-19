@@ -8,7 +8,6 @@ let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
 let tableEventsAttached = false;
-let otGlobalCounter = 0;
 
 function resetDragState() {
     isDragging = false;
@@ -326,7 +325,6 @@ function updateMainRoster() {
 
     // collect all active cells by officer
     document.querySelectorAll(".counter-cell.active").forEach(cell => {
-        // document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
         const officerNum = cell.dataset.officer;
         if (!officerMap[officerNum]) officerMap[officerNum] = [];
         officerMap[officerNum].push(parseInt(cell.dataset.time));
@@ -404,87 +402,6 @@ function updateMainRoster() {
     function formatTime(hhmm) {
         return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
     }
-}
-
-function updateOTRosterTable() {
-    const table = document.getElementById("otRosterTable");
-    const tbody = table.querySelector("tbody");
-    tbody.innerHTML = "";
-
-    // Get all cells on grid assigned to OT
-    const otCells = [...document.querySelectorAll(".counter-cell[data-officer^='OT']")];
-
-    // Group by officer label
-    const officersMap = {};
-
-    otCells.forEach(cell => {
-        const officer = cell.dataset.officer;
-        const counter = cell.dataset.counter;
-        const zone = cell.dataset.zone;
-        const time = cell.dataset.time;
-
-        if (!officersMap[officer]) officersMap[officer] = [];
-        officersMap[officer].push({ counter, zone, time });
-    });
-
-    // Sort OT officers numerically
-    const sortedOfficers = Object.keys(officersMap).sort((a, b) => {
-        const numA = parseInt(a.replace("OT", ""));
-        const numB = parseInt(b.replace("OT", ""));
-        return numA - numB;
-    });
-
-    // Populate table
-    sortedOfficers.forEach(officer => {
-        const assignments = officersMap[officer];
-
-        // Find continuous blocks to define work1/break/work2
-        assignments.sort((a, b) => a.time - b.time);
-
-        // Determine break automatically: gap between consecutive time slots
-        let start = assignments[0].time;
-        let counter = assignments[0].counter;
-        let end = start;
-
-        for (let i = 1; i < assignments.length; i++) {
-            if (parseInt(assignments[i].time) === parseInt(end) + 1) {
-                end = assignments[i].time;
-            } else {
-                // row for previous block
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${officer}</td>
-                    <td>${counter}</td>
-                    <td>${formatHHMM(start)}</td>
-                    <td>${formatHHMM(end)}</td>
-                `;
-                tbody.appendChild(row);
-
-                // start new block
-                start = assignments[i].time;
-                counter = assignments[i].counter;
-                end = start;
-            }
-        }
-
-        // Last block
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${officer}</td>
-            <td>${counter}</td>
-            <td>${formatHHMM(start)}</td>
-            <td>${formatHHMM(end)}</td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// helper to convert "HHMM" number to HH:MM format
-function formatHHMM(time) {
-    time = parseInt(time);
-    const hh = String(Math.floor(time / 100)).padStart(2, "0");
-    const mm = String(time % 100).padStart(2, "0");
-    return `${hh}:${mm}`;
 }
 
 function updateSOSRoster(startTime, endTime) {
@@ -993,166 +910,72 @@ document.addEventListener("DOMContentLoaded", function () {
     //     }));
     // }
 
-    function allocateOTOfficers(count, otStart, otEnd) {
-        const times = generateTimeSlots();
-        const tbody = document.querySelector("#otRosterTable tbody");
-        if (tbody) tbody.innerHTML = "";
-
-        const startIndex = times.findIndex(t => t === otStart);
-        let endIndex = times.findIndex(t => t === otEnd);
-        if (startIndex === -1) return alert("OT start time outside current shift.");
-        if (endIndex === -1) endIndex = times.length;
-
-        // Fixed 45-min break pattern: calculate indices
-        const totalSlots = endIndex - startIndex;
-        let breakSlots = Math.floor(45 / 15); // 45 mins = 3 slots
-        let halfWork = Math.floor((totalSlots - breakSlots) / 2);
-
-        const pattern = {
-            work1Start: startIndex,
-            work1End: startIndex + halfWork,
-            breakStart: startIndex + halfWork,
-            breakEnd: startIndex + halfWork + breakSlots,
-            work2Start: startIndex + halfWork + breakSlots,
-            work2End: endIndex
-        };
-
-        // Track which counters are occupied per slot to avoid duplicates
-        const slotAssignments = {};
-        for (let t = startIndex; t < endIndex; t++) slotAssignments[t] = new Set();
-
-        for (let officer = 1; officer <= count; officer++) {
-            const officerLabel = "OT" + officer;
-
-            // ---------------- PRE-BREAK COUNTER ----------------
-            let counter1 = getGapCounter(pattern.work1Start, pattern.work1End, slotAssignments, times);
-
-            for (let t = pattern.work1Start; t < pattern.work1End; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-counter="${counter1.counter}"][data-time="${times[t]}"]`
-                );
-                if (!cell || cell.classList.contains("active")) continue;
-                cell.classList.add("active");
-                cell.style.background = currentColor;
-                cell.dataset.officer = officerLabel;
-
-                slotAssignments[t].add(counter1.zone + counter1.counter);
-            }
-
-            // ---------------- POST-BREAK COUNTER ----------------
-            let counter2 = getGapCounter(pattern.work2Start, pattern.work2End, slotAssignments, times);
-
-            for (let t = pattern.work2Start; t < pattern.work2End; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-counter="${counter2.counter}"][data-time="${times[t]}"]`
-                );
-                if (!cell || cell.classList.contains("active")) continue;
-                cell.classList.add("active");
-                cell.style.background = currentColor;
-                cell.dataset.officer = officerLabel;
-
-                slotAssignments[t].add(counter2.zone + counter2.counter);
-            }
-
-            // ---------------- UPDATE OT ROSTER TABLE ----------------
-            const row = document.createElement("tr");
-            row.innerHTML = `<td>${officerLabel}</td>
-                         <td>${counter1.counter} → ${counter2.counter}</td>
-                         <td>${times[pattern.work1Start]}</td>
-                         <td>${times[pattern.work2End - 1]}</td>`;
-            tbody.appendChild(row);
-        }
-
-        updateAll();
-    }
-
-
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
+
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
         if (tbody) tbody.innerHTML = "";
 
         const startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
-        if (startIndex === -1) return alert("OT start time outside current shift.");
+
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
+            return;
+        }
+
         if (endIndex === -1) endIndex = times.length;
 
-        // Fixed 45-min break pattern: calculate indices
-        const totalSlots = endIndex - startIndex;
-        let breakSlots = Math.floor(45 / 15); // 45 mins = 3 slots
-        let halfWork = Math.floor((totalSlots - breakSlots) / 2);
+        const releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        const pattern = {
-            work1Start: startIndex,
-            work1End: startIndex + halfWork,
-            breakStart: startIndex + halfWork,
-            breakEnd: startIndex + halfWork + breakSlots,
-            work2Start: startIndex + halfWork + breakSlots,
-            work2End: endIndex
-        };
-
-        // Track which counters are occupied per slot to avoid duplicates
-        const slotAssignments = {};
-        for (let t = startIndex; t < endIndex; t++) slotAssignments[t] = new Set();
+        const patterns = getOTPatterns(otStart, otEnd, times);
 
         for (let officer = 1; officer <= count; officer++) {
+
+            const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+
             const officerLabel = "OT" + officer;
 
-            // ---------------- PRE-BREAK COUNTER ----------------
-            let counter1 = getGapCounter(pattern.work1Start, pattern.work1End, slotAssignments, times);
+            // ---------------- PRE BREAK COUNTER ----------------
+            let counter1 = getBestCounter(pattern.work1Start, times);
+
+            if (!counter1) continue;
 
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
+
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-counter="${counter1.counter}"][data-time="${times[t]}"]`
+                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${times[t]}"][data-counter="${counter1.counter}"]`
                 );
+
                 if (!cell || cell.classList.contains("active")) continue;
+
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-
-                slotAssignments[t].add(counter1.zone + counter1.counter);
             }
 
-            // ---------------- POST-BREAK COUNTER ----------------
-            let counter2 = getGapCounter(pattern.work2Start, pattern.work2End, slotAssignments, times);
+            // ---------------- POST BREAK COUNTER ----------------
+            let counter2 = getBestCounter(pattern.work2Start, times);
+
+            if (!counter2) continue;
 
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
+
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-counter="${counter2.counter}"][data-time="${times[t]}"]`
+                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${times[t]}"][data-counter="${counter2.counter}"]`
                 );
+
                 if (!cell || cell.classList.contains("active")) continue;
+
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-
-                slotAssignments[t].add(counter2.zone + counter2.counter);
             }
-
-            // ---------------- UPDATE OT ROSTER TABLE ----------------
-            const row = document.createElement("tr");
-            row.innerHTML = `<td>${officerLabel}</td>
-                         <td>${counter1.counter} → ${counter2.counter}</td>
-                         <td>${times[pattern.work1Start]}</td>
-                         <td>${times[pattern.work2End - 1]}</td>`;
-            tbody.appendChild(row);
         }
 
         updateAll();
-    }
-
-
-    function assignSpecialOfficer(officer, startTime, endTime, counter) {
-        for (let t = startTime; t < endTime; t++) {
-            const cell = document.querySelector(
-                `.counter-cell[data-zone="${counter.zone}"][data-counter="${counter.counter}"][data-time="${t}"]`
-            );
-            if (!cell) continue;
-            if (!cell.classList.contains("active") || cell.dataset.officer.startsWith("OT")) {
-                cell.classList.add("active");
-                cell.dataset.officer = officer;
-            }
-        }
+        updateOTRosterTable();
     }
 
 
@@ -1227,21 +1050,18 @@ document.addEventListener("DOMContentLoaded", function () {
     function getBestCounter(timeIndex, times) {
 
         let bestZone = null;
-        let lowestRatio = 999;
+        let lowestRatio = Infinity;
 
         zones[currentMode].forEach(zone => {
 
-            // 🚫 Skip BIKES for OT
             if (zone.name === "BIKES") return;
-
-            const totalCounters = zone.counters.length;
 
             const activeCount =
                 [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${timeIndex}"].active`
-                )].length;
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${times[timeIndex]}"]`
+                )].filter(c => c.classList.contains("active")).length;
 
-            const ratio = activeCount / totalCounters;
+            const ratio = activeCount / zone.counters.length;
 
             if (ratio < lowestRatio) {
                 lowestRatio = ratio;
@@ -1251,19 +1071,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!bestZone) return null;
 
-        // get first empty counter in that zone
-        const emptyCell = document.querySelector(
-            `.counter-cell[data-zone="${bestZone.name}"][data-time="${timeIndex}"]:not(.active)`
-        );
-
-        if (!emptyCell) return null;
+        const emptyCells = getEmptyCellsBackFirst(bestZone.name, timeIndex);
+        if (!emptyCells.length) return null;
 
         return {
             zone: bestZone.name,
-            counter: emptyCell.dataset.counter
+            counter: emptyCells[0].dataset.counter
         };
     }
-
 
     function getOTPatterns(start, end, times) {
 
@@ -1466,40 +1281,4 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
     );
 
     return emptyCells;
-}
-
-function copyMainRoster() {
-    copyTable("mainRosterTable");
-}
-
-function copySOSRoster() {
-    copyTable("sosRosterTable");
-}
-
-function copyOTRoster() {
-    copyTable("otRosterTable");
-}
-
-function copyTable(tableId) {
-
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    let text = "";
-
-    const rows = table.querySelectorAll("tr");
-
-    rows.forEach(row => {
-        const cells = row.querySelectorAll("th, td");
-        let rowText = [];
-
-        cells.forEach(cell => {
-            rowText.push(cell.innerText.trim());
-        });
-
-        text += rowText.join("\t") + "\n";
-    });
-
-    navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
 }
