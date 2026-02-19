@@ -88,9 +88,11 @@ function generateTimeSlots() {
 
         let hhmm =
             String(hh).padStart(2, "0") +
+            ":" +
             String(mm).padStart(2, "0");
 
         slots.push(hhmm);
+
     }
 
     return slots;
