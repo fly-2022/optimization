@@ -324,7 +324,8 @@ function updateMainRoster() {
     const officerMap = {};
 
     // collect all active cells by officer
-    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+    // document.querySelectorAll(".counter-cell.active").forEach(cell => {
+    document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
         const officerNum = cell.dataset.officer;
         if (!officerMap[officerNum]) officerMap[officerNum] = [];
         officerMap[officerNum].push(parseInt(cell.dataset.time));
@@ -1130,7 +1131,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         zones[currentMode].forEach(zone => {
 
-            // include BIKES now
+            // 🚫 Skip BIKES for OT
+            if (zone.name === "BIKES") return;
+
             const totalCounters = zone.counters.length;
 
             const activeCount =
