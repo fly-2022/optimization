@@ -853,20 +853,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-
-        // 🔹 Corrected logic according to your rules
-        const nightOT = "0600-1100";
-        const morningOT1 = "1100-1600";
-        const morningOT2 = "1600-2100";
-
-        const slot = `${otStart}-${otEnd}`;
-
-        if (currentShift === "morning") {
-            return slot === morningOT1 || slot === morningOT2;
-        } else { // night shift
-            return slot === nightOT;
-        }
+        // convert HH:MM to index in generateTimeSlots()
+        const times = generateTimeSlots();
+        const startIndex = times.findIndex(t => t === otStart.replace(":", ""));
+        const endIndex = times.findIndex(t => t === otEnd.replace(":", ""));
+        return startIndex !== -1 && endIndex !== -1 && startIndex < endIndex;
     }
+
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
