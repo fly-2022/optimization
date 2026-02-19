@@ -1025,6 +1025,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
+                cell.dataset.type = "ot";
+
             }
 
             // ---------------- POST BREAK COUNTER ----------------
@@ -1043,11 +1045,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
+                cell.dataset.type = "ot";
+
             }
         }
 
         updateAll();
-        // updateOTRosterTable();
+        updateOTRosterTable();
     }
 
 
@@ -1122,18 +1126,19 @@ document.addEventListener("DOMContentLoaded", function () {
     function getBestCounter(timeIndex, times) {
 
         let bestZone = null;
-        let lowestRatio = Infinity;
+        let lowestRatio = 999;
 
         zones[currentMode].forEach(zone => {
 
-            if (zone.name === "BIKES") return;
+            // include BIKES now
+            const totalCounters = zone.counters.length;
 
             const activeCount =
                 [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${times[timeIndex]}"]`
-                )].filter(c => c.classList.contains("active")).length;
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${timeIndex}"].active`
+                )].length;
 
-            const ratio = activeCount / zone.counters.length;
+            const ratio = activeCount / totalCounters;
 
             if (ratio < lowestRatio) {
                 lowestRatio = ratio;
@@ -1143,14 +1148,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!bestZone) return null;
 
-        const emptyCells = getEmptyCellsBackFirst(bestZone.name, timeIndex);
-        if (!emptyCells.length) return null;
+        // get first empty counter in that zone
+        const emptyCell = document.querySelector(
+            `.counter-cell[data-zone="${bestZone.name}"][data-time="${timeIndex}"]:not(.active)`
+        );
+
+        if (!emptyCell) return null;
 
         return {
             zone: bestZone.name,
-            counter: emptyCells[0].dataset.counter
+            counter: emptyCell.dataset.counter
         };
     }
+
 
     function getOTPatterns(start, end, times) {
 
