@@ -406,6 +406,87 @@ function updateMainRoster() {
     }
 }
 
+function updateOTRosterTable() {
+    const table = document.getElementById("otRosterTable");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    // Get all cells on grid assigned to OT
+    const otCells = [...document.querySelectorAll(".counter-cell[data-officer^='OT']")];
+
+    // Group by officer label
+    const officersMap = {};
+
+    otCells.forEach(cell => {
+        const officer = cell.dataset.officer;
+        const counter = cell.dataset.counter;
+        const zone = cell.dataset.zone;
+        const time = cell.dataset.time;
+
+        if (!officersMap[officer]) officersMap[officer] = [];
+        officersMap[officer].push({ counter, zone, time });
+    });
+
+    // Sort OT officers numerically
+    const sortedOfficers = Object.keys(officersMap).sort((a, b) => {
+        const numA = parseInt(a.replace("OT", ""));
+        const numB = parseInt(b.replace("OT", ""));
+        return numA - numB;
+    });
+
+    // Populate table
+    sortedOfficers.forEach(officer => {
+        const assignments = officersMap[officer];
+
+        // Find continuous blocks to define work1/break/work2
+        assignments.sort((a, b) => a.time - b.time);
+
+        // Determine break automatically: gap between consecutive time slots
+        let start = assignments[0].time;
+        let counter = assignments[0].counter;
+        let end = start;
+
+        for (let i = 1; i < assignments.length; i++) {
+            if (parseInt(assignments[i].time) === parseInt(end) + 1) {
+                end = assignments[i].time;
+            } else {
+                // row for previous block
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${officer}</td>
+                    <td>${counter}</td>
+                    <td>${formatHHMM(start)}</td>
+                    <td>${formatHHMM(end)}</td>
+                `;
+                tbody.appendChild(row);
+
+                // start new block
+                start = assignments[i].time;
+                counter = assignments[i].counter;
+                end = start;
+            }
+        }
+
+        // Last block
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${officer}</td>
+            <td>${counter}</td>
+            <td>${formatHHMM(start)}</td>
+            <td>${formatHHMM(end)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// helper to convert "HHMM" number to HH:MM format
+function formatHHMM(time) {
+    time = parseInt(time);
+    const hh = String(Math.floor(time / 100)).padStart(2, "0");
+    const mm = String(time % 100).padStart(2, "0");
+    return `${hh}:${mm}`;
+}
+
 function updateSOSRoster(startTime, endTime) {
     const tbody = document.querySelector("#sosRosterTable tbody");
     const heading = document.getElementById("sosRosterHeading");
@@ -1054,7 +1135,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         updateAll();
-        updateOTRosterTable();
+        updateOTRosterTable();  // now updates the correct table
     }
 
 
