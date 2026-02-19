@@ -853,20 +853,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        // 0600-1100 → night only
-        if (otStart === "06:00" && otEnd === "11:00") {
-            return currentShift === "night";
+        // Convert input to HH:MM format (just in case)
+        otStart = otStart.padStart(5, '0');
+        otEnd = otEnd.padStart(5, '0');
+
+        if (currentShift === "morning") {
+            // Morning shift allows 11:00-16:00 & 16:00-21:00
+            return (otStart === "11:00" && otEnd === "16:00") ||
+                (otStart === "16:00" && otEnd === "21:00");
+        } else if (currentShift === "night") {
+            // Night shift allows 06:00-11:00 only
+            return otStart === "06:00" && otEnd === "11:00";
         }
 
-        // 1100-1600 & 1600-2100 → morning only
-        if ((otStart === "11:00" && otEnd === "16:00") ||
-            (otStart === "16:00" && otEnd === "21:00")) {
-            return currentShift === "morning";
-        }
-
-        return false; // everything else invalid
+        return false; // any other combination is invalid
     }
-
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
