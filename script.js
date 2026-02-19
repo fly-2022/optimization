@@ -1089,25 +1089,38 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
+        // if (manpowerType === "ot") {
+
+        //     console.log("Current shift:", currentShift);
+        //     console.log("Selected OT slot:", start, end);
+
+        //     const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
+        //     const [start, end] = slot.split("-");
+
+        //     // start/end are already "HHMM", matches grid format
+        //     if (!isOTWithinShift(start, end)) {
+        //         alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
+        //         return;
+        //     }
+
+        //     console.log(generateTimeSlots());
+
+        //     allocateOTOfficers(count, start, end);
+        // }
+
         if (manpowerType === "ot") {
-
-            console.log("Current shift:", currentShift);
-            console.log("Selected OT slot:", start, end);
-
+            // ---------------- FIX: declare start/end first ----------------
             const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
-            const [start, end] = slot.split("-");
+            const [start, end] = slot.split("-").map(s => s.replace(":", "")); // convert HH:MM → HHMM
 
-            // start/end are already "HHMM", matches grid format
+            // start/end are now safe to use
             if (!isOTWithinShift(start, end)) {
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
 
-            console.log(generateTimeSlots());
-
             allocateOTOfficers(count, start, end);
         }
-
 
         if (manpowerType === "main") {
             applyMainTemplate(count);
