@@ -977,6 +977,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (let t = startIndex; t < endIndex; t++) {
             const zoneLimits = {};
+            console.log("Current Shift:", currentShift);
+            console.log("Current Mode:", currentMode);
+            console.log("Zones:", zones[currentMode]);
+
+            if (!zones[currentMode]) {
+                console.log("Mode not found, fallback to arrival");
+                currentMode = "arrival";
+            }
+
             zones[currentMode].forEach(zone => {
                 if (zone.name === "BIKES") return;
                 const total = zone.counters.length;
