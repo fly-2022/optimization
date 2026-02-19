@@ -914,11 +914,9 @@ document.addEventListener("DOMContentLoaded", function () {
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
         const tbody = document.querySelector("#otRosterTable tbody");
-
         if (tbody) tbody.innerHTML = "";
 
         // ------------------ OT Patterns ------------------
-        // Define fixed work/break patterns per slot
         const otPatterns = {
             "0600-1100": [
                 { work: [["0600", "0730"], ["0815", "1030"]] },
@@ -943,28 +941,24 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const tbodyExists = !!tbody;
-
         for (let officer = 1; officer <= count; officer++) {
             // pick random pattern per officer
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            // determine start/end for roster table
-            const tableStart = pattern.work[0][0];
-            const tableEnd = pattern.work[pattern.work.length - 1][1];
+            // Track OT deployment for roster table
+            const deploymentSlots = [];
 
             pattern.work.forEach(workSlot => {
                 const [workStart, workEnd] = workSlot;
                 let startIndex = times.findIndex(t => t === workStart);
                 let endIndex = times.findIndex(t => t === workEnd);
-
                 if (startIndex === -1) startIndex = 0;
                 if (endIndex === -1) endIndex = times.length;
 
                 for (let tIndex = startIndex; tIndex < endIndex; tIndex++) {
-                    // find zone with lowest manning, skip BIKES
+                    // ---------------- Find zone with lowest manning ----------------
                     let bestZone = null;
-                    let lowestCount = Infinity;
+                    let lowestRatio = 1;
 
                     zones[currentMode].forEach(zone => {
                         if (zone.name === "BIKES") return;
@@ -972,8 +966,10 @@ document.addEventListener("DOMContentLoaded", function () {
                         const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${times[tIndex]}"]`)]
                             .filter(c => c.classList.contains("active")).length;
 
-                        if (activeCount < lowestCount) {
-                            lowestCount = activeCount;
+                        const ratio = activeCount / zone.counters.length;
+
+                        if (ratio < lowestRatio) {
+                            lowestRatio = ratio;
                             bestZone = zone;
                         }
                     });
@@ -987,24 +983,52 @@ document.addEventListener("DOMContentLoaded", function () {
                     cell.classList.add("active");
                     cell.style.background = currentColor;
                     cell.dataset.officer = officer;
+
+                    deploymentSlots.push({
+                        zone: bestZone.name,
+                        counter: cell.dataset.counter,
+                        time: times[tIndex]
+                    });
                 }
             });
 
             // ------------------ OT Roster Table ------------------
-            if (tbodyExists) {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                <td>OT ${officer}</td>
-                <td>${otStart}-${otEnd}</td>
-                <td>${tableStart}</td>
-                <td>${tableEnd}</td>
-            `;
-                tbody.appendChild(row);
+            // Group consecutive times per zone for display
+            if (deploymentSlots.length > 0 && tbody) {
+                let currentZone = deploymentSlots[0].zone;
+                let currentCounter = deploymentSlots[0].counter;
+                let startTime = deploymentSlots[0].time;
+                let endTime = deploymentSlots[0].time;
+
+                for (let i = 1; i <= deploymentSlots.length; i++) {
+                    const slot = deploymentSlots[i];
+                    if (slot && slot.zone === currentZone && slot.counter === currentCounter &&
+                        parseInt(slot.time) === parseInt(endTime) + 15) {
+                        endTime = slot.time;
+                    } else {
+                        const row = document.createElement("tr");
+                        row.innerHTML = `
+                        <td>OT ${officer}</td>
+                        <td>${currentCounter}</td>
+                        <td>${startTime}</td>
+                        <td>${endTime}</td>
+                    `;
+                        tbody.appendChild(row);
+
+                        if (slot) {
+                            currentZone = slot.zone;
+                            currentCounter = slot.counter;
+                            startTime = slot.time;
+                            endTime = slot.time;
+                        }
+                    }
+                }
             }
         }
 
         updateAll();
     }
+
 
 
 
