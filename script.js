@@ -882,14 +882,9 @@ document.addEventListener("DOMContentLoaded", function () {
         // ---------------- BREAK SLOT OPTIONS ----------------
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-        // ---------------- FIX: ensure currentMode and color are correct ----------------
-        if (currentShift === "morning") {
-            currentMode = "arrival"; // morning OT assigned to arrival mode
-            currentColor = "#4CAF50";
-        } else {
-            currentMode = "departure"; // night OT assigned to departure mode
-            currentColor = "#FF9800";
-        }
+        // ---------------- FIX: use local variables, don't overwrite globals ----------------
+        let otMode = currentMode;   // use the currently selected mode
+        let otColor = currentColor; // use the currently selected color
 
         // =====================================================
         for (let officer = 1; officer <= count; officer++) {
@@ -901,7 +896,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             while (currentIndex < releaseIndex) {
 
-                // 🔹 Fix: properly skip break slots
+                // 🔹 properly skip break slots
                 if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                     currentIndex = chosenBreak.endIndex + 1; // move past break
                     continue;
@@ -911,7 +906,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 let bestZone = null;
                 let lowestRatio = 1;
 
-                zones[currentMode].forEach(zone => {
+                zones[otMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
 
                     const activeCount =
@@ -938,7 +933,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const cell = emptyCells[0];
 
                 cell.classList.add("active");
-                cell.style.background = currentColor;
+                cell.style.background = otColor;
                 cell.dataset.officer = officer;
 
                 currentIndex++;
