@@ -853,22 +853,33 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        const toMin = t => {
-            const [h, m] = t.split(":").map(Number);
-            return h * 60 + m;
-        };
+        function toMin(t) {
+            t = t.replace(":", "");
+            const hh = parseInt(t.slice(0, 2));
+            const mm = parseInt(t.slice(2, 4));
+            return hh * 60 + mm;
+        }
 
-        const start = toMin(otStart);
-        const end = toMin(otEnd);
+        let start = toMin(otStart);
+        let end = toMin(otEnd);
 
         if (currentShift === "morning") {
-            // 10:00–22:00
-            return start >= 600 && end <= 1320;
+            const shiftStart = 10 * 60; // 1000
+            const shiftEnd = 22 * 60;   // 2200
+            return start >= shiftStart && end <= shiftEnd;
         } else {
-            // NIGHT 22:00–10:00 (cross midnight)
-            return (start >= 1320 && start < 1440) || (start >= 0 && start <= 600);
+            // night shift: 2200–1000 next day
+            const shiftStart = 22 * 60; // 2200
+            const shiftEnd = 10 * 60 + 24 * 60; // 1000 next day -> 10*60 + 1440 = 1500
+            // normalize OT times: if < 1000, add 1440
+            if (start < 10 * 60) start += 24 * 60;
+            if (end < 10 * 60) end += 24 * 60;
+
+            return start >= shiftStart && end <= shiftEnd;
         }
     }
+
+
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -879,6 +890,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
+
+        // ---------------- NIGHT SHIFT NORMALIZATION ----------------
+        if (currentShift === "night") {
+            // convert OT times to match the generateTimeSlots indices
+            const nightTimes = times.map((t, i) => {
+                let mins = parseInt(t.slice(0, 2)) * 60 + parseInt(t.slice(2, 4));
+                if (mins < 10 * 60) return { t, i: i + 96 }; // 10*60 = 1000, add 96 slots (24h / 15min)
+                return { t, i };
+            });
+            startIndex = nightTimes.find(nt => nt.t === otStart)?.i ?? startIndex;
+            endIndex = nightTimes.find(nt => nt.t === otEnd)?.i ?? endIndex;
+        }
+
 
         if (startIndex === -1 || endIndex === -1) {
             alert("OT time range outside current shift.");
