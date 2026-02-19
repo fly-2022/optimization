@@ -853,14 +853,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        // Convert input to HH:MM format (just in case)
-        otStart = otStart.padStart(5, '0');
-        otEnd = otEnd.padStart(5, '0');
+        // // Convert input to HH:MM format (just in case)
+        // otStart = otStart.padStart(5, '0');
+        // otEnd = otEnd.padStart(5, '0');
 
         if (currentShift === "morning") {
             // Morning shift allows 1100-1600 & 1600-2100
             return (otStart === "1100" && otEnd === "1600") ||
                 (otStart === "1600" && otEnd === "2100");
+
         } else if (currentShift === "night") {
             // Night shift allows 0600-1100 only
             return otStart === "0600" && otEnd === "1100";
@@ -1060,15 +1061,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         if (manpowerType === "ot") {
+            const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
+            const [start, end] = slot.split("-");
 
-            const slot = document.getElementById("otSlot").value;
-            let [start, end] = slot.split("-").map(s => s.trim());
-
-            // 🔹 FIX: normalize OT times to match time slot format
-            start = start.replace(":", ""); // e.g., "11:00" -> "1100"
-            end = end.replace(":", "");   // e.g., "16:00" -> "1600"
-
-            // 🔥 SHIFT VALIDATION
+            // start/end are already "HHMM", matches grid format
             if (!isOTWithinShift(start, end)) {
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
@@ -1076,7 +1072,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
             allocateOTOfficers(count, start, end);
         }
-
 
 
         if (manpowerType === "main") {
