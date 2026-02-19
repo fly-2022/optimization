@@ -929,7 +929,79 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        const patterns = getOTPatterns(otStart, otEnd, times);
+        let patterns = [];
+
+        if (otStart === "1100" && otEnd === "1600") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
+
+        else if (otStart === "1600" && otEnd === "2100") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
+
+        else if (otStart === "0600" && otEnd === "1100") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
 
         for (let officer = 1; officer <= count; officer++) {
 
@@ -975,7 +1047,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         updateAll();
-        updateOTRosterTable();
+        // updateOTRosterTable();
     }
 
 
