@@ -71,15 +71,18 @@ function generateTimeSlots() {
     let start, end;
 
     if (currentShift === "morning") {
-        start = 6 * 60;   // 0600
+        start = 10 * 60;  // 1000
         end = 22 * 60;    // 2200
     } else {
-        start = 6 * 60;   // 0600
-        end = 16 * 60;    // 1600 (night for OT)
+        start = 22 * 60;  // 2200
+        end = (24 + 10) * 60; // 1000 next day = 34*60
     }
 
     for (let time = start; time < end; time += 15) {
+
+        // convert back into 0–1440 range
         let minutes = time % (24 * 60);
+
         let hh = Math.floor(minutes / 60);
         let mm = minutes % 60;
 
