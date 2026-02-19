@@ -853,30 +853,22 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        function toMin(t) {
-            t = t.replace(":", "");
-            const hh = parseInt(t.slice(0, 2));
-            const mm = parseInt(t.slice(2, 4));
-            return hh * 60 + mm;
+        const shift = currentShift;
+
+        // Map OT slots to allowed shift
+        const validSlots = {
+            "0600-1100": "night",
+            "1100-1600": "morning",
+            "1600-2100": "morning"
+        };
+
+        const slotStr = otStart + "-" + otEnd;
+
+        if (validSlots[slotStr] !== shift) {
+            return false; // OT outside allowed shift
         }
 
-        let start = toMin(otStart);
-        let end = toMin(otEnd);
-
-        if (currentShift === "morning") {
-            const shiftStart = 10 * 60; // 1000
-            const shiftEnd = 22 * 60;   // 2200
-            return start >= shiftStart && end <= shiftEnd;
-        } else {
-            // night shift: 2200–1000 next day
-            const shiftStart = 22 * 60; // 2200
-            const shiftEnd = 10 * 60 + 24 * 60; // 1000 next day -> 10*60 + 1440 = 1500
-            // normalize OT times: if < 1000, add 1440
-            if (start < 10 * 60) start += 24 * 60;
-            if (end < 10 * 60) end += 24 * 60;
-
-            return start >= shiftStart && end <= shiftEnd;
-        }
+        return true; // valid
     }
 
 
