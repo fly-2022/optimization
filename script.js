@@ -913,55 +913,63 @@ document.addEventListener("DOMContentLoaded", function () {
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
-        const otColor = currentColor;
-        const otMode = currentMode;
+        const tbody = document.querySelector("#otRosterTable tbody");
 
-        // Map OT patterns based on slot
+        if (tbody) tbody.innerHTML = "";
+
+        // ------------------ OT Patterns ------------------
+        // Define fixed work/break patterns per slot
         const otPatterns = {
             "0600-1100": [
-                { work: ["0600-0730", "0815-1030"], break: ["0730-0815"] },
-                { work: ["0600-0815", "0945-1030"], break: ["0815-0945"] },
-                { work: ["0600-0900", "0945-1030"], break: ["0900-0945"] }
+                { work: [["0600", "0730"], ["0815", "1030"]] },
+                { work: [["0600", "0815"], ["0900", "1030"]] },
+                { work: [["0600", "0900"], ["0945", "1030"]] }
             ],
             "1100-1600": [
-                { work: ["1100-1230", "1315-1530"], break: ["1230-1315"] },
-                { work: ["1100-1315", "1400-1530"], break: ["1315-1400"] },
-                { work: ["1100-1400", "1445-1530"], break: ["1400-1445"] }
+                { work: [["1100", "1230"], ["1315", "1530"]] },
+                { work: [["1100", "1315"], ["1400", "1530"]] },
+                { work: [["1100", "1400"], ["1445", "1530"]] }
             ],
             "1600-2100": [
-                { work: ["1600-1730", "1815-2030"], break: ["1730-1815"] },
-                { work: ["1600-1815", "1900-2030"], break: ["1815-1900"] },
-                { work: ["1600-1900", "1945-2030"], break: ["1900-1945"] }
+                { work: [["1600", "1730"], ["1815", "2030"]] },
+                { work: [["1600", "1815"], ["1900", "2030"]] },
+                { work: [["1600", "1900"], ["1945", "2030"]] }
             ]
         };
 
         const patterns = otPatterns[`${otStart}-${otEnd}`];
         if (!patterns) {
-            alert("OT slot pattern not found.");
+            alert("No OT pattern defined for this slot.");
             return;
         }
 
-        // Randomly pick a pattern for each officer
+        const tbodyExists = !!tbody;
+
         for (let officer = 1; officer <= count; officer++) {
+            // pick random pattern per officer
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
+            // determine start/end for roster table
+            const tableStart = pattern.work[0][0];
+            const tableEnd = pattern.work[pattern.work.length - 1][1];
+
             pattern.work.forEach(workSlot => {
-                const [wStart, wEnd] = workSlot;
-                let startIndex = times.findIndex(t => t === wStart);
-                let endIndex = times.findIndex(t => t === wEnd);
+                const [workStart, workEnd] = workSlot;
+                let startIndex = times.findIndex(t => t === workStart);
+                let endIndex = times.findIndex(t => t === workEnd);
+
                 if (startIndex === -1) startIndex = 0;
                 if (endIndex === -1) endIndex = times.length;
 
-                for (let i = startIndex; i < endIndex; i++) {
-                    const timeStr = times[i];
-
-                    // find zone with lowest manning (skip BIKES)
+                for (let tIndex = startIndex; tIndex < endIndex; tIndex++) {
+                    // find zone with lowest manning, skip BIKES
                     let bestZone = null;
                     let lowestCount = Infinity;
 
-                    zones[otMode].forEach(zone => {
+                    zones[currentMode].forEach(zone => {
                         if (zone.name === "BIKES") return;
-                        const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
+
+                        const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${times[tIndex]}"]`)]
                             .filter(c => c.classList.contains("active")).length;
 
                         if (activeCount < lowestCount) {
@@ -972,19 +980,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     if (!bestZone) continue;
 
-                    const emptyCells = getEmptyCellsBackFirst(bestZone.name, i);
+                    const emptyCells = getEmptyCellsBackFirst(bestZone.name, tIndex);
                     if (emptyCells.length === 0) continue;
 
                     const cell = emptyCells[0];
                     cell.classList.add("active");
-                    cell.style.background = otColor;
+                    cell.style.background = currentColor;
                     cell.dataset.officer = officer;
                 }
             });
+
+            // ------------------ OT Roster Table ------------------
+            if (tbodyExists) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                <td>OT ${officer}</td>
+                <td>${otStart}-${otEnd}</td>
+                <td>${tableStart}</td>
+                <td>${tableEnd}</td>
+            `;
+                tbody.appendChild(row);
+            }
         }
 
         updateAll();
     }
+
 
 
 
