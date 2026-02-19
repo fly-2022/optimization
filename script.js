@@ -848,6 +848,25 @@ document.addEventListener("DOMContentLoaded", function () {
         return [];
     }
 
+    function isOTWithinShift(otStart, otEnd) {
+        const toMin = t => {
+            const [h, m] = t.split(":").map(Number);
+            return h * 60 + m;
+        };
+
+        const start = toMin(otStart);
+        const end = toMin(otEnd);
+
+        if (currentShift === "morning") {
+            // 10:00–22:00
+            return start >= 600 && end <= 1320;
+        } else {
+            // NIGHT 22:00–10:00 (cross midnight)
+            return (start >= 1320 && start < 1440) || (start >= 0 && start <= 600);
+        }
+    }
+
+
     function allocateOTOfficers(count, otStart, otEnd) {
 
         const times = generateTimeSlots();
@@ -1038,13 +1057,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const [start, end] = slot.split("-").map(s => s.trim());
 
             // 🔥 SHIFT VALIDATION
-            if (slot === "0600-1100" && currentShift !== "night") {
-                alert("0600-1100 OT is only for Night Shift.");
-                return;
-            }
-
-            if ((slot === "1100-1600" || slot === "1600-2100") && currentShift !== "morning") {
-                alert("1100-1600 and 1600-2100 OT are only for Morning Shift.");
+            if (!isOTWithinShift(start, end)) {
+                alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
 
