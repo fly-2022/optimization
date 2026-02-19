@@ -71,11 +71,11 @@ function generateTimeSlots() {
     let start, end;
 
     if (currentShift === "morning") {
-        start = 10 * 60;        // 1000
-        end = 22 * 60;          // 2200
+        start = 6 * 60;   // 0600
+        end = 22 * 60;    // 2200
     } else {
-        start = 22 * 60;        // 2200
-        end = 34 * 60;          // 1000 next day (22+12)
+        start = 6 * 60;   // 0600
+        end = 16 * 60;    // 1600 (night for OT)
     }
 
     for (let time = start; time < end; time += 15) {
@@ -863,31 +863,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let releaseIndex = endIndex - 2;
 
         // ---------------- BREAK SLOT OPTIONS ----------------
-        let breakOptions = [];
-
-        if (otStart === "0600") {
-            breakOptions = [
-                ["0730", "0815"],
-                ["0815", "0900"],
-                ["0900", "0945"]
-            ];
-        }
-
-        if (otStart === "1100") {
-            breakOptions = [
-                ["1230", "1315"],
-                ["1315", "1400"],
-                ["1400", "1445"]
-            ];
-        }
-
-        if (otStart === "1600") {
-            breakOptions = [
-                ["1730", "1815"],
-                ["1815", "1900"],
-                ["1900", "1945"]
-            ];
-        }
+        let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
         // Convert to indexes
         breakOptions = breakOptions.map(slot => ({
@@ -1060,9 +1036,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
         if (manpowerType === "ot") {
-            const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
-            const [start, end] = slot.split("-");
-            const breakSlot = otBreaks[slot] || [];
+
+            const slot = document.getElementById("otSlot").value;
+            const [start, end] = slot.split("-").map(s => s.trim());
+
+            // 🔥 SHIFT VALIDATION
+            if (slot === "0600-1100" && currentShift !== "night") {
+                alert("0600-1100 OT is only for Night Shift.");
+                return;
+            }
+
+            if ((slot === "1100-1600" || slot === "1600-2100") && currentShift !== "morning") {
+                alert("1100-1600 and 1600-2100 OT are only for Morning Shift.");
+                return;
+            }
+
             allocateOTOfficers(count, start, end);
         }
 
