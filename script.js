@@ -945,7 +945,7 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
 
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${times[t]}"][data-counter="${counter1.counter}"]`
+                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
                 );
 
                 if (!cell || cell.classList.contains("active")) continue;
@@ -963,7 +963,7 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
 
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${times[t]}"][data-counter="${counter2.counter}"]`
+                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
                 );
 
                 if (!cell || cell.classList.contains("active")) continue;
