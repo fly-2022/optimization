@@ -881,19 +881,6 @@ document.addEventListener("DOMContentLoaded", function () {
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
 
-        // ---------------- NIGHT SHIFT NORMALIZATION ----------------
-        if (currentShift === "night") {
-            // convert OT times to match the generateTimeSlots indices
-            const nightTimes = times.map((t, i) => {
-                let mins = parseInt(t.slice(0, 2)) * 60 + parseInt(t.slice(2, 4));
-                if (mins < 10 * 60) return { t, i: i + 96 }; // 10*60 = 1000, add 96 slots (24h / 15min)
-                return { t, i };
-            });
-            startIndex = nightTimes.find(nt => nt.t === otStart)?.i ?? startIndex;
-            endIndex = nightTimes.find(nt => nt.t === otEnd)?.i ?? endIndex;
-        }
-
-
         if (startIndex === -1 || endIndex === -1) {
             alert("OT time range outside current shift.");
             return;
@@ -905,6 +892,15 @@ document.addEventListener("DOMContentLoaded", function () {
         // ---------------- BREAK SLOT OPTIONS ----------------
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
+        // ---------------- FIX: ensure currentMode and color are correct ----------------
+        if (currentShift === "morning") {
+            currentMode = "arrival"; // morning OT assigned to arrival mode
+            currentColor = "#4CAF50";
+        } else {
+            currentMode = "departure"; // night OT assigned to departure mode
+            currentColor = "#FF9800";
+        }
+
         // =====================================================
         for (let officer = 1; officer <= count; officer++) {
 
@@ -915,9 +911,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
             while (currentIndex < releaseIndex) {
 
-                // If break time
-                if (currentIndex === chosenBreak.startIndex) {
-                    currentIndex = chosenBreak.endIndex;
+                // 🔹 Fix: properly skip break slots
+                if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
+                    currentIndex = chosenBreak.endIndex + 1; // move past break
                     continue;
                 }
 
@@ -961,6 +957,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         updateAll();
     }
+
 
 
     // -------------------- Add Officers Global --------------------
