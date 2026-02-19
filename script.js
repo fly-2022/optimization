@@ -853,23 +853,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        // Normalize to 4-digit HHMM format
-        const normalize = t => t.replace(":", "").padStart(4, "0");
 
-        const start = normalize(otStart);
-        const end = normalize(otEnd);
+        // 🔹 Corrected logic according to your rules
+        const nightOT = "0600-1100";
+        const morningOT1 = "1100-1600";
+        const morningOT2 = "1600-2100";
 
-        // OT rules:
-        // 0600-1100 → night shift only
-        // 1100-1600, 1600-2100 → morning shift only
-        if (start === "0600" && end === "1100" && currentShift === "night") return true;
-        if (start === "1100" && end === "1600" && currentShift === "morning") return true;
-        if (start === "1600" && end === "2100" && currentShift === "morning") return true;
+        const slot = `${otStart}-${otEnd}`;
 
-        return false;
+        if (currentShift === "morning") {
+            return slot === morningOT1 || slot === morningOT2;
+        } else { // night shift
+            return slot === nightOT;
+        }
     }
-
-
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
