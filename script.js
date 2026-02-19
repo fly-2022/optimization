@@ -878,15 +878,23 @@ document.addEventListener("DOMContentLoaded", function () {
         tbody.innerHTML = "";
 
         let startIndex = times.findIndex(t => t === otStart);
+
+        // find the LAST valid slot before otEnd
         let endIndex = times.findIndex(t => t === otEnd);
 
-        if (startIndex === -1 || endIndex === -1) {
-            alert("OT time range outside current shift.");
+        // If OT end is outside grid (like 1100 in night shift),
+        // allow deployment until grid end
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
             return;
         }
 
+        if (endIndex === -1) {
+            endIndex = times.length; // allow until grid ends
+        }
+
         // Release 30 mins before end
-        let releaseIndex = endIndex - 2;
+        let releaseIndex = Math.max(startIndex, endIndex - 2);
 
         // ---------------- BREAK SLOT OPTIONS ----------------
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
