@@ -913,76 +913,82 @@ document.addEventListener("DOMContentLoaded", function () {
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
-        const startIndex = times.findIndex(t => t === otStart);
-        const endIndex = times.findIndex(t => t === otEnd) === -1 ? times.length : times.findIndex(t => t === otEnd);
 
-        if (startIndex === -1) { alert("OT start time outside current shift."); return; }
+        // OT patterns based on slot
+        const otPatterns = {
+            "0600-1100": [
+                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
+                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
+                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+            ],
+            "1100-1600": [
+                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
+                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
+                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+            ],
+            "1600-2100": [
+                { work1: [0, 6], break: [6, 9], work2: [9, 13] },
+                { work1: [0, 9], break: [9, 10], work2: [10, 13] },
+                { work1: [0, 10], break: [10, 11], work2: [11, 13] }
+            ]
+        };
 
-        const otMode = currentMode;
-        const otColor = currentColor;
-
-        // ---------------- EXCLUDE BIKES ZONE ----------------
-        const activeZones = zones[otMode].filter(z => z.name !== "BIKES");
-
-        // ---------------- CALCULATE CURRENT OCCUPANCY ----------------
-        const zoneCounts = {};
-        activeZones.forEach(zone => {
-            zoneCounts[zone.name] = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time]`)]
-                .filter(c => c.classList.contains("active")).length;
-        });
-
-        // ---------------- SORT ZONES BY OCCUPANCY (LOW TO HIGH) ----------------
-        const sortedZones = activeZones.map(z => z.name).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
-
-        // ---------------- ASSIGN OFFICERS TO ZONES PROPORTIONALLY ----------------
-        const zoneAssignments = {};
-        let remaining = count;
-        sortedZones.forEach(z => { zoneAssignments[z] = 0; }); // init
-
-        // simple proportional assignment: assign one officer at a time to the least occupied zone
-        for (let i = 0; i < count; i++) {
-            const zoneForOfficer = sortedZones.sort((a, b) => zoneCounts[a] - zoneCounts[b])[0];
-            zoneAssignments[zoneForOfficer]++;
-            zoneCounts[zoneForOfficer]++; // increment occupancy so next officer goes to next least
+        const patternSet = otPatterns[otStart + "-" + otEnd];
+        if (!patternSet) {
+            alert("No OT pattern defined for this slot");
+            return;
         }
 
-        // ---------------- GET OT BREAKS ----------------
-        const breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
+        let otMode = currentMode;
+        let otColor = currentColor;
 
-        let officerNumber = 1;
+        // Get real indices in the times array
+        let startIndex = times.findIndex(t => t === otStart);
+        let endIndex = times.findIndex(t => t === otEnd);
+        if (startIndex === -1) { alert("OT start outside shift"); return; }
+        if (endIndex === -1) endIndex = times.length;
 
-        for (let zoneName of sortedZones) {
-            const numOfficers = zoneAssignments[zoneName];
+        // ------------------- ALLOCATE OFFICERS -------------------
+        for (let officer = 1; officer <= count; officer++) {
+            // Pick a random pattern for this officer
+            const pattern = patternSet[Math.floor(Math.random() * patternSet.length)];
 
-            for (let i = 0; i < numOfficers; i++) {
-                // pick a break pattern randomly
-                const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
-                let currentIndex = startIndex;
+            // Loop through zones to find lowest manned zones first
+            const zonesToUse = zones[otMode].filter(z => z.name !== "BIKES");
+            // Sort by current manning ratio
+            zonesToUse.sort((a, b) => {
+                const aCount = [...document.querySelectorAll(`.counter-cell[data-zone="${a.name}"]`)]
+                    .filter(c => c.classList.contains("active")).length;
+                const bCount = [...document.querySelectorAll(`.counter-cell[data-zone="${b.name}"]`)]
+                    .filter(c => c.classList.contains("active")).length;
+                return aCount - bCount;
+            });
 
-                while (currentIndex < endIndex) {
-                    // skip break
-                    if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
-                        currentIndex = chosenBreak.endIndex + 1;
-                        continue;
+            // Assign officer to lowest manned zone first, next officer to next lowest, etc.
+            const zone = zonesToUse[(officer - 1) % zonesToUse.length];
+
+            // ------------------- FILL WORK PERIODS -------------------
+            [pattern.work1, pattern.work2].forEach(slot => {
+                const slotStart = startIndex + slot[0];
+                const slotEnd = startIndex + slot[1];
+                for (let i = slotStart; i < slotEnd; i++) {
+                    const timeStr = times[i];
+                    const emptyCells = getEmptyCellsBackFirst(zone.name, timeStr);
+                    if (emptyCells.length > 0) {
+                        const cell = emptyCells[0];
+                        if (!cell.classList.contains("active")) {
+                            cell.classList.add("active");
+                            cell.style.background = otColor;
+                            cell.dataset.officer = officer;
+                        }
                     }
-
-                    const emptyCells = getEmptyCellsBackFirst(zoneName, currentIndex);
-                    if (!emptyCells.length) { currentIndex++; continue; }
-
-                    const cell = emptyCells[0];
-                    cell.classList.add("active");
-                    cell.style.background = otColor;
-                    cell.dataset.officer = officerNumber;
-
-                    currentIndex++;
                 }
-
-                officerNumber++;
-            }
+            });
         }
 
-        updateAll(); // preserve all other buttons
+        updateAll();
     }
+
 
     // -------------------- Add Officers Global --------------------
     function addOfficersGlobal(count, startTime, endTime) {
