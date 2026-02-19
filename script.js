@@ -1,3 +1,4 @@
+
 /* ================= EXCEL MAIN TEMPLATE SYSTEM ================= */
 
 let excelWorkbook = null;
@@ -8,6 +9,7 @@ let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
 let tableEventsAttached = false;
+let otGlobalCounter = 0;
 
 function resetDragState() {
     isDragging = false;
@@ -325,6 +327,7 @@ function updateMainRoster() {
 
     // collect all active cells by officer
     document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        // document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
         const officerNum = cell.dataset.officer;
         if (!officerMap[officerNum]) officerMap[officerNum] = [];
         officerMap[officerNum].push(parseInt(cell.dataset.time));
@@ -402,6 +405,87 @@ function updateMainRoster() {
     function formatTime(hhmm) {
         return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
     }
+}
+
+function updateOTRosterTable() {
+    const table = document.getElementById("otRosterTable");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    // Get all cells on grid assigned to OT
+    const otCells = [...document.querySelectorAll(".counter-cell[data-officer^='OT']")];
+
+    // Group by officer label
+    const officersMap = {};
+
+    otCells.forEach(cell => {
+        const officer = cell.dataset.officer;
+        const counter = cell.dataset.counter;
+        const zone = cell.dataset.zone;
+        const time = cell.dataset.time;
+
+        if (!officersMap[officer]) officersMap[officer] = [];
+        officersMap[officer].push({ counter, zone, time });
+    });
+
+    // Sort OT officers numerically
+    const sortedOfficers = Object.keys(officersMap).sort((a, b) => {
+        const numA = parseInt(a.replace("OT", ""));
+        const numB = parseInt(b.replace("OT", ""));
+        return numA - numB;
+    });
+
+    // Populate table
+    sortedOfficers.forEach(officer => {
+        const assignments = officersMap[officer];
+
+        // Find continuous blocks to define work1/break/work2
+        assignments.sort((a, b) => a.time - b.time);
+
+        // Determine break automatically: gap between consecutive time slots
+        let start = assignments[0].time;
+        let counter = assignments[0].counter;
+        let end = start;
+
+        for (let i = 1; i < assignments.length; i++) {
+            if (parseInt(assignments[i].time) === parseInt(end) + 1) {
+                end = assignments[i].time;
+            } else {
+                // row for previous block
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${officer}</td>
+                    <td>${counter}</td>
+                    <td>${formatHHMM(start)}</td>
+                    <td>${formatHHMM(end)}</td>
+                `;
+                tbody.appendChild(row);
+
+                // start new block
+                start = assignments[i].time;
+                counter = assignments[i].counter;
+                end = start;
+            }
+        }
+
+        // Last block
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${officer}</td>
+            <td>${counter}</td>
+            <td>${formatHHMM(start)}</td>
+            <td>${formatHHMM(end)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// helper to convert "HHMM" number to HH:MM format
+function formatHHMM(time) {
+    time = parseInt(time);
+    const hh = String(Math.floor(time / 100)).padStart(2, "0");
+    const mm = String(time % 100).padStart(2, "0");
+    return `${hh}:${mm}`;
 }
 
 function updateSOSRoster(startTime, endTime) {
@@ -929,13 +1013,86 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const releaseIndex = Math.max(startIndex, endIndex - 2);
 
-        const patterns = getOTPatterns(otStart, otEnd, times);
+        let patterns = [];
+
+        if (otStart === "1100" && otEnd === "1600") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
+
+        else if (otStart === "1600" && otEnd === "2100") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
+
+        else if (otStart === "0600" && otEnd === "1100") {
+
+            patterns = [
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 6,
+                    work2Start: startIndex + 9,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 9,
+                    work2Start: startIndex + 12,
+                    work2End: startIndex + 18
+                },
+                {
+                    work1Start: startIndex,
+                    work1End: startIndex + 12,
+                    work2Start: startIndex + 15,
+                    work2End: startIndex + 18
+                }
+            ];
+        }
 
         for (let officer = 1; officer <= count; officer++) {
 
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            const officerLabel = "OT" + officer;
+            otGlobalCounter++;
+            const officerLabel = "OT" + otGlobalCounter;
 
             // ---------------- PRE BREAK COUNTER ----------------
             let counter1 = getBestCounter(pattern.work1Start, times);
@@ -945,7 +1102,7 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
 
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${times[t]}"][data-counter="${counter1.counter}"]`
+                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
                 );
 
                 if (!cell || cell.classList.contains("active")) continue;
@@ -953,6 +1110,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
+                cell.dataset.type = "ot";
+
             }
 
             // ---------------- POST BREAK COUNTER ----------------
@@ -963,7 +1122,7 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
 
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${times[t]}"][data-counter="${counter2.counter}"]`
+                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
                 );
 
                 if (!cell || cell.classList.contains("active")) continue;
@@ -971,11 +1130,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
+                cell.dataset.type = "ot";
+
             }
         }
 
         updateAll();
-        updateOTRosterTable();
+        updateOTRosterTable();  // now updates the correct table
     }
 
 
@@ -1050,18 +1211,21 @@ document.addEventListener("DOMContentLoaded", function () {
     function getBestCounter(timeIndex, times) {
 
         let bestZone = null;
-        let lowestRatio = Infinity;
+        let lowestRatio = 999;
 
         zones[currentMode].forEach(zone => {
 
+            // 🚫 Skip BIKES for OT
             if (zone.name === "BIKES") return;
+
+            const totalCounters = zone.counters.length;
 
             const activeCount =
                 [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${times[timeIndex]}"]`
-                )].filter(c => c.classList.contains("active")).length;
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${timeIndex}"].active`
+                )].length;
 
-            const ratio = activeCount / zone.counters.length;
+            const ratio = activeCount / totalCounters;
 
             if (ratio < lowestRatio) {
                 lowestRatio = ratio;
@@ -1071,14 +1235,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!bestZone) return null;
 
-        const emptyCells = getEmptyCellsBackFirst(bestZone.name, timeIndex);
-        if (!emptyCells.length) return null;
+        // get first empty counter in that zone
+        const emptyCell = document.querySelector(
+            `.counter-cell[data-zone="${bestZone.name}"][data-time="${timeIndex}"]:not(.active)`
+        );
+
+        if (!emptyCell) return null;
 
         return {
             zone: bestZone.name,
-            counter: emptyCells[0].dataset.counter
+            counter: emptyCell.dataset.counter
         };
     }
+
 
     function getOTPatterns(start, end, times) {
 
@@ -1281,4 +1450,40 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
     );
 
     return emptyCells;
+}
+
+function copyMainRoster() {
+    copyTable("mainRosterTable");
+}
+
+function copySOSRoster() {
+    copyTable("sosRosterTable");
+}
+
+function copyOTRoster() {
+    copyTable("otRosterTable");
+}
+
+function copyTable(tableId) {
+
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    let text = "";
+
+    const rows = table.querySelectorAll("tr");
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll("th, td");
+        let rowText = [];
+
+        cells.forEach(cell => {
+            rowText.push(cell.innerText.trim());
+        });
+
+        text += rowText.join("\t") + "\n";
+    });
+
+    navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
 }
