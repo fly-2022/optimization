@@ -916,22 +916,21 @@ document.addEventListener("DOMContentLoaded", function () {
         const tbody = document.querySelector("#otRosterTable tbody");
         if (tbody) tbody.innerHTML = "";
 
-        // ------------------ OT Patterns ------------------
         const otPatterns = {
             "0600-1100": [
-                { work: [["0600", "0730"], ["0815", "1030"]] },
-                { work: [["0600", "0815"], ["0900", "1030"]] },
-                { work: [["0600", "0900"], ["0945", "1030"]] }
+                [["0600", "0730"], ["0815", "1030"]],
+                [["0600", "0815"], ["0900", "1030"]],
+                [["0600", "0900"], ["0945", "1030"]]
             ],
             "1100-1600": [
-                { work: [["1100", "1230"], ["1315", "1530"]] },
-                { work: [["1100", "1315"], ["1400", "1530"]] },
-                { work: [["1100", "1400"], ["1445", "1530"]] }
+                [["1100", "1230"], ["1315", "1530"]],
+                [["1100", "1315"], ["1400", "1530"]],
+                [["1100", "1400"], ["1445", "1530"]]
             ],
             "1600-2100": [
-                { work: [["1600", "1730"], ["1815", "2030"]] },
-                { work: [["1600", "1815"], ["1900", "2030"]] },
-                { work: [["1600", "1900"], ["1945", "2030"]] }
+                [["1600", "1730"], ["1815", "2030"]],
+                [["1600", "1815"], ["1900", "2030"]],
+                [["1600", "1900"], ["1945", "2030"]]
             ]
         };
 
@@ -942,95 +941,78 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         for (let officer = 1; officer <= count; officer++) {
-            // pick random pattern per officer
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            // Track OT deployment for roster table
-            const deploymentSlots = [];
+            let deploymentBlocks = []; // To record counter, start, end for OT roster
 
-            pattern.work.forEach(workSlot => {
-                const [workStart, workEnd] = workSlot;
-                let startIndex = times.findIndex(t => t === workStart);
-                let endIndex = times.findIndex(t => t === workEnd);
+            pattern.forEach(workSlot => {
+                const [blockStart, blockEnd] = workSlot;
+                let startIndex = times.findIndex(t => t === blockStart);
+                let endIndex = times.findIndex(t => t === blockEnd);
                 if (startIndex === -1) startIndex = 0;
                 if (endIndex === -1) endIndex = times.length;
 
-                for (let tIndex = startIndex; tIndex < endIndex; tIndex++) {
-                    // ---------------- Find zone with lowest manning ----------------
-                    let bestZone = null;
-                    let lowestRatio = 1;
+                // ---------------- Pick a single counter for this work block ----------------
+                let bestZone = null;
+                let lowestRatio = 1;
 
-                    zones[currentMode].forEach(zone => {
-                        if (zone.name === "BIKES") return;
+                zones[currentMode].forEach(zone => {
+                    if (zone.name === "BIKES") return;
 
-                        const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${times[tIndex]}"]`)]
-                            .filter(c => c.classList.contains("active")).length;
+                    // Compute current manning ratio
+                    const activeCount = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${times[startIndex]}"]`)]
+                        .filter(c => c.classList.contains("active")).length;
+                    const ratio = activeCount / zone.counters.length;
+                    if (ratio < lowestRatio) {
+                        lowestRatio = ratio;
+                        bestZone = zone;
+                    }
+                });
 
-                        const ratio = activeCount / zone.counters.length;
+                if (!bestZone) return;
 
-                        if (ratio < lowestRatio) {
-                            lowestRatio = ratio;
-                            bestZone = zone;
-                        }
-                    });
+                // Pick first empty counter for entire block
+                const emptyCells = getEmptyCellsBackFirst(bestZone.name, startIndex);
+                if (!emptyCells.length) return;
+                const counterCell = emptyCells[0];
+                const counterName = counterCell.dataset.counter;
 
-                    if (!bestZone) continue;
+                // Fill the grid for the entire block
+                for (let t = startIndex; t < endIndex; t++) {
+                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${bestZone.name}"][data-time="${times[t]}"]`)]
+                        .find(c => c.dataset.counter === counterName);
 
-                    const emptyCells = getEmptyCellsBackFirst(bestZone.name, tIndex);
-                    if (emptyCells.length === 0) continue;
-
-                    const cell = emptyCells[0];
-                    cell.classList.add("active");
-                    cell.style.background = currentColor;
-                    cell.dataset.officer = officer;
-
-                    deploymentSlots.push({
-                        zone: bestZone.name,
-                        counter: cell.dataset.counter,
-                        time: times[tIndex]
-                    });
-                }
-            });
-
-            // ------------------ OT Roster Table ------------------
-            // Group consecutive times per zone for display
-            if (deploymentSlots.length > 0 && tbody) {
-                let currentZone = deploymentSlots[0].zone;
-                let currentCounter = deploymentSlots[0].counter;
-                let startTime = deploymentSlots[0].time;
-                let endTime = deploymentSlots[0].time;
-
-                for (let i = 1; i <= deploymentSlots.length; i++) {
-                    const slot = deploymentSlots[i];
-                    if (slot && slot.zone === currentZone && slot.counter === currentCounter &&
-                        parseInt(slot.time) === parseInt(endTime) + 15) {
-                        endTime = slot.time;
-                    } else {
-                        const row = document.createElement("tr");
-                        row.innerHTML = `
-                        <td>OT ${officer}</td>
-                        <td>${currentCounter}</td>
-                        <td>${startTime}</td>
-                        <td>${endTime}</td>
-                    `;
-                        tbody.appendChild(row);
-
-                        if (slot) {
-                            currentZone = slot.zone;
-                            currentCounter = slot.counter;
-                            startTime = slot.time;
-                            endTime = slot.time;
-                        }
+                    if (cell) {
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                        cell.dataset.officer = officer;
                     }
                 }
+
+                deploymentBlocks.push({
+                    counter: counterName,
+                    start: blockStart,
+                    end: blockEnd
+                });
+            });
+
+            // ---------------- OT Roster Table ----------------
+            if (tbody && deploymentBlocks.length) {
+                deploymentBlocks.forEach(block => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                    <td>OT ${officer}</td>
+                    <td>${block.counter}</td>
+                    <td>${block.start}</td>
+                    <td>${block.end}</td>
+                `;
+                    tbody.appendChild(row);
+                });
             }
         }
 
         updateAll();
     }
-
-
-
 
 
     // -------------------- Add Officers Global --------------------
