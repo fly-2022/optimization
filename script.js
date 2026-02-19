@@ -993,6 +993,28 @@ document.addEventListener("DOMContentLoaded", function () {
     //     }));
     // }
 
+    function getGapCounters(timeIndex) {
+        // Returns an array of all counters sorted by how empty they are at timeIndex
+        const allCounters = [];
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return; // skip BIKES
+            zone.counters.forEach(counter => {
+                const activeCount = [...document.querySelectorAll(
+                    `.counter-cell[data-zone="${zone.name}"][data-counter="${counter}"][data-time="${timeIndex}"]`
+                )].filter(c => c.classList.contains("active")).length;
+                allCounters.push({
+                    zone: zone.name,
+                    counter,
+                    activeCount
+                });
+            });
+        });
+
+        // sort ascending → counters with fewer active officers first
+        return allCounters.sort((a, b) => a.activeCount - b.activeCount);
+    }
+
+
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
 
@@ -1087,55 +1109,54 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         for (let officer = 1; officer <= count; officer++) {
+            const officerLabel = "OT" + officer;
+            const pattern = getOTPatternForSlot(otStart, otEnd); // your fixed break pattern function
 
-            const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-
-            otGlobalCounter++;
-            const officerLabel = "OT" + otGlobalCounter;
-
-            // ---------------- PRE BREAK COUNTER ----------------
-            let counter1 = getBestCounter(pattern.work1Start, times);
-
-            if (!counter1) continue;
-
+            // 🔹 PRE-BREAK
+            let gapCounters = getGapCounters(pattern.work1Start);
+            if (!gapCounters.length) continue;
+            const counter1 = gapCounters[0]; // least occupied counter
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
-
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
+                    `.counter-cell[data-zone="${counter1.zone}"][data-counter="${counter1.counter}"][data-time="${t}"]`
                 );
-
                 if (!cell || cell.classList.contains("active")) continue;
-
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-                cell.dataset.type = "ot";
-
             }
 
-            // ---------------- POST BREAK COUNTER ----------------
-            let counter2 = getBestCounter(pattern.work2Start, times);
-
-            if (!counter2) continue;
-
+            // 🔹 POST-BREAK
+            gapCounters = getGapCounters(pattern.work2Start);
+            if (!gapCounters.length) continue;
+            const counter2 = gapCounters[0];
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
-
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
+                    `.counter-cell[data-zone="${counter2.zone}"][data-counter="${counter2.counter}"][data-time="${t}"]`
                 );
-
                 if (!cell || cell.classList.contains("active")) continue;
-
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-                cell.dataset.type = "ot";
-
             }
         }
 
+
         updateAll();
         updateOTRosterTable();  // now updates the correct table
+    }
+
+    function assignSpecialOfficer(officer, startTime, endTime, counter) {
+        for (let t = startTime; t < endTime; t++) {
+            const cell = document.querySelector(
+                `.counter-cell[data-zone="${counter.zone}"][data-counter="${counter.counter}"][data-time="${t}"]`
+            );
+            if (!cell) continue;
+            if (!cell.classList.contains("active") || cell.dataset.officer.startsWith("OT")) {
+                cell.classList.add("active");
+                cell.dataset.officer = officer;
+            }
+        }
     }
 
 
