@@ -873,46 +873,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     function allocateOTOfficers(count, otStart, otEnd) {
-
-        console.log("OT startIndex:", startIndex);
-        console.log("Times array:", times);
-        console.log("Zones available:", zones[otMode]);
-
         const times = generateTimeSlots();
-        const tbody = document.querySelector("#otRosterTable tbody");
 
-        if (tbody) {
-            tbody.innerHTML = "";
-        }
-
-
+        // ---------------- FIX: declare startIndex and endIndex first ----------------
         let startIndex = times.findIndex(t => t === otStart);
-
-        // find the LAST valid slot before otEnd
         let endIndex = times.findIndex(t => t === otEnd);
 
-        // If OT end is outside grid (like 1100 in night shift),
-        // allow deployment until grid end
+        // If OT start is outside grid
         if (startIndex === -1) {
             alert("OT start time outside current shift.");
             return;
         }
 
+        // If OT end is outside grid, allow until grid ends
         if (endIndex === -1) {
-            endIndex = times.length; // allow until grid ends
+            endIndex = times.length;
         }
 
-        // Release 30 mins before end
+        const tbody = document.querySelector("#otRosterTable tbody");
+        if (tbody) {
+            tbody.innerHTML = "";
+        }
+
+        // Release 30 mins before end (assuming 15-min slots, 2 slots = 30 min)
         let releaseIndex = Math.max(startIndex, endIndex - 2);
 
         // ---------------- BREAK SLOT OPTIONS ----------------
         let breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
-        // ---------------- FIX: use local variables, don't overwrite globals ----------------
         let otMode = currentMode;   // use the currently selected mode
         let otColor = currentColor; // use the currently selected color
 
-        // =====================================================
         for (let officer = 1; officer <= count; officer++) {
 
             // Pick one break randomly
@@ -922,13 +913,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             while (currentIndex < releaseIndex) {
 
-                // 🔹 properly skip break slots
+                // 🔹 skip break slots
                 if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
-                    currentIndex = chosenBreak.endIndex + 1; // move past break
+                    currentIndex = chosenBreak.endIndex + 1;
                     continue;
                 }
 
-                // Find lowest manned zone first (50% logic preserved)
+                // Find lowest manned zone first
                 let bestZone = null;
                 let lowestRatio = 1;
 
@@ -938,9 +929,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     const timeStr = times[currentIndex];
 
                     const activeCount =
-                        [...document.querySelectorAll(
-                            `.counter-cell[data-zone="${zone.name}"][data-time="${currentIndex}"]`
-                        )]
+                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
+                            .filter(c => c.classList.contains("active")).length;
 
                     const ratio = activeCount / zone.counters.length;
 
@@ -953,14 +943,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!bestZone) break;
 
                 const emptyCells = getEmptyCellsBackFirst(bestZone.name, currentIndex);
-
                 if (!emptyCells.length) {
                     currentIndex++;
                     continue;
                 }
 
                 const cell = emptyCells[0];
-
                 cell.classList.add("active");
                 cell.style.background = otColor;
                 cell.dataset.officer = officer;
@@ -971,7 +959,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         updateAll();
     }
-
 
 
     // -------------------- Add Officers Global --------------------
