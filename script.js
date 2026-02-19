@@ -874,63 +874,93 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT BREAKS ----------------
     function getOTBreakOptions(slot) {
-        const patternMap = {
-            "1100-1600": [["1230", "1315"], ["1315", "1400"], ["1400", "1445"]],
-            "1600-2100": [["1730", "1815"], ["1815", "1900"], ["1900", "1945"]],
-            "0600-1100": [["0730", "0815"], ["0815", "0900"], ["0900", "0945"]]
-        };
-
+        // Returns an array of break patterns with startIndex/endIndex for generateTimeSlots
         const times = generateTimeSlots();
+        let patterns = [];
 
-        return (patternMap[slot] || []).map(([s, e]) => ({
-            startIndex: times.findIndex(t => t === s),
-            endIndex: times.findIndex(t => t === e)
-        })).filter(opt => opt.startIndex !== -1 && opt.endIndex !== -1);
+        if (slot === "1100-1600") {
+            // OT 1100-1600
+            patterns = [
+                { assign1: ["1100", "1230"], break: ["1230", "1315"], assign2: ["1315", "1530"] },
+                { assign1: ["1100", "1315"], break: ["1315", "1400"], assign2: ["1400", "1530"] },
+                { assign1: ["1100", "1400"], break: ["1400", "1445"], assign2: ["1445", "1530"] }
+            ];
+        } else if (slot === "1600-2100") {
+            // OT 1600-2100
+            patterns = [
+                { assign1: ["1600", "1730"], break: ["1730", "1815"], assign2: ["1815", "2030"] },
+                { assign1: ["1600", "1815"], break: ["1815", "1900"], assign2: ["1900", "2030"] },
+                { assign1: ["1600", "1900"], break: ["1900", "1945"], assign2: ["1945", "2030"] }
+            ];
+        } else if (slot === "0600-1100") {
+            // OT 0600-1100
+            patterns = [
+                { assign1: ["0600", "0730"], break: ["0730", "0815"], assign2: ["0815", "1030"] },
+                { assign1: ["0600", "0815"], break: ["0815", "0900"], assign2: ["0900", "1030"] },
+                { assign1: ["0600", "0900"], break: ["0900", "0945"], assign2: ["0945", "1030"] }
+            ];
+        }
+
+        // Convert HHMM strings into indices
+        return patterns.map(p => ({
+            startIndex: times.findIndex(t => t === p.assign1[0]),
+            breakStart: times.findIndex(t => t === p.break[0]),
+            breakEnd: times.findIndex(t => t === p.break[1]),
+            endIndex: times.findIndex(t => t === p.assign2[1])
+        }));
     }
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
         const startIndex = times.findIndex(t => t === otStart);
-        const endIndex = times.findIndex(t => t === otEnd);
+        const endIndex = times.findIndex(t => t === otEnd) === -1 ? times.length : times.findIndex(t => t === otEnd);
+
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
-        const releaseIndex = (endIndex === -1 ? times.length : endIndex);
 
         const otMode = currentMode;
         const otColor = currentColor;
 
-        // count existing officers in zones
+        // ---------------- EXCLUDE BIKES ZONE ----------------
+        const activeZones = zones[otMode].filter(z => z.name !== "BIKES");
+
+        // ---------------- CALCULATE CURRENT OCCUPANCY ----------------
         const zoneCounts = {};
-        zones[otMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
+        activeZones.forEach(zone => {
             zoneCounts[zone.name] = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time]`)]
                 .filter(c => c.classList.contains("active")).length;
         });
 
-        // sort zones by current occupancy
-        const sortedZones = Object.keys(zoneCounts).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
+        // ---------------- SORT ZONES BY OCCUPANCY (LOW TO HIGH) ----------------
+        const sortedZones = activeZones.map(z => z.name).sort((a, b) => zoneCounts[a] - zoneCounts[b]);
 
-        // assign officers proportionally
+        // ---------------- ASSIGN OFFICERS TO ZONES PROPORTIONALLY ----------------
         const zoneAssignments = {};
         let remaining = count;
-        sortedZones.forEach(z => { zoneAssignments[z] = 1; remaining--; });
-        while (remaining > 0) {
-            for (let z of sortedZones) {
-                zoneAssignments[z]++;
-                remaining--;
-                if (remaining <= 0) break;
-            }
+        sortedZones.forEach(z => { zoneAssignments[z] = 0; }); // init
+
+        // simple proportional assignment: assign one officer at a time to the least occupied zone
+        for (let i = 0; i < count; i++) {
+            const zoneForOfficer = sortedZones.sort((a, b) => zoneCounts[a] - zoneCounts[b])[0];
+            zoneAssignments[zoneForOfficer]++;
+            zoneCounts[zoneForOfficer]++; // increment occupancy so next officer goes to next least
         }
+
+        // ---------------- GET OT BREAKS ----------------
+        const breakOptions = getOTBreakOptions(`${otStart}-${otEnd}`);
 
         let officerNumber = 1;
 
         for (let zoneName of sortedZones) {
             const numOfficers = zoneAssignments[zoneName];
+
             for (let i = 0; i < numOfficers; i++) {
-                const chosenBreak = getOTBreakOptions(`${otStart}-${otEnd}`)[Math.floor(Math.random() * 3)];
+                // pick a break pattern randomly
+                const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
                 let currentIndex = startIndex;
 
-                while (currentIndex < releaseIndex) {
+                while (currentIndex < endIndex) {
+                    // skip break
                     if (chosenBreak && currentIndex >= chosenBreak.startIndex && currentIndex <= chosenBreak.endIndex) {
                         currentIndex = chosenBreak.endIndex + 1;
                         continue;
@@ -951,9 +981,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        updateAll(); // keeps all buttons functional
+        updateAll(); // preserve all other buttons
     }
-
 
     // -------------------- Add Officers Global --------------------
     function addOfficersGlobal(count, startTime, endTime) {
