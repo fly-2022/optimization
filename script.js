@@ -1074,7 +1074,11 @@ document.addEventListener("DOMContentLoaded", function () {
         if (manpowerType === "ot") {
 
             const slot = document.getElementById("otSlot").value;
-            const [start, end] = slot.split("-").map(s => s.trim());
+            let [start, end] = slot.split("-").map(s => s.trim());
+
+            // 🔹 FIX: normalize OT times to match time slot format
+            start = start.replace(":", ""); // e.g., "11:00" -> "1100"
+            end = end.replace(":", "");   // e.g., "16:00" -> "1600"
 
             // 🔥 SHIFT VALIDATION
             if (!isOTWithinShift(start, end)) {
@@ -1084,6 +1088,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             allocateOTOfficers(count, start, end);
         }
+
 
 
         if (manpowerType === "main") {
