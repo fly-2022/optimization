@@ -853,11 +853,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isOTWithinShift(otStart, otEnd) {
-        // convert HH:MM to index in generateTimeSlots()
-        const times = generateTimeSlots();
-        const startIndex = times.findIndex(t => t === otStart.replace(":", ""));
-        const endIndex = times.findIndex(t => t === otEnd.replace(":", ""));
-        return startIndex !== -1 && endIndex !== -1 && startIndex < endIndex;
+        // 0600-1100 → night only
+        if (otStart === "06:00" && otEnd === "11:00") {
+            return currentShift === "night";
+        }
+
+        // 1100-1600 & 1600-2100 → morning only
+        if ((otStart === "11:00" && otEnd === "16:00") ||
+            (otStart === "16:00" && otEnd === "21:00")) {
+            return currentShift === "morning";
+        }
+
+        return false; // everything else invalid
     }
 
 
