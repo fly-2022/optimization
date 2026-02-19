@@ -395,6 +395,121 @@ function updateMainRoster() {
     }
 }
 
+function updateSOSRoster(startTime, endTime) {
+    const tbody = document.querySelector("#sosRosterTable tbody");
+    const heading = document.getElementById("sosRosterHeading");
+    tbody.innerHTML = "";
+
+    heading.innerText = `${startTime}-${endTime} SOS Roster`;
+
+    const times = generateTimeSlots();
+    const startIndex = times.findIndex(t => t === startTime);
+    const endIndex = times.findIndex(t => t === endTime);
+
+    if (startIndex === -1 || endIndex === -1) return;
+
+    const officerMap = {};
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        const officerNum = cell.dataset.officer;
+        if (!officerNum) return;
+
+        const cellTime = parseInt(cell.dataset.time);
+        if (cellTime < startIndex || cellTime >= endIndex) return;
+
+        if (!officerMap[officerNum]) officerMap[officerNum] = [];
+        officerMap[officerNum].push({ timeIndex: cellTime, counter: cell.dataset.counter });
+    });
+
+    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
+        const slots = officerMap[officerNum].sort((a, b) => a.timeIndex - b.timeIndex);
+        if (!slots.length) return;
+
+        // Total deployment in minutes
+        const totalMinutes = (slots[slots.length - 1].timeIndex - slots[0].timeIndex + 1) * 15;
+
+        // Determine break schedule for this SOS officer
+        const breaks = []; // { startIndex, endIndex }
+        if (totalMinutes > 180) { // more than 3 hours
+            // Example: for 12-hour shift, 2x45, 1x30, 1x15 -> can scale dynamically
+            let remaining = totalMinutes - 180; // time after first 3 hours
+            let breakDurations = [45, 45, 30, 15]; // in mins
+            breakDurations = breakDurations.filter(d => d <= remaining);
+            let currentTimeIndex = slots[0].timeIndex + 12; // first break after 3 hours = 180/15 = 12 slots
+
+            for (let b = 0; b < breakDurations.length; b++) {
+                let start = currentTimeIndex;
+                let end = currentTimeIndex + Math.floor(breakDurations[b] / 15) - 1;
+                breaks.push({ startIndex: start, endIndex: end });
+                currentTimeIndex = end + 1 + 12; // next break after another 3 hours
+            }
+        }
+
+        // Now render blocks (deployment or break)
+        let prevEnd = null;
+        let breakIdx = 0;
+
+        let currentGroup = { type: "deploy", counter: slots[0].counter, startIndex: slots[0].timeIndex, endIndex: slots[0].timeIndex };
+
+        for (let i = 1; i < slots.length; i++) {
+            let slot = slots[i];
+
+            // Check if current slot is a break
+            if (breakIdx < breaks.length && slot.timeIndex >= breaks[breakIdx].startIndex && slot.timeIndex <= breaks[breakIdx].endIndex) {
+                // Finish current deploy block
+                appendSOSRow(currentGroup, officerNum, times);
+
+                // Add break row
+                const trBreak = document.createElement("tr");
+                const tdOfficer = document.createElement("td");
+                tdOfficer.innerText = officerNum;
+                const tdCounter = document.createElement("td");
+                tdCounter.innerText = "Break";
+                const tdStart = document.createElement("td");
+                tdStart.innerText = formatTime(times[breaks[breakIdx].startIndex]);
+                const tdEnd = document.createElement("td");
+                tdEnd.innerText = formatTime(times[breaks[breakIdx].endIndex + 1] || times[breaks[breakIdx].endIndex]);
+                trBreak.appendChild(tdOfficer);
+                trBreak.appendChild(tdCounter);
+                trBreak.appendChild(tdStart);
+                trBreak.appendChild(tdEnd);
+                tbody.appendChild(trBreak);
+
+                breakIdx++;
+                // start new deploy block after break
+                currentGroup = { type: "deploy", counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
+            } else if (slot.counter === currentGroup.counter && slot.timeIndex === currentGroup.endIndex + 1) {
+                currentGroup.endIndex = slot.timeIndex;
+            } else {
+                appendSOSRow(currentGroup, officerNum, times);
+                currentGroup = { type: "deploy", counter: slot.counter, startIndex: slot.timeIndex, endIndex: slot.timeIndex };
+            }
+        }
+
+        appendSOSRow(currentGroup, officerNum, times);
+    });
+
+    function appendSOSRow(group, officerNum, times) {
+        if (!group) return;
+        const tr = document.createElement("tr");
+        const tdOfficer = document.createElement("td");
+        tdOfficer.innerText = officerNum;
+        const tdCounter = document.createElement("td");
+        tdCounter.innerText = group.type === "deploy" ? group.counter : "Break";
+        const tdStart = document.createElement("td");
+        tdStart.innerText = formatTime(times[group.startIndex]);
+        const tdEnd = document.createElement("td");
+        tdEnd.innerText = formatTime(times[group.endIndex + 1] || times[group.endIndex]);
+        tr.appendChild(tdOfficer);
+        tr.appendChild(tdCounter);
+        tr.appendChild(tdStart);
+        tr.appendChild(tdEnd);
+        tbody.appendChild(tr);
+    }
+
+    function formatTime(hhmm) {
+        return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+    }
+}
 
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
@@ -693,6 +808,129 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
+    function allocateOTOfficers(count, otStart, otEnd, breakSlots) {
+        const times = generateTimeSlots();
+        let startIndex = times.findIndex(t => t === otStart);
+        let endIndex = times.findIndex(t => t === otEnd);
+
+        if (startIndex === -1) {
+            alert(`OT start time ${otStart} invalid for current shift`);
+            return;
+        }
+
+        // Adjust endIndex for release time (30 mins before OT end)
+        let releaseIndex = endIndex;
+        if (currentShift === "morning" && otEnd === "1600") releaseIndex = times.findIndex(t => t === "1530");
+        else if (currentShift === "morning" && otEnd === "2100") releaseIndex = times.findIndex(t => t === "2030");
+        else if (currentShift === "night" && otEnd === "1100") releaseIndex = times.findIndex(t => t === "1000");
+
+        if (releaseIndex === -1) releaseIndex = endIndex;
+
+        // Create OT roster container
+        const tbody = document.querySelector("#otRosterTable tbody");
+        const headingRow = document.createElement("tr");
+        const th = document.createElement("th");
+        th.colSpan = 4;
+        th.innerText = `${otStart}-${otEnd} OT Roster`;
+        th.className = "ot-heading";
+        headingRow.appendChild(th);
+        tbody.appendChild(headingRow);
+
+        for (let officer = 1; officer <= count; officer++) {
+            const officerRowHeader = document.createElement("tr");
+            const tdHeader = document.createElement("td");
+            tdHeader.colSpan = 4;
+            tdHeader.innerText = `Officer ${officer}`;
+            tdHeader.className = "officer-name";
+            officerRowHeader.appendChild(tdHeader);
+            tbody.appendChild(officerRowHeader);
+
+            let currentIndex = startIndex;
+
+            while (currentIndex < releaseIndex) {
+                // Check if current block is a break
+                let breakSlot = breakSlots.find(bs => bs.startIndex === currentIndex);
+                if (breakSlot) {
+                    const trBreak = document.createElement("tr");
+                    const tdOff = document.createElement("td");
+                    tdOff.innerText = `Officer ${officer}`;
+                    const tdCounter = document.createElement("td");
+                    tdCounter.innerText = "Break";
+                    const tdStart = document.createElement("td");
+                    tdStart.innerText = formatTime(times[breakSlot.startIndex]);
+                    const tdEnd = document.createElement("td");
+                    tdEnd.innerText = formatTime(times[breakSlot.endIndex]);
+                    trBreak.appendChild(tdOff);
+                    trBreak.appendChild(tdCounter);
+                    trBreak.appendChild(tdStart);
+                    trBreak.appendChild(tdEnd);
+                    tbody.appendChild(trBreak);
+                    currentIndex = breakSlot.endIndex;
+                    continue;
+                }
+
+                // Allocate back-first empty counter block
+                let allocated = false;
+                zones[currentMode].forEach(zone => {
+                    if (zone.name === "BIKES") return;
+                    for (let c = zone.counters.length - 1; c >= 0; c--) {
+                        const counter = zone.counters[c];
+                        let isFree = true;
+                        for (let t = currentIndex; t < releaseIndex; t++) {
+                            const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
+                            if (!cell || cell.classList.contains("active")) {
+                                isFree = false;
+                                break;
+                            }
+                        }
+                        if (isFree) {
+                            for (let t = currentIndex; t < releaseIndex; t++) {
+                                const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
+                                    .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
+                                cell.classList.add("active");
+                                cell.style.background = currentColor;
+                                cell.dataset.officer = officer;
+                            }
+                            const tr = document.createElement("tr");
+                            const tdOff = document.createElement("td");
+                            tdOff.innerText = `Officer ${officer}`;
+                            const tdCounter = document.createElement("td");
+                            tdCounter.innerText = counter;
+                            const tdStart = document.createElement("td");
+                            tdStart.innerText = formatTime(times[currentIndex]);
+                            const tdEnd = document.createElement("td");
+                            tdEnd.innerText = formatTime(times[releaseIndex]);
+                            tr.appendChild(tdOff);
+                            tr.appendChild(tdCounter);
+                            tr.appendChild(tdStart);
+                            tr.appendChild(tdEnd);
+                            tbody.appendChild(tr);
+                            allocated = true;
+                            break;
+                        }
+                    }
+                    if (allocated) return;
+                });
+
+                if (!allocated) break; // no more free slots
+                currentIndex = releaseIndex;
+            }
+        }
+
+        function formatTime(hhmm) {
+            return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+        }
+    }
+
+    // 45-min break slots as per your spec
+    const otBreaks = {
+        "0600-1100": [{ startIndex: times.findIndex(t => t === "0730"), endIndex: times.findIndex(t => t === "0815") }],
+        "1100-1600": [{ startIndex: times.findIndex(t => t === "1230"), endIndex: times.findIndex(t => t === "1315") }],
+        "1600-2100": [{ startIndex: times.findIndex(t => t === "1730"), endIndex: times.findIndex(t => t === "1815") }]
+    };
+
+
     // -------------------- Add Officers Global --------------------
     function addOfficersGlobal(count, startTime, endTime) {
         const times = generateTimeSlots();
@@ -760,20 +998,52 @@ document.addEventListener("DOMContentLoaded", function () {
         saveState();
 
         if (manpowerType === "sos") {
-            const start = document.getElementById("sosStart").value;
-            const end = document.getElementById("sosEnd").value;
-            if (!start || !end) {
-                alert("Please enter SOS start and end time");
+            const start = document.getElementById("sosStart").value.replace(":", "");
+            const end = document.getElementById("sosEnd").value.replace(":", "");
+
+            const times = generateTimeSlots();
+            let startIndex = times.findIndex(t => t === start);
+            let endIndex = times.findIndex(t => t === end);
+
+            if (startIndex === -1 || endIndex === -1) {
+                alert("SOS time range outside current shift grid.");
                 return;
             }
-            addOfficersGlobal(count, start.replace(":", ""), end.replace(":", ""));
+
+            // Assign each officer as a continuous block
+            for (let officer = 1; officer <= count; officer++) {
+                for (let t = startIndex; t < endIndex; t++) {
+                    zones[currentMode].forEach(zone => {
+                        if (zone.name === "BIKES") return;
+                        const emptyCells = getEmptyCellsBackFirst(zone.name, t);
+                        if (emptyCells.length > 0) {
+                            const cell = emptyCells[0]; // take first empty cell
+                            if (!cell.classList.contains("active")) {
+                                cell.classList.add("active");
+                                cell.style.background = currentColor;
+                                cell.dataset.officer = officer;
+                            }
+                        }
+                    });
+                }
+            }
+
+            updateAll();
+
+            assignSOSOfficers(count, start, end); // your existing code to fill cells
+
+            // 🔹 Update SOS roster table
+            updateSOSRoster(start, end);
         }
 
+
         if (manpowerType === "ot") {
-            const slot = document.getElementById("otSlot").value;
+            const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
             const [start, end] = slot.split("-");
-            addOfficersGlobal(count, start, end);
+            const breakSlot = otBreaks[slot] || [];
+            allocateOTOfficers(count, start, end, breakSlot);
         }
+
 
         if (manpowerType === "main") {
             applyMainTemplate(count);
