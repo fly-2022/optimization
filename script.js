@@ -872,43 +872,43 @@ document.addEventListener("DOMContentLoaded", function () {
         return false; // any other combination is invalid
     }
 
-    // ---------------- OT BREAKS ----------------
-    function getOTBreakOptions(slot) {
-        // Returns an array of break patterns with startIndex/endIndex for generateTimeSlots
-        const times = generateTimeSlots();
-        let patterns = [];
+    // // ---------------- OT BREAKS ----------------
+    // function getOTBreakOptions(slot) {
+    //     // Returns an array of break patterns with startIndex/endIndex for generateTimeSlots
+    //     const times = generateTimeSlots();
+    //     let patterns = [];
 
-        if (slot === "1100-1600") {
-            // OT 1100-1600
-            patterns = [
-                { assign1: ["1100", "1230"], break: ["1230", "1315"], assign2: ["1315", "1530"] },
-                { assign1: ["1100", "1315"], break: ["1315", "1400"], assign2: ["1400", "1530"] },
-                { assign1: ["1100", "1400"], break: ["1400", "1445"], assign2: ["1445", "1530"] }
-            ];
-        } else if (slot === "1600-2100") {
-            // OT 1600-2100
-            patterns = [
-                { assign1: ["1600", "1730"], break: ["1730", "1815"], assign2: ["1815", "2030"] },
-                { assign1: ["1600", "1815"], break: ["1815", "1900"], assign2: ["1900", "2030"] },
-                { assign1: ["1600", "1900"], break: ["1900", "1945"], assign2: ["1945", "2030"] }
-            ];
-        } else if (slot === "0600-1100") {
-            // OT 0600-1100
-            patterns = [
-                { assign1: ["0600", "0730"], break: ["0730", "0815"], assign2: ["0815", "1030"] },
-                { assign1: ["0600", "0815"], break: ["0815", "0900"], assign2: ["0900", "1030"] },
-                { assign1: ["0600", "0900"], break: ["0900", "0945"], assign2: ["0945", "1030"] }
-            ];
-        }
+    //     if (slot === "1100-1600") {
+    //         // OT 1100-1600
+    //         patterns = [
+    //             { assign1: ["1100", "1230"], break: ["1230", "1315"], assign2: ["1315", "1530"] },
+    //             { assign1: ["1100", "1315"], break: ["1315", "1400"], assign2: ["1400", "1530"] },
+    //             { assign1: ["1100", "1400"], break: ["1400", "1445"], assign2: ["1445", "1530"] }
+    //         ];
+    //     } else if (slot === "1600-2100") {
+    //         // OT 1600-2100
+    //         patterns = [
+    //             { assign1: ["1600", "1730"], break: ["1730", "1815"], assign2: ["1815", "2030"] },
+    //             { assign1: ["1600", "1815"], break: ["1815", "1900"], assign2: ["1900", "2030"] },
+    //             { assign1: ["1600", "1900"], break: ["1900", "1945"], assign2: ["1945", "2030"] }
+    //         ];
+    //     } else if (slot === "0600-1100") {
+    //         // OT 0600-1100
+    //         patterns = [
+    //             { assign1: ["0600", "0730"], break: ["0730", "0815"], assign2: ["0815", "1030"] },
+    //             { assign1: ["0600", "0815"], break: ["0815", "0900"], assign2: ["0900", "1030"] },
+    //             { assign1: ["0600", "0900"], break: ["0900", "0945"], assign2: ["0945", "1030"] }
+    //         ];
+    //     }
 
-        // Convert HHMM strings into indices
-        return patterns.map(p => ({
-            startIndex: times.findIndex(t => t === p.assign1[0]),
-            breakStart: times.findIndex(t => t === p.break[0]),
-            breakEnd: times.findIndex(t => t === p.break[1]),
-            endIndex: times.findIndex(t => t === p.assign2[1])
-        }));
-    }
+    //     // Convert HHMM strings into indices
+    //     return patterns.map(p => ({
+    //         startIndex: times.findIndex(t => t === p.assign1[0]),
+    //         breakStart: times.findIndex(t => t === p.break[0]),
+    //         breakEnd: times.findIndex(t => t === p.break[1]),
+    //         endIndex: times.findIndex(t => t === p.assign2[1])
+    //     }));
+    // }
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
