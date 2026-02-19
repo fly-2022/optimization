@@ -926,8 +926,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 zones[otMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
 
+                    const timeStr = times[currentIndex];
+
                     const activeCount =
-                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${currentIndex}"]`)]
+                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${timeStr}"]`)]
                             .filter(c => c.classList.contains("active")).length;
 
                     const ratio = activeCount / zone.counters.length;
