@@ -1,99 +1,126 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Roster Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-<body>
-
+  <body>
     <h2>Roster Optimisation Dashboard</h2>
 
     <div class="controls">
+      <div class="segmented mode-group">
+        <div class="segment-highlight" id="modeHighlight"></div>
+        <button id="arrivalBtn" class="segment-btn" data-index="0">
+          Arrival
+        </button>
+        <button id="departureBtn" class="segment-btn" data-index="1">
+          Departure
+        </button>
+      </div>
 
-        <div class="segmented mode-group">
-            <div class="segment-highlight" id="modeHighlight"></div>
-            <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
-            <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
-        </div>
+      <div class="segmented shift-group">
+        <div class="segment-highlight" id="shiftHighlight"></div>
+        <button id="morningBtn" class="segment-btn" data-index="0">
+          Morning
+        </button>
+        <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
+      </div>
 
-        <div class="segmented shift-group">
-            <div class="segment-highlight" id="shiftHighlight"></div>
-            <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
-            <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
-        </div>
+      <div class="color-group">
+        <button
+          class="color-btn selected"
+          data-color="#4CAF50"
+          style="background: #4caf50"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FF9800"
+          style="background: #ff9800"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FFFF00"
+          style="background: #ffff00"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FFB6C1"
+          style="background: #ffb6c1"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#800080"
+          style="background: #800080"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#2196F3"
+          style="background: #2196f3"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FF0000"
+          style="background: #ff0000"
+        ></button>
+      </div>
 
-        <div class="color-group">
-            <button class="color-btn selected" data-color="#4CAF50" style="background:#4CAF50"></button>
-            <button class="color-btn" data-color="#FF9800" style="background:#FF9800"></button>
-            <button class="color-btn" data-color="#FFFF00" style="background:#FFFF00"></button>
-            <button class="color-btn" data-color="#FFB6C1" style="background:#FFB6C1"></button>
-            <button class="color-btn" data-color="#800080" style="background:#800080"></button>
-            <button class="color-btn" data-color="#2196F3" style="background:#2196F3"></button>
-            <button class="color-btn" data-color="#FF0000" style="background:#FF0000"></button>
-        </div>
-
-        <button id="clearGridBtn">Clear Grid</button>
-
+      <button id="clearGridBtn">Clear Grid</button>
     </div>
 
     <!-- ================= MANPOWER INPUT ================= -->
     <div class="manpower-section">
+      <h3>Add Officers</h3>
 
-        <h3>Add Officers</h3>
+      <div class="manpower-type">
+        <button class="mp-type active" data-type="main">Main</button>
+        <button class="mp-type" data-type="sos">SOS</button>
+        <button class="mp-type" data-type="ot">OT</button>
+      </div>
 
-        <div class="manpower-type">
-            <button class="mp-type active" data-type="main">Main</button>
-            <button class="mp-type" data-type="sos">SOS</button>
-            <button class="mp-type" data-type="ot">OT</button>
+      <div class="mp-controls">
+        <label>Number of Officers:</label>
+        <input type="number" id="officerCount" min="1" value="1" />
+
+        <!-- SOS Timing -->
+        <div id="sosFields" style="display: none">
+          <label>Start (HH:MM)</label>
+          <input type="time" id="sosStart" />
+
+          <label>End (HH:MM)</label>
+          <input type="time" id="sosEnd" />
         </div>
 
-        <div class="mp-controls">
-
-            <label>Number of Officers:</label>
-            <input type="number" id="officerCount" min="1" value="1">
-
-            <!-- SOS Timing -->
-            <div id="sosFields" style="display:none;">
-                <label>Start (HH:MM)</label>
-                <input type="time" id="sosStart">
-
-                <label>End (HH:MM)</label>
-                <input type="time" id="sosEnd">
-            </div>
-
-            <!-- OT Slot -->
-            <div id="otFields" style="display:none;">
-                <label>OT Slot</label>
-                <select id="otSlot">
-                    <option value="0600-1100">0600 - 1100</option>
-                    <option value="1100-1600">1100 - 1600</option>
-                    <option value="1600-2100">1600 - 2100</option>
-                </select>
-            </div>
-
-            <!-- ALL ACTION BUTTONS TOGETHER -->
-            <div class="action-buttons">
-                <button id="addOfficerBtn">Add Officers</button>
-                <button id="removeOfficerBtn">Remove Officers</button>
-                <button id="undoBtn">Undo</button>
-            </div>
-
+        <!-- OT Slot -->
+        <div id="otFields" style="display: none">
+          <label>OT Slot</label>
+          <select id="otSlot">
+            <option value="0600-1100">0600 - 1100</option>
+            <option value="1100-1600">1100 - 1600</option>
+            <option value="1600-2100">1600 - 2100</option>
+          </select>
         </div>
+
+        <!-- ALL ACTION BUTTONS TOGETHER -->
+        <div class="action-buttons">
+          <button id="addOfficerBtn">Add Officers</button>
+          <button id="removeOfficerBtn">Remove Officers</button>
+          <button id="undoBtn">Undo</button>
+        </div>
+      </div>
     </div>
     <!-- ================= MANPOWER INPUT ================= -->
 
     <div class="table-container">
-        <table id="rosterTable"></table>
+      <table id="rosterTable"></table>
     </div>
 
     <h3>Manning Summary</h3>
 
     <div class="summary-controls">
-        <button id="copySummaryBtn">Copy Summary</button>
+      <button id="copySummaryBtn">Copy Summary</button>
     </div>
 
     <pre id="manningSummary"></pre>
@@ -102,43 +129,44 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
     <h2>Roster</h2>
-<table id="mainRosterTable">
-    <thead>
+
+    <h3>Main Roster</h3>
+    <table id="mainRosterTable">
+      <thead>
         <tr>
-            <th>Officer</th>
-            <th>Counter / Break</th>
-            <th>Start</th>
-            <th>End</th>
+          <th>Officer</th>
+          <th>Counter / Break</th>
+          <th>Start</th>
+          <th>End</th>
         </tr>
-    </thead>
-    <tbody>
-    </tbody>
-</table>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-<table id="sosRosterTable">
-  <thead>
-    <tr>
-      <th>Officer</th>
-      <th>Counter / Break</th>
-      <th>Start</th>
-      <th>End</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+    <h3>SOS Roster</h3>
+    <table id="sosRosterTable">
+      <thead>
+        <tr>
+          <th>Officer</th>
+          <th>Counter / Break</th>
+          <th>Start</th>
+          <th>End</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-<table id="otRosterTable">
-  <thead>
-    <tr>
-      <th>Officer</th>
-      <th>Counter / Break</th>
-      <th>Start</th>
-      <th>End</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-</body>
-
+    <h3>OT Roster</h3>
+    <table id="otRosterTable">
+      <thead>
+        <tr>
+          <th>Officer</th>
+          <th>Counter / Break</th>
+          <th>Start</th>
+          <th>End</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </body>
 </html>
