@@ -848,125 +848,109 @@ document.addEventListener("DOMContentLoaded", function () {
     function allocateOTOfficers(count, otStart, otEnd) {
 
         const times = generateTimeSlots();
+        const tbody = document.querySelector("#otRosterTable tbody");
+        tbody.innerHTML = "";
+
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
 
-        if (startIndex === -1) {
-            alert(`OT start time ${otStart} invalid for current shift`);
+        if (startIndex === -1 || endIndex === -1) {
+            alert("OT time range outside current shift.");
             return;
         }
 
-        // Release 30 mins early
-        let releaseIndex = endIndex;
-        if (otEnd === "1600") releaseIndex = times.findIndex(t => t === "1530");
-        if (otEnd === "2100") releaseIndex = times.findIndex(t => t === "2030");
-        if (otEnd === "1100") releaseIndex = times.findIndex(t => t === "1000");
-        if (releaseIndex === -1) releaseIndex = endIndex;
+        // Release 30 mins before end
+        let releaseIndex = endIndex - 2;
 
-        const slotKey = `${otStart}-${otEnd}`;
-        const breakOptions = getOTBreakOptions(slotKey);
+        // ---------------- BREAK SLOT OPTIONS ----------------
+        let breakOptions = [];
 
-        const tbody = document.querySelector("#otRosterTable tbody");
+        if (otStart === "0600") {
+            breakOptions = [
+                ["0730", "0815"],
+                ["0815", "0900"],
+                ["0900", "0945"]
+            ];
+        }
 
+        if (otStart === "1100") {
+            breakOptions = [
+                ["1230", "1315"],
+                ["1315", "1400"],
+                ["1400", "1445"]
+            ];
+        }
+
+        if (otStart === "1600") {
+            breakOptions = [
+                ["1730", "1815"],
+                ["1815", "1900"],
+                ["1900", "1945"]
+            ];
+        }
+
+        // Convert to indexes
+        breakOptions = breakOptions.map(slot => ({
+            startIndex: times.findIndex(t => t === slot[0]),
+            endIndex: times.findIndex(t => t === slot[1])
+        }));
+
+        // =====================================================
         for (let officer = 1; officer <= count; officer++) {
 
-            const assignedBreak = breakOptions[(officer - 1) % breakOptions.length];
+            // Pick one break randomly
+            const chosenBreak = breakOptions[Math.floor(Math.random() * breakOptions.length)];
 
             let currentIndex = startIndex;
 
             while (currentIndex < releaseIndex) {
 
-                // BREAK WINDOW
-                if (assignedBreak &&
-                    currentIndex >= assignedBreak.startIndex &&
-                    currentIndex <= assignedBreak.endIndex) {
-
-                    currentIndex = assignedBreak.endIndex + 1;
+                // If break time
+                if (currentIndex === chosenBreak.startIndex) {
+                    currentIndex = chosenBreak.endIndex;
                     continue;
                 }
 
-                // ----------- FIND LOWEST MANNED ZONE -----------
-                let zoneStats = [];
+                // Find lowest manned zone first (50% logic preserved)
+                let bestZone = null;
+                let lowestRatio = 1;
 
                 zones[currentMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
 
-                    let activeCount = 0;
+                    const activeCount =
+                        [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${currentIndex}"]`)]
+                            .filter(c => c.classList.contains("active")).length;
 
-                    for (let t = currentIndex; t < releaseIndex; t++) {
-                        const cells = document.querySelectorAll(
-                            `.counter-cell[data-zone="${zone.name}"][data-time="${t}"].active`
-                        );
-                        activeCount += cells.length;
+                    const ratio = activeCount / zone.counters.length;
+
+                    if (ratio < lowestRatio) {
+                        lowestRatio = ratio;
+                        bestZone = zone;
                     }
-
-                    const totalSlots = zone.counters.length * (releaseIndex - currentIndex);
-                    zoneStats.push({
-                        zone,
-                        ratio: totalSlots === 0 ? 1 : activeCount / totalSlots
-                    });
                 });
 
-                zoneStats.sort((a, b) => a.ratio - b.ratio);
+                if (!bestZone) break;
 
-                let allocated = false;
+                const emptyCells = getEmptyCellsBackFirst(bestZone.name, currentIndex);
 
-                for (let z of zoneStats) {
-
-                    for (let t = currentIndex; t < releaseIndex; t++) {
-
-                        // Skip break
-                        if (assignedBreak &&
-                            t >= assignedBreak.startIndex &&
-                            t <= assignedBreak.endIndex) continue;
-
-                        const emptyCells = getEmptyCellsBackFirst(z.zone.name, t);
-
-                        if (!emptyCells.length) continue;
-
-                        const cell = emptyCells[0];
-
-                        // 50% manning check
-                        const activeNow = document.querySelectorAll(
-                            `.counter-cell[data-zone="${z.zone.name}"][data-time="${t}"].active`
-                        ).length;
-
-                        const required = Math.ceil(z.zone.counters.length / 2);
-
-                        if (activeNow >= required) continue;
-
-                        cell.classList.add("active");
-                        cell.style.background = "#2196F3";
-                        cell.dataset.officer = `OT${officer}`;
-
-                        allocated = true;
-                    }
-
-                    if (allocated) break;
+                if (!emptyCells.length) {
+                    currentIndex++;
+                    continue;
                 }
+
+                const cell = emptyCells[0];
+
+                cell.classList.add("active");
+                cell.style.background = currentColor;
+                cell.dataset.officer = officer;
 
                 currentIndex++;
             }
-
-            // ----------- BUILD ROSTER OUTPUT -----------
-            const officerCells = document.querySelectorAll(
-                `.counter-cell[data-officer="OT${officer}"]`
-            );
-
-            if (!officerCells.length) continue;
-
-            const trHead = document.createElement("tr");
-            const tdHead = document.createElement("td");
-            tdHead.colSpan = 4;
-            tdHead.innerText = `Officer OT${officer}`;
-            tdHead.className = "officer-name";
-            trHead.appendChild(tdHead);
-            tbody.appendChild(trHead);
         }
 
         updateAll();
     }
-
 
 
     // -------------------- Add Officers Global --------------------
