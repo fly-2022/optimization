@@ -171,7 +171,7 @@ function renderTableOnce() {
 /* ==================== Table Event Handling ==================== */
 function attachTableEvents() {
 
-    // if (tableEventsAttached) return;   // ← ADD THIS LINE
+    if (tableEventsAttached) return;   // ← ADD THIS LINE
 
     table.addEventListener("pointerdown", e => {
         const cell = e.target.closest(".counter-cell");
@@ -198,7 +198,7 @@ function attachTableEvents() {
 
     document.addEventListener("pointerup", () => isDragging = false);
 
-    // tableEventsAttached = true;   // ← ADD THIS LINE
+    tableEventsAttached = true;   // ← ADD THIS LINE
 
     // Restore previous selections
     restoreCellStates();
@@ -212,7 +212,8 @@ function saveCellStates() {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
         cellStates[key][id] = {
             active: cell.classList.contains("active"),
-            color: cell.style.background
+            color: cell.style.background,
+            officer: cell.dataset.officer || ""
         };
     });
 }
@@ -225,9 +226,11 @@ function restoreCellStates() {
         if (state[id] && state[id].active) {
             cell.classList.add("active");
             cell.style.background = state[id].color;
+            cell.dataset.officer = state[id].officer || "";
         } else {
             cell.classList.remove("active");
             cell.style.background = "";
+            cell.dataset.officer = "";
         }
     });
     updateAll();
@@ -241,6 +244,7 @@ function toggleCell(cell) {
     } else {
         cell.style.background = "";
         cell.classList.remove("active");
+        cell.dataset.officer = "";
     }
     updateAll();
 }
@@ -1106,15 +1110,23 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 /* -------------------- Utility: Empty Cells Back-First -------------------- */
+// function getEmptyCellsBackFirst(zoneName, timeIndex) {
+//     const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
+//     let emptyCells = cells.filter(c => !c.classList.contains("active"));
+
+//     emptyCells.sort((a, b) => {
+//         const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
+//         const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
+//         return numB - numA;
+//     });
+
+//     return emptyCells;
+// }
+
 function getEmptyCellsBackFirst(zoneName, timeIndex) {
     const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
     let emptyCells = cells.filter(c => !c.classList.contains("active"));
-
-    emptyCells.sort((a, b) => {
-        const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-        const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-        return numB - numA;
-    });
-
+    emptyCells.sort((a, b) => parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, '')) -
+        parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, '')));
     return emptyCells;
 }
