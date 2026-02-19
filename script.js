@@ -808,7 +808,45 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function allocateOTOfficers(count, otStart, otEnd, breakSlots) {
+    function getOTBreakOptions(slot) {
+        const times = generateTimeSlots();
+
+        function make(start, end) {
+            return {
+                startIndex: times.findIndex(t => t === start),
+                endIndex: times.findIndex(t => t === end)
+            };
+        }
+
+        if (slot === "0600-1100") {
+            return [
+                make("0730", "0815"),
+                make("0815", "0900"),
+                make("0900", "0945")
+            ];
+        }
+
+        if (slot === "1100-1600") {
+            return [
+                make("1230", "1315"),
+                make("1315", "1400"),
+                make("1400", "1445")
+            ];
+        }
+
+        if (slot === "1600-2100") {
+            return [
+                make("1730", "1815"),
+                make("1815", "1900"),
+                make("1900", "1945")
+            ];
+        }
+
+        return [];
+    }
+
+    function allocateOTOfficers(count, otStart, otEnd) {
+
         const times = generateTimeSlots();
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
@@ -818,117 +856,117 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Adjust endIndex for release time (30 mins before OT end)
+        // Release 30 mins early
         let releaseIndex = endIndex;
-        if (currentShift === "morning" && otEnd === "1600") releaseIndex = times.findIndex(t => t === "1530");
-        else if (currentShift === "morning" && otEnd === "2100") releaseIndex = times.findIndex(t => t === "2030");
-        else if (currentShift === "night" && otEnd === "1100") releaseIndex = times.findIndex(t => t === "1000");
-
+        if (otEnd === "1600") releaseIndex = times.findIndex(t => t === "1530");
+        if (otEnd === "2100") releaseIndex = times.findIndex(t => t === "2030");
+        if (otEnd === "1100") releaseIndex = times.findIndex(t => t === "1000");
         if (releaseIndex === -1) releaseIndex = endIndex;
 
-        // Create OT roster container
+        const slotKey = `${otStart}-${otEnd}`;
+        const breakOptions = getOTBreakOptions(slotKey);
+
         const tbody = document.querySelector("#otRosterTable tbody");
-        const headingRow = document.createElement("tr");
-        const th = document.createElement("th");
-        th.colSpan = 4;
-        th.innerText = `${otStart}-${otEnd} OT Roster`;
-        th.className = "ot-heading";
-        headingRow.appendChild(th);
-        tbody.appendChild(headingRow);
 
         for (let officer = 1; officer <= count; officer++) {
-            const officerRowHeader = document.createElement("tr");
-            const tdHeader = document.createElement("td");
-            tdHeader.colSpan = 4;
-            tdHeader.innerText = `Officer ${officer}`;
-            tdHeader.className = "officer-name";
-            officerRowHeader.appendChild(tdHeader);
-            tbody.appendChild(officerRowHeader);
+
+            const assignedBreak = breakOptions[(officer - 1) % breakOptions.length];
 
             let currentIndex = startIndex;
 
             while (currentIndex < releaseIndex) {
-                // Check if current block is a break
-                let breakSlot = breakSlots.find(bs => bs.startIndex === currentIndex);
-                if (breakSlot) {
-                    const trBreak = document.createElement("tr");
-                    const tdOff = document.createElement("td");
-                    tdOff.innerText = `Officer ${officer}`;
-                    const tdCounter = document.createElement("td");
-                    tdCounter.innerText = "Break";
-                    const tdStart = document.createElement("td");
-                    tdStart.innerText = formatTime(times[breakSlot.startIndex]);
-                    const tdEnd = document.createElement("td");
-                    tdEnd.innerText = formatTime(times[breakSlot.endIndex]);
-                    trBreak.appendChild(tdOff);
-                    trBreak.appendChild(tdCounter);
-                    trBreak.appendChild(tdStart);
-                    trBreak.appendChild(tdEnd);
-                    tbody.appendChild(trBreak);
-                    currentIndex = breakSlot.endIndex;
+
+                // BREAK WINDOW
+                if (assignedBreak &&
+                    currentIndex >= assignedBreak.startIndex &&
+                    currentIndex <= assignedBreak.endIndex) {
+
+                    currentIndex = assignedBreak.endIndex + 1;
                     continue;
                 }
 
-                // Allocate back-first empty counter block
-                let allocated = false;
+                // ----------- FIND LOWEST MANNED ZONE -----------
+                let zoneStats = [];
+
                 zones[currentMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
-                    for (let c = zone.counters.length - 1; c >= 0; c--) {
-                        const counter = zone.counters[c];
-                        let isFree = true;
-                        for (let t = currentIndex; t < releaseIndex; t++) {
-                            const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
-                            if (!cell || cell.classList.contains("active")) {
-                                isFree = false;
-                                break;
-                            }
-                        }
-                        if (isFree) {
-                            for (let t = currentIndex; t < releaseIndex; t++) {
-                                const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                    .filter(cel => cel.parentElement.firstChild.innerText === counter)[0];
-                                cell.classList.add("active");
-                                cell.style.background = currentColor;
-                                cell.dataset.officer = officer;
-                            }
-                            const tr = document.createElement("tr");
-                            const tdOff = document.createElement("td");
-                            tdOff.innerText = `Officer ${officer}`;
-                            const tdCounter = document.createElement("td");
-                            tdCounter.innerText = counter;
-                            const tdStart = document.createElement("td");
-                            tdStart.innerText = formatTime(times[currentIndex]);
-                            const tdEnd = document.createElement("td");
-                            tdEnd.innerText = formatTime(times[releaseIndex]);
-                            tr.appendChild(tdOff);
-                            tr.appendChild(tdCounter);
-                            tr.appendChild(tdStart);
-                            tr.appendChild(tdEnd);
-                            tbody.appendChild(tr);
-                            allocated = true;
-                            break;
-                        }
+
+                    let activeCount = 0;
+
+                    for (let t = currentIndex; t < releaseIndex; t++) {
+                        const cells = document.querySelectorAll(
+                            `.counter-cell[data-zone="${zone.name}"][data-time="${t}"].active`
+                        );
+                        activeCount += cells.length;
                     }
-                    if (allocated) return;
+
+                    const totalSlots = zone.counters.length * (releaseIndex - currentIndex);
+                    zoneStats.push({
+                        zone,
+                        ratio: totalSlots === 0 ? 1 : activeCount / totalSlots
+                    });
                 });
 
-                if (!allocated) break; // no more free slots
-                currentIndex = releaseIndex;
+                zoneStats.sort((a, b) => a.ratio - b.ratio);
+
+                let allocated = false;
+
+                for (let z of zoneStats) {
+
+                    for (let t = currentIndex; t < releaseIndex; t++) {
+
+                        // Skip break
+                        if (assignedBreak &&
+                            t >= assignedBreak.startIndex &&
+                            t <= assignedBreak.endIndex) continue;
+
+                        const emptyCells = getEmptyCellsBackFirst(z.zone.name, t);
+
+                        if (!emptyCells.length) continue;
+
+                        const cell = emptyCells[0];
+
+                        // 50% manning check
+                        const activeNow = document.querySelectorAll(
+                            `.counter-cell[data-zone="${z.zone.name}"][data-time="${t}"].active`
+                        ).length;
+
+                        const required = Math.ceil(z.zone.counters.length / 2);
+
+                        if (activeNow >= required) continue;
+
+                        cell.classList.add("active");
+                        cell.style.background = "#2196F3";
+                        cell.dataset.officer = `OT${officer}`;
+
+                        allocated = true;
+                    }
+
+                    if (allocated) break;
+                }
+
+                currentIndex++;
             }
+
+            // ----------- BUILD ROSTER OUTPUT -----------
+            const officerCells = document.querySelectorAll(
+                `.counter-cell[data-officer="OT${officer}"]`
+            );
+
+            if (!officerCells.length) continue;
+
+            const trHead = document.createElement("tr");
+            const tdHead = document.createElement("td");
+            tdHead.colSpan = 4;
+            tdHead.innerText = `Officer OT${officer}`;
+            tdHead.className = "officer-name";
+            trHead.appendChild(tdHead);
+            tbody.appendChild(trHead);
         }
 
-        function formatTime(hhmm) {
-            return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
-        }
+        updateAll();
     }
 
-    // 45-min break slots as per your spec
-    const otBreaks = {
-        "0600-1100": [{ startIndex: times.findIndex(t => t === "0730"), endIndex: times.findIndex(t => t === "0815") }],
-        "1100-1600": [{ startIndex: times.findIndex(t => t === "1230"), endIndex: times.findIndex(t => t === "1315") }],
-        "1600-2100": [{ startIndex: times.findIndex(t => t === "1730"), endIndex: times.findIndex(t => t === "1815") }]
-    };
 
 
     // -------------------- Add Officers Global --------------------
@@ -1041,7 +1079,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
             const [start, end] = slot.split("-");
             const breakSlot = otBreaks[slot] || [];
-            allocateOTOfficers(count, start, end, breakSlot);
+            allocateOTOfficers(count, start, end);
         }
 
 
