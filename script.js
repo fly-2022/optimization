@@ -998,8 +998,6 @@ document.addEventListener("DOMContentLoaded", function () {
     function allocateOTOfficers(count, otStart, otEnd) {
 
         const times = generateTimeSlots();
-        const tbody = document.querySelector("#otRosterTable tbody");
-        if (tbody) tbody.innerHTML = "";
 
         const startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
@@ -1011,81 +1009,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (endIndex === -1) endIndex = times.length;
 
-        const releaseIndex = Math.max(startIndex, endIndex - 2);
-
-        let patterns = [];
-
-        if (otStart === "1100" && otEnd === "1600") {
-
-            patterns = [
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 6,
-                    work2Start: startIndex + 9,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 9,
-                    work2Start: startIndex + 12,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 12,
-                    work2Start: startIndex + 15,
-                    work2End: startIndex + 18
-                }
-            ];
-        }
-
-        else if (otStart === "1600" && otEnd === "2100") {
-
-            patterns = [
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 6,
-                    work2Start: startIndex + 9,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 9,
-                    work2Start: startIndex + 12,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 12,
-                    work2Start: startIndex + 15,
-                    work2End: startIndex + 18
-                }
-            ];
-        }
-
-        else if (otStart === "0600" && otEnd === "1100") {
-
-            patterns = [
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 6,
-                    work2Start: startIndex + 9,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 9,
-                    work2Start: startIndex + 12,
-                    work2End: startIndex + 18
-                },
-                {
-                    work1Start: startIndex,
-                    work1End: startIndex + 12,
-                    work2Start: startIndex + 15,
-                    work2End: startIndex + 18
-                }
-            ];
-        }
+        const patterns = getOTPatterns(otStart, otEnd, times);
 
         for (let officer = 1; officer <= count; officer++) {
 
@@ -1094,49 +1018,53 @@ document.addEventListener("DOMContentLoaded", function () {
             otGlobalCounter++;
             const officerLabel = "OT" + otGlobalCounter;
 
-            // ---------------- PRE BREAK COUNTER ----------------
-            let counter1 = getBestCounter(pattern.work1Start, times);
+            // ---------------- FIND COUNTER FOR FULL WORK1 BLOCK ----------------
+            const counter1 = findContinuousCounter(
+                pattern.work1Start,
+                pattern.work1End
+            );
 
             if (!counter1) continue;
 
+            // deploy work1
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
-
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
                 );
-
-                if (!cell || cell.classList.contains("active")) continue;
-
+                if (!cell) continue;
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
                 cell.dataset.type = "ot";
-
             }
 
-            // ---------------- POST BREAK COUNTER ----------------
-            let counter2 = getBestCounter(pattern.work2Start, times);
+            // ---------------- FIND COUNTER FOR FULL WORK2 BLOCK ----------------
+            // Try same counter first
+            let counter2 = isCounterFreeForBlock(
+                counter1.zone,
+                counter1.counter,
+                pattern.work2Start,
+                pattern.work2End
+            )
+                ? counter1
+                : findContinuousCounter(pattern.work2Start, pattern.work2End);
 
             if (!counter2) continue;
 
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
-
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
                 );
-
-                if (!cell || cell.classList.contains("active")) continue;
-
+                if (!cell) continue;
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
                 cell.dataset.type = "ot";
-
             }
         }
 
         updateAll();
-        updateOTRosterTable();  // now updates the correct table
+        updateOTRosterTable();
     }
 
 
@@ -1248,6 +1176,61 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
+    function isCounterFreeForBlock(zone, counter, start, end) {
+
+        for (let t = start; t < end; t++) {
+
+            const cell = document.querySelector(
+                `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+            );
+
+            if (!cell || cell.classList.contains("active")) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    function findContinuousCounter(start, end) {
+
+        let bestZone = null;
+        let lowestRatio = 999;
+
+        zones[currentMode].forEach(zone => {
+
+            if (zone.name === "BIKES") return;
+
+            const total = zone.counters.length;
+
+            const active =
+                [...document.querySelectorAll(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
+                )].length;
+
+            const ratio = active / total;
+
+            if (ratio < lowestRatio) {
+                lowestRatio = ratio;
+                bestZone = zone;
+            }
+        });
+
+        if (!bestZone) return null;
+
+        for (let counter of bestZone.counters) {
+
+            if (isCounterFreeForBlock(bestZone.name, counter, start, end)) {
+                return {
+                    zone: bestZone.name,
+                    counter: counter
+                };
+            }
+        }
+
+        return null;
+    }
 
     function getOTPatterns(start, end, times) {
 
