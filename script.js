@@ -1195,41 +1195,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function findContinuousCounter(start, end) {
 
-        let bestZone = null;
-        let lowestRatio = 999;
+        let bestCandidate = null;
+        let bestScore = -1;
 
         zones[currentMode].forEach(zone => {
 
             if (zone.name === "BIKES") return;
 
-            const total = zone.counters.length;
+            zone.counters.forEach(counter => {
 
-            const active =
-                [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
-                )].length;
+                if (!isCounterFreeForBlock(zone.name, counter, start, end)) {
+                    return;
+                }
 
-            const ratio = active / total;
+                // -------- SCORING SYSTEM --------
+                // Prefer counters that are already active BEFORE this block
 
-            if (ratio < lowestRatio) {
-                lowestRatio = ratio;
-                bestZone = zone;
-            }
+                let continuityScore = 0;
+
+                const prevCell = document.querySelector(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${start - 1}"][data-counter="${counter}"]`
+                );
+
+                if (prevCell && prevCell.classList.contains("active")) {
+                    continuityScore += 10; // HIGH priority
+                }
+
+                // prefer lower manned zones
+                const active =
+                    [...document.querySelectorAll(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
+                    )].length;
+
+                const ratio = active / zone.counters.length;
+                const zoneScore = (1 - ratio) * 5;
+
+                const totalScore = continuityScore + zoneScore;
+
+                if (totalScore > bestScore) {
+                    bestScore = totalScore;
+                    bestCandidate = {
+                        zone: zone.name,
+                        counter: counter
+                    };
+                }
+            });
         });
 
-        if (!bestZone) return null;
-
-        for (let counter of bestZone.counters) {
-
-            if (isCounterFreeForBlock(bestZone.name, counter, start, end)) {
-                return {
-                    zone: bestZone.name,
-                    counter: counter
-                };
-            }
-        }
-
-        return null;
+        return bestCandidate;
     }
 
     function getOTPatterns(start, end, times) {
