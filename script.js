@@ -1059,11 +1059,12 @@ document.addEventListener("DOMContentLoaded", function () {
         return null;
     }
 
-    function findCounterNeedingCoverage(start, end) {
+    function findCounterNeedingCoverage(start, end, sortedZoneStats) {
 
-        for (let zone of zones[currentMode]) {
+        for (let z = 0; z < sortedZoneStats.length; z++) {
 
-            if (zone.name === "BIKES") continue;
+            const zoneName = sortedZoneStats[z].zone;
+            const zone = zones[currentMode].find(x => x.name === zoneName);
 
             for (let counter of zone.counters) {
 
@@ -1071,7 +1072,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 for (let t = start; t < end; t++) {
                     const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
                     );
 
                     if (!cell || !cell.classList.contains("active")) {
@@ -1080,14 +1081,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 if (emptySlots > 0) {
-                    return { zone: zone.name, counter: counter };
+                    return { zone: zoneName, counter: counter };
                 }
             }
         }
 
         return null;
     }
-
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -1159,7 +1159,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 zoneStats.sort((a, b) => a.ratio - b.ratio); // least occupied zones first
 
                 // 🔹 PRIORITY: Fill counters that are about to have gaps
-                let priorityCounter = findCounterNeedingCoverage(block.start, block.end);
+                let priorityCounter = findCounterNeedingCoverage(block.start, block.end, zoneStats);
 
                 if (priorityCounter) {
 
