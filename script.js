@@ -901,43 +901,6 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function getOTBreakOptions(slot) {
-        const times = generateTimeSlots();
-
-        function make(start, end) {
-            return {
-                startIndex: times.findIndex(t => t === start),
-                endIndex: times.findIndex(t => t === end)
-            };
-        }
-
-        if (slot === "0600-1100") {
-            return [
-                make("0730", "0815"),
-                make("0815", "0900"),
-                make("0900", "0945")
-            ];
-        }
-
-        if (slot === "1100-1600") {
-            return [
-                make("1230", "1315"),
-                make("1315", "1400"),
-                make("1400", "1445")
-            ];
-        }
-
-        if (slot === "1600-2100") {
-            return [
-                make("1730", "1815"),
-                make("1815", "1900"),
-                make("1900", "1945")
-            ];
-        }
-
-        return [];
-    }
-
     function isOTWithinShift(otStart, otEnd) {
         // // Convert input to HH:MM format (just in case)
         // otStart = otStart.padStart(5, '0');
@@ -955,44 +918,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         return false; // any other combination is invalid
     }
-
-    // // ---------------- OT BREAKS ----------------
-    // function getOTBreakOptions(slot) {
-    //     // Returns an array of break patterns with startIndex/endIndex for generateTimeSlots
-    //     const times = generateTimeSlots();
-    //     let patterns = [];
-
-    //     if (slot === "1100-1600") {
-    //         // OT 1100-1600
-    //         patterns = [
-    //             { assign1: ["1100", "1230"], break: ["1230", "1315"], assign2: ["1315", "1530"] },
-    //             { assign1: ["1100", "1315"], break: ["1315", "1400"], assign2: ["1400", "1530"] },
-    //             { assign1: ["1100", "1400"], break: ["1400", "1445"], assign2: ["1445", "1530"] }
-    //         ];
-    //     } else if (slot === "1600-2100") {
-    //         // OT 1600-2100
-    //         patterns = [
-    //             { assign1: ["1600", "1730"], break: ["1730", "1815"], assign2: ["1815", "2030"] },
-    //             { assign1: ["1600", "1815"], break: ["1815", "1900"], assign2: ["1900", "2030"] },
-    //             { assign1: ["1600", "1900"], break: ["1900", "1945"], assign2: ["1945", "2030"] }
-    //         ];
-    //     } else if (slot === "0600-1100") {
-    //         // OT 0600-1100
-    //         patterns = [
-    //             { assign1: ["0600", "0730"], break: ["0730", "0815"], assign2: ["0815", "1030"] },
-    //             { assign1: ["0600", "0815"], break: ["0815", "0900"], assign2: ["0900", "1030"] },
-    //             { assign1: ["0600", "0900"], break: ["0900", "0945"], assign2: ["0945", "1030"] }
-    //         ];
-    //     }
-
-    //     // Convert HHMM strings into indices
-    //     return patterns.map(p => ({
-    //         startIndex: times.findIndex(t => t === p.assign1[0]),
-    //         breakStart: times.findIndex(t => t === p.break[0]),
-    //         breakEnd: times.findIndex(t => t === p.break[1]),
-    //         endIndex: times.findIndex(t => t === p.assign2[1])
-    //     }));
-    // }
 
     function findBestGapCounter(startIdx, endIdx) {
 
@@ -1139,6 +1064,7 @@ document.addEventListener("DOMContentLoaded", function () {
             blocks.forEach(block => {
                 let assigned = false;
 
+                // Count current active counters per zone
                 const zoneStats = [];
                 zones[currentMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
@@ -1154,37 +1080,26 @@ document.addEventListener("DOMContentLoaded", function () {
                             }
                         }
                     });
-                    zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
+                    zoneStats.push({ zone: zone.name, active: activeCount });
                 });
 
-                zoneStats.sort((a, b) => a.ratio - b.ratio); // least occupied zones first
+                // Try to pick zones within desired range (min 5, max 7)
+                const minManning = 5;
+                const maxManning = 10;
+                let candidateZones = zoneStats.filter(z => z.active < maxManning);
 
-                // 🔹 PRIORITY: Fill counters that are about to have gaps
-                let priorityCounter = findCounterNeedingCoverage(block.start, block.end, zoneStats);
-
-                if (priorityCounter) {
-
-                    for (let t = block.start; t < block.end; t++) {
-                        const cell = document.querySelector(
-                            `.counter-cell[data-zone="${priorityCounter.zone}"][data-time="${t}"][data-counter="${priorityCounter.counter}"]`
-                        );
-
-                        if (!cell) continue;
-
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-                        cell.dataset.officer = officerLabel;
-                        cell.dataset.type = "ot";
-                    }
-
-                    assigned = true;
+                if (candidateZones.length === 0) {
+                    // fallback to least occupied zone
+                    candidateZones = zoneStats.sort((a, b) => a.active - b.active);
+                } else {
+                    // sort candidate zones by least active
+                    candidateZones.sort((a, b) => a.active - b.active);
                 }
 
-                for (let z = 0; z < zoneStats.length && !assigned; z++) {
-                    const zoneName = zoneStats[z].zone;
+                for (let z = 0; z < candidateZones.length; z++) {
+                    const zoneName = candidateZones[z].zone;
                     const zone = zones[currentMode].find(z => z.name === zoneName);
 
-                    // Fill counters from back to front
                     for (let c = zone.counters.length - 1; c >= 0; c--) {
                         const counter = zone.counters[c];
 
@@ -1217,11 +1132,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (assigned) break;
                 }
             });
-        }
 
-        otGlobalCounter += count - 1;
-        updateAll();
-        updateOTRosterTable();
+
+            otGlobalCounter += count - 1;
+            updateAll();
+            if (typeof updateOTRosterTable === "function") updateOTRosterTable();
+        }
     }
 
 
@@ -1474,25 +1390,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
-        // if (manpowerType === "ot") {
-
-        //     console.log("Current shift:", currentShift);
-        //     console.log("Selected OT slot:", start, end);
-
-        //     const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
-        //     const [start, end] = slot.split("-");
-
-        //     // start/end are already "HHMM", matches grid format
-        //     if (!isOTWithinShift(start, end)) {
-        //         alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
-        //         return;
-        //     }
-
-        //     console.log(generateTimeSlots());
-
-        //     allocateOTOfficers(count, start, end);
-        // }
-
         if (manpowerType === "ot") {
             // ---------------- FIX: declare start/end first ----------------
             const slot = document.getElementById("otSlot").value; // e.g., "1100-1600"
@@ -1546,19 +1443,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-/* -------------------- Utility: Empty Cells Back-First -------------------- */
-// function getEmptyCellsBackFirst(zoneName, timeIndex) {
-//     const cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-time="${timeIndex}"]`)];
-//     let emptyCells = cells.filter(c => !c.classList.contains("active"));
-
-//     emptyCells.sort((a, b) => {
-//         const numA = parseInt(a.parentElement.firstChild.innerText.replace(/\D/g, ''));
-//         const numB = parseInt(b.parentElement.firstChild.innerText.replace(/\D/g, ''));
-//         return numB - numA;
-//     });
-
-//     return emptyCells;
-// }
 
 function getEmptyCellsBackFirst(zoneName, timeIndex) {
 
