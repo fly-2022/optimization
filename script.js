@@ -996,6 +996,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
+        console.log("Patterns:", patterns);
 
         const times = generateTimeSlots();
 
@@ -1019,7 +1020,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const officerLabel = "OT" + otGlobalCounter;
 
             // ---------------- FIND COUNTER FOR FULL WORK1 BLOCK ----------------
-            let counter1 = findBestGapCounter(pattern.work1Start, pattern.work1End, times);
+            let counter1 = findBestGapCounter(pattern.work1Start, pattern.work1End);
 
             if (!counter1) continue;
 
@@ -1133,40 +1134,38 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function findBestGapCounter(start, end, times) {
+    function findBestGapCounter(start, end) {
 
         let best = null;
         let bestScore = -1;
 
-        const zones = getZonesForCurrentMode();
+        zones[currentMode].forEach(zone => {
 
-        zones.forEach(zone => {
+            if (zone.name === "BIKES") return; // OT never at BIKES
 
-            if (zone === "BIKES") return; // never deploy OT to BIKES
-
-            const counters = getCountersForZone(zone);
-
-            counters.forEach(counter => {
+            zone.counters.forEach(counter => {
 
                 let score = 0;
 
                 for (let t = start; t < end; t++) {
 
                     const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
 
                     if (!cell) continue;
 
-                    // Count empty cells only
                     if (!cell.classList.contains("active")) {
-                        score++;
+                        score++; // count empty slots OT can fill
                     }
                 }
 
                 if (score > bestScore) {
                     bestScore = score;
-                    best = { zone, counter };
+                    best = {
+                        zone: zone.name,
+                        counter: counter
+                    };
                 }
             });
         });
