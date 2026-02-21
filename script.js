@@ -1003,9 +1003,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const periodKey = `${otStart}-${otEnd}`;
 
-        // =========================
-        // OFFICIAL OT BREAK PATTERNS
-        // =========================
         const otBreakPatterns = {
             "0600-1100": [
                 { work1: ["0600", "0730"], break: ["0730", "0815"], work2: ["0815", "1030"] },
@@ -1025,25 +1022,48 @@ document.addEventListener("DOMContentLoaded", function () {
         };
 
         const patterns = otBreakPatterns[periodKey];
-
         if (!patterns) {
-            alert("Unsupported OT timing.");
+            alert("Unsupported OT timing");
             return;
         }
 
-        // =========================
-        // HELPER: convert time → index
-        // =========================
         function getIndex(timeStr) {
             return times.indexOf(timeStr);
         }
 
-        // =========================
-        // DEPLOY EACH OT OFFICER
-        // =========================
+        // fallback counter finder (if gap logic fails)
+        function forceFindCounter(startIdx, endIdx) {
+
+            for (const zone of zones[currentMode]) {
+
+                if (zone.name === "BIKES") continue;
+
+                for (const counter of zone.counters) {
+
+                    let free = true;
+
+                    for (let t = startIdx; t < endIdx; t++) {
+                        const cell = document.querySelector(
+                            `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                        );
+                        if (!cell || cell.classList.contains("active")) {
+                            free = false;
+                            break;
+                        }
+                    }
+
+                    if (free) {
+                        return { zone: zone.name, counter };
+                    }
+                }
+            }
+
+            return null;
+        }
+
         for (let officer = 1; officer <= count; officer++) {
 
-            const pattern = patterns[(officer - 1) % patterns.length]; // stagger patterns
+            const pattern = patterns[(officer - 1) % patterns.length];
             const officerLabel = "OT" + officer;
 
             const w1Start = getIndex(pattern.work1[0]);
@@ -1054,10 +1074,9 @@ document.addEventListener("DOMContentLoaded", function () {
             if (w1Start === -1 || w1End === -1 || w2Start === -1 || w2End === -1)
                 continue;
 
-            // =========================
-            // WORK BLOCK 1
-            // =========================
             let counter1 = findBestGapCounter(w1Start, w1End);
+            if (!counter1) counter1 = forceFindCounter(w1Start, w1End);
+
             if (counter1) {
                 for (let t = w1Start; t < w1End; t++) {
                     const cell = document.querySelector(
@@ -1071,10 +1090,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
-            // =========================
-            // WORK BLOCK 2
-            // =========================
             let counter2 = findBestGapCounter(w2Start, w2End);
+            if (!counter2) counter2 = forceFindCounter(w2Start, w2End);
+
             if (counter2) {
                 for (let t = w2Start; t < w2End; t++) {
                     const cell = document.querySelector(
