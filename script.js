@@ -1061,123 +1061,181 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
-
         const times = generateTimeSlots();
-        const tbody = document.querySelector("#otRosterTable tbody");
-        if (tbody) tbody.innerHTML = "";
 
-        const periodKey = `${otStart}-${otEnd}`;
+        let startIndex = times.findIndex(t => t === otStart);
+        let endIndex = times.findIndex(t => t === otEnd);
 
-        const otBreakPatterns = {
-            "0600-1100": [
-                { work1: ["0600", "0730"], break: ["0730", "0815"], work2: ["0815", "1030"] },
-                { work1: ["0600", "0815"], break: ["0815", "0900"], work2: ["0900", "1030"] },
-                { work1: ["0600", "0900"], break: ["0900", "0945"], work2: ["0945", "1030"] }
-            ],
-            "1100-1600": [
-                { work1: ["1100", "1230"], break: ["1230", "1315"], work2: ["1315", "1530"] },
-                { work1: ["1100", "1315"], break: ["1315", "1400"], work2: ["1400", "1530"] },
-                { work1: ["1100", "1400"], break: ["1400", "1445"], work2: ["1445", "1530"] }
-            ],
-            "1600-2100": [
-                { work1: ["1600", "1730"], break: ["1730", "1815"], work2: ["1815", "2030"] },
-                { work1: ["1600", "1815"], break: ["1815", "1900"], work2: ["1900", "2030"] },
-                { work1: ["1600", "1900"], break: ["1900", "1945"], work2: ["1945", "2030"] }
-            ]
-        };
-
-        const patterns = otBreakPatterns[periodKey];
-        if (!patterns) {
-            alert("Unsupported OT timing");
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
             return;
         }
+        if (endIndex === -1) endIndex = times.length;
 
-        function getIndex(timeStr) {
-            return times.indexOf(timeStr);
+        // 🔹 Adjust OT end to release 30 mins early
+        const releaseEarlySlots = 30 / 15; // 30 mins / 15-min slot
+        endIndex = Math.max(startIndex, endIndex - releaseEarlySlots);
+
+        otGlobalCounter++; // global counter to label OT uniquely
+
+        const totalSlots = endIndex - startIndex;
+        const breakLengthSlots = Math.floor(45 / 15); // 45 min break
+        const workSlots = totalSlots - breakLengthSlots;
+
+        // stagger breaks across officers evenly
+        // const breakStartOffsets = [];
+        // if (count > 1) {
+        //     const gapBetweenBreaks = Math.floor(workSlots / (count));
+        //     for (let i = 0; i < count; i++) {
+        //         breakStartOffsets.push(startIndex + i * gapBetweenBreaks);
+        //     }
+        // } else {
+        //     breakStartOffsets.push(startIndex + Math.floor(workSlots / 2));
+        // }
+
+        let officialBreakSlots = [];
+
+        if (otStart === "0600") {
+            officialBreakSlots = ["0730", "0815", "0900"];
+        }
+        else if (otStart === "1100") {
+            officialBreakSlots = ["1230", "1315", "1400"];
+        }
+        else if (otStart === "1600") {
+            officialBreakSlots = ["1730", "1815", "1900"];
         }
 
-        // fallback counter finder (if gap logic fails)
-        function forceFindCounter(startIdx, endIdx) {
+        for (let i = 0; i < count; i++) {
+            const officerLabel = "OT" + (otGlobalCounter + i);
+            const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
+            const breakStart = times.findIndex(t => t === breakTimeStr);
+            const breakEnd = Math.min(breakStart + breakLengthSlots, endIndex);
 
-            for (const zone of zones[currentMode]) {
+            const blocks = [
+                { start: startIndex, end: breakStart },
+                { start: breakEnd, end: endIndex }
+            ];
 
-                if (zone.name === "BIKES") continue;
+            blocks.forEach(block => {
+                let assigned = false;
 
-                for (const counter of zone.counters) {
+                const zoneStats = [];
+                zones[currentMode].forEach(zone => {
+                    if (zone.name === "BIKES") return;
+                    let activeCount = 0;
+                    zone.counters.forEach(counter => {
+                        for (let t = block.start; t < block.end; t++) {
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
+                            if (cell && cell.classList.contains("active")) {
+                                activeCount++;
+                                break;
+                            }
+                        }
+                    });
+                    zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
+                });
 
-                    let free = true;
+                zoneStats.sort((a, b) => a.ratio - b.ratio); // least occupied zones first
 
-                    for (let t = startIdx; t < endIdx; t++) {
-                        const cell = document.querySelector(
-                            `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                        );
-                        if (!cell || cell.classList.contains("active")) {
-                            free = false;
+                for (let z = 0; z < zoneStats.length; z++) {
+                    const zoneName = zoneStats[z].zone;
+                    const zone = zones[currentMode].find(z => z.name === zoneName);
+
+                    // Fill counters from back to front
+                    for (let c = zone.counters.length - 1; c >= 0; c--) {
+                        const counter = zone.counters[c];
+
+                        let blockFree = true;
+                        for (let t = block.start; t < block.end; t++) {
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
+                            if (!cell || cell.classList.contains("active")) {
+                                blockFree = false;
+                                break;
+                            }
+                        }
+
+                        if (blockFree) {
+                            for (let t = block.start; t < block.end; t++) {
+                                const cell = document.querySelector(
+                                    `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                                );
+                                if (!cell) continue;
+                                cell.classList.add("active");
+                                cell.style.background = currentColor;
+                                cell.dataset.officer = officerLabel;
+                                cell.dataset.type = "ot";
+                            }
+                            assigned = true;
                             break;
                         }
                     }
-
-                    if (free) {
-                        return { zone: zone.name, counter };
-                    }
+                    if (assigned) break;
                 }
-            }
-
-            return null;
+            });
         }
 
-        for (let officer = 1; officer <= count; officer++) {
-
-            const pattern = patterns[(officer - 1) % patterns.length];
-            const officerLabel = "OT" + officer;
-
-            const w1Start = getIndex(pattern.work1[0]);
-            const w1End = getIndex(pattern.work1[1]);
-            const w2Start = getIndex(pattern.work2[0]);
-            const w2End = getIndex(pattern.work2[1]);
-
-            if (w1Start === -1 || w1End === -1 || w2Start === -1 || w2End === -1)
-                continue;
-
-            let counter1 = findBestGapCounter(w1Start, w1End);
-            if (!counter1) counter1 = forceFindCounter(w1Start, w1End);
-
-            if (counter1) {
-                for (let t = w1Start; t < w1End; t++) {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
-                    );
-                    if (cell && !cell.classList.contains("active")) {
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-                        cell.dataset.officer = officerLabel;
-                    }
-                }
-            }
-
-            let counter2 = findBestGapCounter(w2Start, w2End);
-            if (!counter2) counter2 = forceFindCounter(w2Start, w2End);
-
-            if (counter2) {
-                for (let t = w2Start; t < w2End; t++) {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
-                    );
-                    if (cell && !cell.classList.contains("active")) {
-                        cell.classList.add("active");
-                        cell.style.background = currentColor;
-                        cell.dataset.officer = officerLabel;
-                    }
-                }
-            }
-        }
-
+        otGlobalCounter += count - 1;
         updateAll();
+        updateOTRosterTable();
+    }
 
-        if (typeof updateOTRosterTable === "function") {
-            updateOTRosterTable();
+
+    for (let officer = 1; officer <= count; officer++) {
+
+        const pattern = patterns[(officer - 1) % patterns.length];
+        const officerLabel = "OT" + officer;
+
+        const w1Start = getIndex(pattern.work1[0]);
+        const w1End = getIndex(pattern.work1[1]);
+        const w2Start = getIndex(pattern.work2[0]);
+        const w2End = getIndex(pattern.work2[1]);
+
+        if (w1Start === -1 || w1End === -1 || w2Start === -1 || w2End === -1)
+            continue;
+
+        let counter1 = findBestGapCounter(w1Start, w1End);
+        if (!counter1) counter1 = forceFindCounter(w1Start, w1End);
+
+        if (counter1) {
+            for (let t = w1Start; t < w1End; t++) {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
+                );
+                if (cell && !cell.classList.contains("active")) {
+                    cell.classList.add("active");
+                    cell.style.background = currentColor;
+                    cell.dataset.officer = officerLabel;
+                }
+            }
+        }
+
+        let counter2 = findBestGapCounter(w2Start, w2End);
+        if (!counter2) counter2 = forceFindCounter(w2Start, w2End);
+
+        if (counter2) {
+            for (let t = w2Start; t < w2End; t++) {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
+                );
+                if (cell && !cell.classList.contains("active")) {
+                    cell.classList.add("active");
+                    cell.style.background = currentColor;
+                    cell.dataset.officer = officerLabel;
+                }
+            }
         }
     }
+
+    updateAll();
+
+    if (typeof updateOTRosterTable === "function") {
+        updateOTRosterTable();
+    }
+}
 
 
     // -------------------- Add Officers Global --------------------
@@ -1532,38 +1590,38 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    removeBtn.addEventListener("click", () => {
-        const count = parseInt(document.getElementById("officerCount").value);
-        if (!count || count <= 0) return;
+removeBtn.addEventListener("click", () => {
+    const count = parseInt(document.getElementById("officerCount").value);
+    if (!count || count <= 0) return;
 
-        saveState();
+    saveState();
 
-        const times = generateTimeSlots();
+    const times = generateTimeSlots();
 
-        times.forEach((time, tIndex) => {
-            let allCells = [];
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-                let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
-                allCells = allCells.concat(cells);
-            });
-
-            let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-            for (let i = 0; i < count && activeCells.length > 0; i++) {
-                let last = activeCells.pop();
-                last.classList.remove("active");
-                last.style.background = "";
-            }
+    times.forEach((time, tIndex) => {
+        let allCells = [];
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
+            allCells = allCells.concat(cells);
         });
-        updateAll();
-    });
 
-    undoBtn.addEventListener("click", () => {
-        if (historyStack.length === 0) return;
-        const prev = historyStack.pop();
-        restoreState(prev);
+        let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+        for (let i = 0; i < count && activeCells.length > 0; i++) {
+            let last = activeCells.pop();
+            last.classList.remove("active");
+            last.style.background = "";
+        }
     });
+    updateAll();
+});
+
+undoBtn.addEventListener("click", () => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack.pop();
+    restoreState(prev);
+});
 });
 
 /* -------------------- Utility: Empty Cells Back-First -------------------- */
