@@ -1013,34 +1013,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
         otGlobalCounter++; // global counter to label OT uniquely
 
-        // Determine break pattern (staggered)
         const totalSlots = endIndex - startIndex;
         const breakLengthSlots = Math.floor(45 / 15); // 45 min break
-        const work1Length = Math.floor((totalSlots - breakLengthSlots) / 2);
-        const work2Length = totalSlots - work1Length - breakLengthSlots;
+        const workSlots = totalSlots - breakLengthSlots;
 
-        const breakOffsets = [];
-        for (let i = 0; i < count; i++) {
-            breakOffsets.push(i * Math.floor(breakLengthSlots / count));
+        // stagger breaks across officers evenly
+        const breakStartOffsets = [];
+        if (count > 1) {
+            const gapBetweenBreaks = Math.floor(workSlots / (count));
+            for (let i = 0; i < count; i++) {
+                breakStartOffsets.push(startIndex + i * gapBetweenBreaks);
+            }
+        } else {
+            breakStartOffsets.push(startIndex + Math.floor(workSlots / 2));
         }
 
         for (let i = 0; i < count; i++) {
             const officerLabel = "OT" + (otGlobalCounter + i);
-
-            const officerBreakOffset = breakOffsets[i] || 0;
-
-            const work1Start = startIndex;
-            const work1End = work1Start + work1Length;
-
-            const breakStart = work1End + officerBreakOffset;
-            const breakEnd = breakStart + breakLengthSlots;
-
-            const work2Start = breakEnd;
-            const work2End = work2Start + work2Length;
+            const breakStart = breakStartOffsets[i];
+            const breakEnd = Math.min(breakStart + breakLengthSlots, endIndex);
 
             const blocks = [
-                { start: work1Start, end: work1End },
-                { start: work2Start, end: work2End }
+                { start: startIndex, end: breakStart },
+                { start: breakEnd, end: endIndex }
             ];
 
             blocks.forEach(block => {
