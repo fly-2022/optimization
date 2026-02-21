@@ -996,68 +996,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
-        console.log("Patterns:", patterns);
 
         const times = generateTimeSlots();
 
-        const startIndex = times.findIndex(t => t === otStart);
-        let endIndex = times.findIndex(t => t === otEnd);
+        const patterns = getOTPatterns(otStart, otEnd, times); // ← MOVE HERE
 
-        if (startIndex === -1) {
-            alert("OT start time outside current shift.");
+        if (!patterns || patterns.length === 0) {
+            console.log("No OT patterns generated");
             return;
         }
 
-        if (endIndex === -1) endIndex = times.length;
-
-        const patterns = getOTPatterns(otStart, otEnd, times);
+        const tbody = document.querySelector("#otRosterTable tbody");
+        if (tbody) tbody.innerHTML = "";
 
         for (let officer = 1; officer <= count; officer++) {
 
             const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+            const officerLabel = "OT" + officer;
 
-            otGlobalCounter++;
-            const officerLabel = "OT" + otGlobalCounter;
-
-            // ---------------- FIND COUNTER FOR FULL WORK1 BLOCK ----------------
             let counter1 = findBestGapCounter(pattern.work1Start, pattern.work1End);
-
             if (!counter1) continue;
 
-            // deploy work1
             for (let t = pattern.work1Start; t < pattern.work1End; t++) {
+
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
                 );
-                if (!cell) continue;
+
+                if (!cell || cell.classList.contains("active")) continue;
+
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-                cell.dataset.type = "ot";
             }
 
-            // ---------------- FIND COUNTER FOR FULL WORK2 BLOCK ----------------
-            // Try same counter first
-            let counter2 = isCounterFreeForBlock(
-                counter1.zone,
-                counter1.counter,
-                pattern.work2Start,
-                pattern.work2End
-            )
-                ? counter1
-                : findContinuousCounter(pattern.work2Start, pattern.work2End);
-
+            let counter2 = findBestGapCounter(pattern.work2Start, pattern.work2End);
             if (!counter2) continue;
 
             for (let t = pattern.work2Start; t < pattern.work2End; t++) {
+
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
                 );
-                if (!cell) continue;
+
+                if (!cell || cell.classList.contains("active")) continue;
+
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = officerLabel;
-                cell.dataset.type = "ot";
             }
         }
 
