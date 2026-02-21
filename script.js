@@ -996,57 +996,122 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
-
         const times = generateTimeSlots();
 
-        const patterns = getOTPatterns(otStart, otEnd, times); // ← MOVE HERE
+        let startIndex = times.findIndex(t => t === otStart);
+        let endIndex = times.findIndex(t => t === otEnd);
 
-        if (!patterns || patterns.length === 0) {
-            console.log("No OT patterns generated");
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
             return;
         }
+        if (endIndex === -1) endIndex = times.length;
 
-        const tbody = document.querySelector("#otRosterTable tbody");
-        if (tbody) tbody.innerHTML = "";
+        otGlobalCounter++; // global counter to label OT uniquely
 
-        for (let officer = 1; officer <= count; officer++) {
+        // Determine break pattern (staggered)
+        // We'll split the total OT period into 3 blocks: work1 - break - work2
+        // Each officer's break is staggered by 15 min to avoid clustering
+        const totalSlots = endIndex - startIndex;
+        const breakLengthSlots = Math.floor(45 / 15); // 45 min break
+        const work1Length = Math.floor((totalSlots - breakLengthSlots) / 2);
+        const work2Length = totalSlots - work1Length - breakLengthSlots;
 
-            const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-            const officerLabel = "OT" + officer;
-
-            let counter1 = findBestGapCounter(pattern.work1Start, pattern.work1End);
-            if (!counter1) continue;
-
-            for (let t = pattern.work1Start; t < pattern.work1End; t++) {
-
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
-                );
-
-                if (!cell || cell.classList.contains("active")) continue;
-
-                cell.classList.add("active");
-                cell.style.background = currentColor;
-                cell.dataset.officer = officerLabel;
-            }
-
-            let counter2 = findBestGapCounter(pattern.work2Start, pattern.work2End);
-            if (!counter2) continue;
-
-            for (let t = pattern.work2Start; t < pattern.work2End; t++) {
-
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
-                );
-
-                if (!cell || cell.classList.contains("active")) continue;
-
-                cell.classList.add("active");
-                cell.style.background = currentColor;
-                cell.dataset.officer = officerLabel;
-            }
+        // Stagger start of break for each officer
+        const breakOffsets = [];
+        for (let i = 0; i < count; i++) {
+            breakOffsets.push(i * Math.floor(breakLengthSlots / count));
         }
 
+        for (let i = 0; i < count; i++) {
+            const officerLabel = "OT" + (otGlobalCounter + i);
+
+            const officerBreakOffset = breakOffsets[i] || 0;
+
+            const work1Start = startIndex;
+            const work1End = work1Start + work1Length;
+
+            const breakStart = work1End + officerBreakOffset;
+            const breakEnd = breakStart + breakLengthSlots;
+
+            const work2Start = breakEnd;
+            const work2End = work2Start + work2Length;
+
+            const blocks = [
+                { start: work1Start, end: work1End },
+                { start: work2Start, end: work2End }
+            ];
+
+            blocks.forEach(block => {
+                // Find a suitable counter block for this OT officer
+                let assigned = false;
+
+                // 1️⃣ Get zones sorted by current occupancy ratio
+                const zoneStats = [];
+                zones[currentMode].forEach(zone => {
+                    if (zone.name === "BIKES") return;
+                    let activeCount = 0;
+                    zone.counters.forEach(counter => {
+                        for (let t = block.start; t < block.end; t++) {
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
+                            if (cell && cell.classList.contains("active")) {
+                                activeCount++;
+                                break;
+                            }
+                        }
+                    });
+                    zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
+                });
+
+                // Sort zones from least occupied to most
+                zoneStats.sort((a, b) => a.ratio - b.ratio);
+
+                for (let z = 0; z < zoneStats.length; z++) {
+                    const zoneName = zoneStats[z].zone;
+                    const zone = zones[currentMode].find(z => z.name === zoneName);
+
+                    // 2️⃣ Fill counters from back to front
+                    for (let c = zone.counters.length - 1; c >= 0; c--) {
+                        const counter = zone.counters[c];
+
+                        // Check if entire block is free
+                        let blockFree = true;
+                        for (let t = block.start; t < block.end; t++) {
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
+                            if (!cell || cell.classList.contains("active")) {
+                                blockFree = false;
+                                break;
+                            }
+                        }
+
+                        if (blockFree) {
+                            // Assign officer to this counter block
+                            for (let t = block.start; t < block.end; t++) {
+                                const cell = document.querySelector(
+                                    `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                                );
+                                if (!cell) continue;
+                                cell.classList.add("active");
+                                cell.style.background = currentColor;
+                                cell.dataset.officer = officerLabel;
+                                cell.dataset.type = "ot";
+                            }
+                            assigned = true;
+                            break;
+                        }
+                    }
+                    if (assigned) break;
+                }
+
+                // If no suitable block found, skip silently (could not fit)
+            });
+        }
+
+        otGlobalCounter += count - 1; // update global counter
         updateAll();
         updateOTRosterTable();
     }
@@ -1120,25 +1185,21 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function findBestGapCounter(startIdx, endIdx) {
-
+    function findBestGapCounterWithStagger(startIdx, endIdx, officerIdx) {
         const times = generateTimeSlots();
 
         let zoneStats = [];
 
         zones[currentMode].forEach(zone => {
-
             if (zone.name === "BIKES") return;
 
             let activeCount = 0;
 
             zone.counters.forEach(counter => {
                 for (let t = startIdx; t < endIdx; t++) {
-
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
-
                     if (cell && cell.classList.contains("active")) {
                         activeCount++;
                         break;
@@ -1152,42 +1213,40 @@ document.addEventListener("DOMContentLoaded", function () {
                 zone: zone.name,
                 ratio: ratio
             });
-
         });
 
-        // 🔥 sort lowest ratio first
+        // sort zones by least manned first
         zoneStats.sort((a, b) => a.ratio - b.ratio);
 
-        // Try zones from lowest ratio upward
-        for (let z of zoneStats) {
+        // determine a stagger offset (e.g., 1 officer = 0, 2nd = 1 slot later, etc.)
+        const staggerOffset = officerIdx % 3; // stagger by 3 slots max
+        const staggerStartIdx = startIdx + staggerOffset;
 
+        for (let z of zoneStats) {
             const zoneObj = zones[currentMode].find(zone => zone.name === z.zone);
 
-            for (let counter of zoneObj.counters) {
+            // back-to-front counters
+            const sortedCounters = [...zoneObj.counters].sort((a, b) => b - a);
 
-                let free = true;
-
-                for (let t = startIdx; t < endIdx; t++) {
-
+            for (let counter of sortedCounters) {
+                let isFree = true;
+                for (let t = staggerStartIdx; t < endIdx; t++) {
                     const cell = document.querySelector(
-                        `.counter-cell[data-zone="${z.zone}"][data-time="${t}"][data-counter="${counter}"]`
+                        `.counter-cell[data-zone="${zoneObj.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
-
                     if (!cell || cell.classList.contains("active")) {
-                        free = false;
+                        isFree = false;
                         break;
                     }
                 }
 
-                if (free) {
-                    return {
-                        zone: z.zone,
-                        counter: counter
-                    };
+                if (isFree) {
+                    return { zone: zoneObj.name, counter: counter };
                 }
             }
         }
 
+        // fallback
         return null;
     }
 
