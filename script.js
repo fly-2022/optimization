@@ -1082,17 +1082,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const breakLengthSlots = Math.floor(45 / 15); // 45 min break
         const workSlots = totalSlots - breakLengthSlots;
 
-        // stagger breaks across officers evenly
-        // const breakStartOffsets = [];
-        // if (count > 1) {
-        //     const gapBetweenBreaks = Math.floor(workSlots / (count));
-        //     for (let i = 0; i < count; i++) {
-        //         breakStartOffsets.push(startIndex + i * gapBetweenBreaks);
-        //     }
-        // } else {
-        //     breakStartOffsets.push(startIndex + Math.floor(workSlots / 2));
-        // }
-
         let officialBreakSlots = [];
 
         if (otStart === "0600") {
@@ -1182,60 +1171,6 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
         updateOTRosterTable();
     }
-
-
-    for (let officer = 1; officer <= count; officer++) {
-
-        const pattern = patterns[(officer - 1) % patterns.length];
-        const officerLabel = "OT" + officer;
-
-        const w1Start = getIndex(pattern.work1[0]);
-        const w1End = getIndex(pattern.work1[1]);
-        const w2Start = getIndex(pattern.work2[0]);
-        const w2End = getIndex(pattern.work2[1]);
-
-        if (w1Start === -1 || w1End === -1 || w2Start === -1 || w2End === -1)
-            continue;
-
-        let counter1 = findBestGapCounter(w1Start, w1End);
-        if (!counter1) counter1 = forceFindCounter(w1Start, w1End);
-
-        if (counter1) {
-            for (let t = w1Start; t < w1End; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter1.zone}"][data-time="${t}"][data-counter="${counter1.counter}"]`
-                );
-                if (cell && !cell.classList.contains("active")) {
-                    cell.classList.add("active");
-                    cell.style.background = currentColor;
-                    cell.dataset.officer = officerLabel;
-                }
-            }
-        }
-
-        let counter2 = findBestGapCounter(w2Start, w2End);
-        if (!counter2) counter2 = forceFindCounter(w2Start, w2End);
-
-        if (counter2) {
-            for (let t = w2Start; t < w2End; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${counter2.zone}"][data-time="${t}"][data-counter="${counter2.counter}"]`
-                );
-                if (cell && !cell.classList.contains("active")) {
-                    cell.classList.add("active");
-                    cell.style.background = currentColor;
-                    cell.dataset.officer = officerLabel;
-                }
-            }
-        }
-    }
-
-    updateAll();
-
-    if (typeof updateOTRosterTable === "function") {
-        updateOTRosterTable();
-    }
-}
 
 
     // -------------------- Add Officers Global --------------------
@@ -1590,38 +1525,38 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-removeBtn.addEventListener("click", () => {
-    const count = parseInt(document.getElementById("officerCount").value);
-    if (!count || count <= 0) return;
+    removeBtn.addEventListener("click", () => {
+        const count = parseInt(document.getElementById("officerCount").value);
+        if (!count || count <= 0) return;
 
-    saveState();
+        saveState();
 
-    const times = generateTimeSlots();
+        const times = generateTimeSlots();
 
-    times.forEach((time, tIndex) => {
-        let allCells = [];
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-            let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
-            allCells = allCells.concat(cells);
+        times.forEach((time, tIndex) => {
+            let allCells = [];
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
+                allCells = allCells.concat(cells);
+            });
+
+            let activeCells = allCells.filter(c => c.classList.contains("active"));
+
+            for (let i = 0; i < count && activeCells.length > 0; i++) {
+                let last = activeCells.pop();
+                last.classList.remove("active");
+                last.style.background = "";
+            }
         });
-
-        let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-        for (let i = 0; i < count && activeCells.length > 0; i++) {
-            let last = activeCells.pop();
-            last.classList.remove("active");
-            last.style.background = "";
-        }
+        updateAll();
     });
-    updateAll();
-});
 
-undoBtn.addEventListener("click", () => {
-    if (historyStack.length === 0) return;
-    const prev = historyStack.pop();
-    restoreState(prev);
-});
+    undoBtn.addEventListener("click", () => {
+        if (historyStack.length === 0) return;
+        const prev = historyStack.pop();
+        restoreState(prev);
+    });
 });
 
 /* -------------------- Utility: Empty Cells Back-First -------------------- */
