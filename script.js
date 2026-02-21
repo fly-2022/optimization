@@ -1019,10 +1019,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const officerLabel = "OT" + otGlobalCounter;
 
             // ---------------- FIND COUNTER FOR FULL WORK1 BLOCK ----------------
-            const counter1 = findContinuousCounter(
-                pattern.work1Start,
-                pattern.work1End
-            );
+            let counter1 = findBestGapCounter(pattern.work1Start, pattern.work1End, times);
 
             if (!counter1) continue;
 
@@ -1136,44 +1133,45 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function getBestCounter(timeIndex, times) {
+    function findBestGapCounter(start, end, times) {
 
-        let bestZone = null;
-        let lowestRatio = 999;
+        let best = null;
+        let bestScore = -1;
 
-        zones[currentMode].forEach(zone => {
+        const zones = getZonesForCurrentMode();
 
-            // 🚫 Skip BIKES for OT
-            if (zone.name === "BIKES") return;
+        zones.forEach(zone => {
 
-            const totalCounters = zone.counters.length;
+            if (zone === "BIKES") return; // never deploy OT to BIKES
 
-            const activeCount =
-                [...document.querySelectorAll(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${timeIndex}"].active`
-                )].length;
+            const counters = getCountersForZone(zone);
 
-            const ratio = activeCount / totalCounters;
+            counters.forEach(counter => {
 
-            if (ratio < lowestRatio) {
-                lowestRatio = ratio;
-                bestZone = zone;
-            }
+                let score = 0;
+
+                for (let t = start; t < end; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell) continue;
+
+                    // Count empty cells only
+                    if (!cell.classList.contains("active")) {
+                        score++;
+                    }
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = { zone, counter };
+                }
+            });
         });
 
-        if (!bestZone) return null;
-
-        // get first empty counter in that zone
-        const emptyCell = document.querySelector(
-            `.counter-cell[data-zone="${bestZone.name}"][data-time="${timeIndex}"]:not(.active)`
-        );
-
-        if (!emptyCell) return null;
-
-        return {
-            zone: bestZone.name,
-            counter: emptyCell.dataset.counter
-        };
+        return best;
     }
 
     function isCounterFreeForBlock(zone, counter, start, end) {
