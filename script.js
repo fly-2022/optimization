@@ -1066,7 +1066,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const zoneName = sortedZoneStats[z].zone;
             const zone = zones[currentMode].find(x => x.name === zoneName);
 
-            for (let counter of zone.counters) {
+            for (let c = zone.counters.length - 1; c >= 0; c--) {
+                const counter = zone.counters[c];
 
                 let emptySlots = 0;
 
