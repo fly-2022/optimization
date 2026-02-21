@@ -1007,17 +1007,18 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (endIndex === -1) endIndex = times.length;
 
+        // 🔹 Adjust OT end to release 30 mins early
+        const releaseEarlySlots = 30 / 15; // 30 mins / 15-min slot
+        endIndex = Math.max(startIndex, endIndex - releaseEarlySlots);
+
         otGlobalCounter++; // global counter to label OT uniquely
 
         // Determine break pattern (staggered)
-        // We'll split the total OT period into 3 blocks: work1 - break - work2
-        // Each officer's break is staggered by 15 min to avoid clustering
         const totalSlots = endIndex - startIndex;
         const breakLengthSlots = Math.floor(45 / 15); // 45 min break
         const work1Length = Math.floor((totalSlots - breakLengthSlots) / 2);
         const work2Length = totalSlots - work1Length - breakLengthSlots;
 
-        // Stagger start of break for each officer
         const breakOffsets = [];
         for (let i = 0; i < count; i++) {
             breakOffsets.push(i * Math.floor(breakLengthSlots / count));
@@ -1043,10 +1044,8 @@ document.addEventListener("DOMContentLoaded", function () {
             ];
 
             blocks.forEach(block => {
-                // Find a suitable counter block for this OT officer
                 let assigned = false;
 
-                // 1️⃣ Get zones sorted by current occupancy ratio
                 const zoneStats = [];
                 zones[currentMode].forEach(zone => {
                     if (zone.name === "BIKES") return;
@@ -1065,18 +1064,16 @@ document.addEventListener("DOMContentLoaded", function () {
                     zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
                 });
 
-                // Sort zones from least occupied to most
-                zoneStats.sort((a, b) => a.ratio - b.ratio);
+                zoneStats.sort((a, b) => a.ratio - b.ratio); // least occupied zones first
 
                 for (let z = 0; z < zoneStats.length; z++) {
                     const zoneName = zoneStats[z].zone;
                     const zone = zones[currentMode].find(z => z.name === zoneName);
 
-                    // 2️⃣ Fill counters from back to front
+                    // Fill counters from back to front
                     for (let c = zone.counters.length - 1; c >= 0; c--) {
                         const counter = zone.counters[c];
 
-                        // Check if entire block is free
                         let blockFree = true;
                         for (let t = block.start; t < block.end; t++) {
                             const cell = document.querySelector(
@@ -1089,7 +1086,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
 
                         if (blockFree) {
-                            // Assign officer to this counter block
                             for (let t = block.start; t < block.end; t++) {
                                 const cell = document.querySelector(
                                     `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
@@ -1106,12 +1102,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                     if (assigned) break;
                 }
-
-                // If no suitable block found, skip silently (could not fit)
             });
         }
 
-        otGlobalCounter += count - 1; // update global counter
+        otGlobalCounter += count - 1;
         updateAll();
         updateOTRosterTable();
     }
