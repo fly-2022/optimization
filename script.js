@@ -1059,6 +1059,36 @@ document.addEventListener("DOMContentLoaded", function () {
         return null;
     }
 
+    function findCounterNeedingCoverage(start, end) {
+
+        for (let zone of zones[currentMode]) {
+
+            if (zone.name === "BIKES") continue;
+
+            for (let counter of zone.counters) {
+
+                let emptySlots = 0;
+
+                for (let t = start; t < end; t++) {
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell || !cell.classList.contains("active")) {
+                        emptySlots++;
+                    }
+                }
+
+                if (emptySlots > 0) {
+                    return { zone: zone.name, counter: counter };
+                }
+            }
+        }
+
+        return null;
+    }
+
+
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
@@ -1128,7 +1158,28 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 zoneStats.sort((a, b) => a.ratio - b.ratio); // least occupied zones first
 
-                for (let z = 0; z < zoneStats.length; z++) {
+                // 🔹 PRIORITY: Fill counters that are about to have gaps
+                let priorityCounter = findCounterNeedingCoverage(block.start, block.end);
+
+                if (priorityCounter) {
+
+                    for (let t = block.start; t < block.end; t++) {
+                        const cell = document.querySelector(
+                            `.counter-cell[data-zone="${priorityCounter.zone}"][data-time="${t}"][data-counter="${priorityCounter.counter}"]`
+                        );
+
+                        if (!cell) continue;
+
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                        cell.dataset.officer = officerLabel;
+                        cell.dataset.type = "ot";
+                    }
+
+                    assigned = true;
+                }
+
+                for (let z = 0; z < zoneStats.length && !assigned; z++) {
                     const zoneName = zoneStats[z].zone;
                     const zone = zones[currentMode].find(z => z.name === zoneName);
 
@@ -1240,71 +1291,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         updateAll();
     }
-
-    // function findBestGapCounterWithStagger(startIdx, endIdx, officerIdx) {
-    //     const times = generateTimeSlots();
-
-    //     let zoneStats = [];
-
-    //     zones[currentMode].forEach(zone => {
-    //         if (zone.name === "BIKES") return;
-
-    //         let activeCount = 0;
-
-    //         zone.counters.forEach(counter => {
-    //             for (let t = startIdx; t < endIdx; t++) {
-    //                 const cell = document.querySelector(
-    //                     `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-    //                 );
-    //                 if (cell && cell.classList.contains("active")) {
-    //                     activeCount++;
-    //                     break;
-    //                 }
-    //             }
-    //         });
-
-    //         const ratio = activeCount / zone.counters.length;
-
-    //         zoneStats.push({
-    //             zone: zone.name,
-    //             ratio: ratio
-    //         });
-    //     });
-
-    //     // sort zones by least manned first
-    //     zoneStats.sort((a, b) => a.ratio - b.ratio);
-
-    //     // determine a stagger offset (e.g., 1 officer = 0, 2nd = 1 slot later, etc.)
-    //     const staggerOffset = officerIdx % 3; // stagger by 3 slots max
-    //     const staggerStartIdx = startIdx + staggerOffset;
-
-    //     for (let z of zoneStats) {
-    //         const zoneObj = zones[currentMode].find(zone => zone.name === z.zone);
-
-    //         // back-to-front counters
-    //         const sortedCounters = [...zoneObj.counters].sort((a, b) => b - a);
-
-    //         for (let counter of sortedCounters) {
-    //             let isFree = true;
-    //             for (let t = staggerStartIdx; t < endIdx; t++) {
-    //                 const cell = document.querySelector(
-    //                     `.counter-cell[data-zone="${zoneObj.name}"][data-time="${t}"][data-counter="${counter}"]`
-    //                 );
-    //                 if (!cell || cell.classList.contains("active")) {
-    //                     isFree = false;
-    //                     break;
-    //                 }
-    //             }
-
-    //             if (isFree) {
-    //                 return { zone: zoneObj.name, counter: counter };
-    //             }
-    //         }
-    //     }
-
-    //     // fallback
-    //     return null;
-    // }
 
     function isCounterFreeForBlock(zone, counter, start, end) {
 
