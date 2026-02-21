@@ -1120,43 +1120,75 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    function findBestGapCounter(start, end) {
+    function findBestGapCounter(startIdx, endIdx) {
 
-        let best = null;
-        let bestScore = -1;
+        const times = generateTimeSlots();
+
+        let zoneStats = [];
 
         zones[currentMode].forEach(zone => {
 
-            if (zone.name === "BIKES") return; // OT never at BIKES
+            if (zone.name === "BIKES") return;
+
+            let activeCount = 0;
 
             zone.counters.forEach(counter => {
-
-                let score = 0;
-
-                for (let t = start; t < end; t++) {
+                for (let t = startIdx; t < endIdx; t++) {
 
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
 
-                    if (!cell) continue;
+                    if (cell && cell.classList.contains("active")) {
+                        activeCount++;
+                        break;
+                    }
+                }
+            });
 
-                    if (!cell.classList.contains("active")) {
-                        score++; // count empty slots OT can fill
+            const ratio = activeCount / zone.counters.length;
+
+            zoneStats.push({
+                zone: zone.name,
+                ratio: ratio
+            });
+
+        });
+
+        // 🔥 sort lowest ratio first
+        zoneStats.sort((a, b) => a.ratio - b.ratio);
+
+        // Try zones from lowest ratio upward
+        for (let z of zoneStats) {
+
+            const zoneObj = zones[currentMode].find(zone => zone.name === z.zone);
+
+            for (let counter of zoneObj.counters) {
+
+                let free = true;
+
+                for (let t = startIdx; t < endIdx; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${z.zone}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell || cell.classList.contains("active")) {
+                        free = false;
+                        break;
                     }
                 }
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = {
-                        zone: zone.name,
+                if (free) {
+                    return {
+                        zone: z.zone,
                         counter: counter
                     };
                 }
-            });
-        });
+            }
+        }
 
-        return best;
+        return null;
     }
 
     function isCounterFreeForBlock(zone, counter, start, end) {
