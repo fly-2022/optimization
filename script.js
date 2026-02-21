@@ -1206,7 +1206,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 let blockIsFree = true;
 
-                // Check ONLY the actual OT block time
+                // 1️⃣ Ensure full OT block is free
                 for (let t = start; t < end; t++) {
 
                     const cell = document.querySelector(
@@ -1221,30 +1221,35 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (!blockIsFree) return;
 
-                // ---------- CONTINUITY CHECK ----------
-                let continuityScore = 0;
+                let score = 0;
 
+                // 2️⃣ PRIORITY: Continue already running counter
                 const prevCell = document.querySelector(
                     `.counter-cell[data-zone="${zone.name}"][data-time="${start - 1}"][data-counter="${counter}"]`
                 );
 
                 if (prevCell && prevCell.classList.contains("active")) {
-                    continuityScore += 20; // VERY HIGH priority
+                    score += 50;  // VERY HIGH PRIORITY
                 }
 
-                // ---------- ZONE BALANCE ----------
+                // 3️⃣ Fill gaps (zone under 50%)
                 const activeNow =
                     [...document.querySelectorAll(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
                     )].length;
 
                 const ratio = activeNow / zone.counters.length;
-                const balanceScore = (1 - ratio) * 5;
 
-                const totalScore = continuityScore + balanceScore;
+                if (ratio < 0.5) {
+                    score += 20; // help reach 50%
+                }
 
-                if (totalScore > bestScore) {
-                    bestScore = totalScore;
+                // 4️⃣ Slight preference to higher counters (back-first logic)
+                const counterNumber = parseInt(counter.replace(/\D/g, ""));
+                score += counterNumber / 100;
+
+                if (score > bestScore) {
+                    bestScore = score;
                     bestCandidate = {
                         zone: zone.name,
                         counter: counter
