@@ -1204,13 +1204,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
             zone.counters.forEach(counter => {
 
-                if (!isCounterFreeForBlock(zone.name, counter, start, end)) {
-                    return;
+                let blockIsFree = true;
+
+                // Check ONLY the actual OT block time
+                for (let t = start; t < end; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell || cell.classList.contains("active")) {
+                        blockIsFree = false;
+                        break;
+                    }
                 }
 
-                // -------- SCORING SYSTEM --------
-                // Prefer counters that are already active BEFORE this block
+                if (!blockIsFree) return;
 
+                // ---------- CONTINUITY CHECK ----------
                 let continuityScore = 0;
 
                 const prevCell = document.querySelector(
@@ -1218,19 +1229,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
 
                 if (prevCell && prevCell.classList.contains("active")) {
-                    continuityScore += 10; // HIGH priority
+                    continuityScore += 20; // VERY HIGH priority
                 }
 
-                // prefer lower manned zones
-                const active =
+                // ---------- ZONE BALANCE ----------
+                const activeNow =
                     [...document.querySelectorAll(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
                     )].length;
 
-                const ratio = active / zone.counters.length;
-                const zoneScore = (1 - ratio) * 5;
+                const ratio = activeNow / zone.counters.length;
+                const balanceScore = (1 - ratio) * 5;
 
-                const totalScore = continuityScore + zoneScore;
+                const totalScore = continuityScore + balanceScore;
 
                 if (totalScore > bestScore) {
                     bestScore = totalScore;
