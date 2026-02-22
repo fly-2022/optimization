@@ -816,6 +816,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             cell.classList.add("active");
                             cell.style.background = currentColor;
                             cell.dataset.officer = officer; // <-- ADD THIS
+                            cell.dataset.type = "main";   // 🔥 THIS IS REQUIRED
                         }
                     });
                 }
@@ -883,6 +884,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
                                     cell.dataset.officer = officer;  // <- important!
+                                    cell.dataset.type = "main";   // 🔥 THIS IS REQUIRED
                                 }
                                 assigned = true;
                                 assignedOfficers++;
