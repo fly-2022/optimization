@@ -1119,34 +1119,12 @@ document.addEventListener("DOMContentLoaded", function () {
             const zoneName = zoneStats[z].zone;
             const zone = zones[currentMode].find(z => z.name === zoneName);
 
-            // 🔥 STEP 1 — TAKE OVER EXISTING ACTIVE COUNTER FIRST
-            for (let c = 0; c < zone.counters.length; c++) {
-
-                const counter = zone.counters[c];
-                let fullyActive = true;
-
-                for (let t = blockStart; t < blockEnd; t++) {
-
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
-
-                    if (!cell || !cell.classList.contains("active")) {
-                        fullyActive = false;
-                        break;
-                    }
-                }
-
-                if (fullyActive) {
-                    return { zone: zoneName, counter };
-                }
-            }
-
-            // 🔥 STEP 2 — If no takeover possible, open new counter (back first)
+            // Fill from BACK counter first
             for (let c = zone.counters.length - 1; c >= 0; c--) {
 
                 const counter = zone.counters[c];
-                let fullyFree = true;
+
+                let blockFree = true;
 
                 for (let t = blockStart; t < blockEnd; t++) {
 
@@ -1155,12 +1133,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
 
                     if (!cell || cell.classList.contains("active")) {
-                        fullyFree = false;
+                        blockFree = false;
                         break;
                     }
                 }
 
-                if (fullyFree) {
+                if (blockFree) {
                     return { zone: zoneName, counter };
                 }
             }
