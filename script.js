@@ -10,6 +10,7 @@ let isDragging = false;
 let dragMode = "add";
 let tableEventsAttached = false;
 let otGlobalCounter = 0;
+let sosGlobalCounter = 1;
 
 function resetDragState() {
     isDragging = false;
@@ -1028,111 +1029,263 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (endIndex === -1) endIndex = times.length;
 
-        // 🔹 Release 30 mins early
+        // Release 30 mins early
         const releaseSlots = 30 / 15;
         endIndex = Math.max(startIndex, endIndex - releaseSlots);
 
-        const breakLengthSlots = 45 / 15;
+        const breakSlots = 45 / 15;
 
-        // 🔹 Official break slots
-        let officialBreaks = [];
-        if (otStart === "0600") officialBreaks = ["0730", "0815", "0900"];
-        if (otStart === "1100") officialBreaks = ["1230", "1315", "1400"];
-        if (otStart === "1600") officialBreaks = ["1730", "1815", "1900"];
+        let officialBreakSlots = [];
 
-        if (officialBreaks.length === 0) return;
-
-        otGlobalCounter++;
+        if (otStart === "0600") {
+            officialBreakSlots = ["0730", "0815", "0900"];
+        }
+        else if (otStart === "1100") {
+            officialBreakSlots = ["1230", "1315", "1400"];
+        }
+        else if (otStart === "1600") {
+            officialBreakSlots = ["1730", "1815", "1900"];
+        }
 
         for (let i = 0; i < count; i++) {
 
-            const officerLabel = "OT" + (otGlobalCounter + i);
+            const officerLabel = "OT" + (otGlobalCounter++);
 
-            const breakStr = officialBreaks[i % officialBreaks.length];
-            const breakStart = times.findIndex(t => t === breakStr);
-            const breakEnd = breakStart + breakLengthSlots;
+            const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
+            const breakStart = times.findIndex(t => t === breakTimeStr);
+            const breakEnd = breakStart + breakSlots;
 
-            const workBlocks = [
-                { start: startIndex, end: breakStart },
-                { start: breakEnd, end: endIndex }
-            ];
+            const block1Start = startIndex;
+            const block1End = breakStart;
 
-            workBlocks.forEach(block => {
+            const block2Start = breakEnd;
+            const block2End = endIndex;
 
-                for (let t = block.start; t < block.end; t++) {
+            // 🔥 BLOCK 1 (MUST STAY SAME COUNTER)
+            const counter1 = findBestOTCounter(block1Start, block1End);
 
-                    // ---- STEP 1: Calculate zone ratios ----
-                    let zoneStats = [];
+            if (counter1) {
+                fillOTBlock(counter1, block1Start, block1End, officerLabel);
+            }
 
-                    zones[currentMode].forEach(zone => {
-                        if (zone.name === "BIKES") return;
+            // 🔥 BLOCK 2 (CAN CHANGE COUNTER)
+            const counter2 = findBestOTCounter(block2Start, block2End);
 
-                        let active = 0;
+            if (counter2) {
+                fillOTBlock(counter2, block2Start, block2End, officerLabel);
+            }
+        }
 
-                        zone.counters.forEach(counter => {
-                            const cell = document.querySelector(
-                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                            );
-                            if (cell && cell.classList.contains("active")) active++;
-                        });
+        updateAll();
+        updateOTRosterTable();
+    }
 
-                        zoneStats.push({
-                            zone: zone.name,
-                            active: active,
-                            minRequired: Math.ceil(zone.counters.length * 0.5)
-                        });
-                    });
+    function findBestOTCounter(blockStart, blockEnd) {
 
-                    // ---- STEP 2: Enforce 50% first ----
-                    zoneStats.sort((a, b) => {
-                        const aDeficit = a.active < a.minRequired;
-                        const bDeficit = b.active < b.minRequired;
+        const zoneStats = [];
 
-                        if (aDeficit && !bDeficit) return -1;
-                        if (!aDeficit && bDeficit) return 1;
+        zones[currentMode].forEach(zone => {
 
-                        return a.active - b.active;
-                    });
+            if (zone.name === "BIKES") return;
 
-                    let assigned = false;
+            let activeCount = 0;
 
-                    for (let z = 0; z < zoneStats.length; z++) {
+            zone.counters.forEach(counter => {
 
-                        const zoneName = zoneStats[z].zone;
-                        const zone = zones[currentMode].find(z => z.name === zoneName);
+                for (let t = blockStart; t < blockEnd; t++) {
 
-                        // Fill from BACK counters first
-                        for (let c = zone.counters.length - 1; c >= 0; c--) {
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
 
-                            const counter = zone.counters[c];
-
-                            const cell = document.querySelector(
-                                `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
-                            );
-
-                            if (!cell || cell.classList.contains("active")) continue;
-
-                            cell.classList.add("active");
-                            cell.style.background = currentColor;
-                            cell.dataset.officer = officerLabel;
-                            cell.dataset.type = "ot";
-
-                            assigned = true;
-                            break;
-                        }
-
-                        if (assigned) break;
+                    if (cell && cell.classList.contains("active")) {
+                        activeCount++;
+                        break;
                     }
                 }
             });
+
+            zoneStats.push({
+                zone: zone.name,
+                ratio: activeCount / zone.counters.length
+            });
+        });
+
+        // Lowest manning first
+        zoneStats.sort((a, b) => a.ratio - b.ratio);
+
+        for (let z = 0; z < zoneStats.length; z++) {
+
+            const zoneName = zoneStats[z].zone;
+            const zone = zones[currentMode].find(z => z.name === zoneName);
+
+            // Fill from BACK counter first
+            for (let c = zone.counters.length - 1; c >= 0; c--) {
+
+                const counter = zone.counters[c];
+
+                let blockFree = true;
+
+                for (let t = blockStart; t < blockEnd; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell || cell.classList.contains("active")) {
+                        blockFree = false;
+                        break;
+                    }
+                }
+
+                if (blockFree) {
+                    return { zone: zoneName, counter };
+                }
+            }
         }
 
-        otGlobalCounter += count - 1;
+        return null;
+    }
+
+    function fillOTBlock(counterObj, blockStart, blockEnd, officerLabel) {
+
+        for (let t = blockStart; t < blockEnd; t++) {
+
+            const cell = document.querySelector(
+                `.counter-cell[data-zone="${counterObj.zone}"][data-time="${t}"][data-counter="${counterObj.counter}"]`
+            );
+
+            if (!cell) continue;
+
+            cell.classList.add("active");
+            cell.style.background = currentColor;
+            cell.dataset.officer = officerLabel;
+            cell.dataset.type = "ot";
+        }
+    }
+
+    function allocateSOSOfficers(count, sosStart, sosEnd) {
+
+        const times = generateTimeSlots();
+
+        let startIndex = times.findIndex(t => t === sosStart);
+        let endIndex = times.findIndex(t => t === sosEnd);
+
+        if (startIndex === -1 || endIndex === -1) {
+            alert("Invalid SOS timing.");
+            return;
+        }
+
+        const threeHourSlots = 180 / 15;   // 12 slots
+        const breakSlots = 45 / 15;        // 3 slots
+
+        for (let i = 0; i < count; i++) {
+
+            const officerLabel = "SOS" + (sosGlobalCounter++);
+
+            let currentStart = startIndex;
+
+            while (currentStart < endIndex) {
+
+                let workEnd = Math.min(currentStart + threeHourSlots, endIndex);
+
+                // 🔥 DEPLOY BLOCK (max 3 hours)
+                deploySOSBlock(officerLabel, currentStart, workEnd);
+
+                currentStart = workEnd;
+
+                // 🔥 ADD 45 MIN BREAK if not finished
+                if (currentStart < endIndex) {
+                    currentStart = Math.min(currentStart + breakSlots, endIndex);
+                }
+            }
+        }
 
         updateAll();
+        updateSOSRoster(sosStart, sosEnd);
+    }
 
-        if (typeof updateOTRosterTable === "function") {
-            updateOTRosterTable();
+    function deploySOSBlock(officerLabel, blockStart, blockEnd) {
+
+        let assigned = false;
+
+        // Calculate zone ratios
+        const zoneStats = [];
+
+        zones[currentMode].forEach(zone => {
+
+            if (zone.name === "BIKES") return;
+
+            let activeCount = 0;
+
+            zone.counters.forEach(counter => {
+
+                for (let t = blockStart; t < blockEnd; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (cell && cell.classList.contains("active")) {
+                        activeCount++;
+                        break;
+                    }
+                }
+            });
+
+            zoneStats.push({
+                zone: zone.name,
+                ratio: activeCount / zone.counters.length
+            });
+        });
+
+        // Lowest manning first
+        zoneStats.sort((a, b) => a.ratio - b.ratio);
+
+        for (let z = 0; z < zoneStats.length; z++) {
+
+            const zoneName = zoneStats[z].zone;
+            const zone = zones[currentMode].find(z => z.name === zoneName);
+
+            // Fill from BACK counter first
+            for (let c = zone.counters.length - 1; c >= 0; c--) {
+
+                const counter = zone.counters[c];
+
+                let blockFree = true;
+
+                for (let t = blockStart; t < blockEnd; t++) {
+
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+
+                    if (!cell || cell.classList.contains("active")) {
+                        blockFree = false;
+                        break;
+                    }
+                }
+
+                if (blockFree) {
+
+                    for (let t = blockStart; t < blockEnd; t++) {
+
+                        const cell = document.querySelector(
+                            `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                        );
+
+                        cell.classList.add("active");
+                        cell.style.background = currentColor;
+                        cell.dataset.officer = officerLabel;
+                        cell.dataset.type = "sos";
+                    }
+
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (assigned) break;
         }
     }
 
@@ -1221,73 +1374,73 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
-    function findContinuousCounter(start, end) {
+    // function findContinuousCounter(start, end) {
 
-        let bestCandidate = null;
-        let bestScore = -1;
+    //     let bestCandidate = null;
+    //     let bestScore = -1;
 
-        zones[currentMode].forEach(zone => {
+    //     zones[currentMode].forEach(zone => {
 
-            if (zone.name === "BIKES") return;
+    //         if (zone.name === "BIKES") return;
 
-            zone.counters.forEach(counter => {
+    //         zone.counters.forEach(counter => {
 
-                let blockIsFree = true;
+    //             let blockIsFree = true;
 
-                // 1️⃣ Ensure full OT block is free
-                for (let t = start; t < end; t++) {
+    //             // 1️⃣ Ensure full OT block is free
+    //             for (let t = start; t < end; t++) {
 
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
+    //                 const cell = document.querySelector(
+    //                     `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+    //                 );
 
-                    if (!cell || cell.classList.contains("active")) {
-                        blockIsFree = false;
-                        break;
-                    }
-                }
+    //                 if (!cell || cell.classList.contains("active")) {
+    //                     blockIsFree = false;
+    //                     break;
+    //                 }
+    //             }
 
-                if (!blockIsFree) return;
+    //             if (!blockIsFree) return;
 
-                let score = 0;
+    //             let score = 0;
 
-                // 2️⃣ PRIORITY: Continue already running counter
-                const prevCell = document.querySelector(
-                    `.counter-cell[data-zone="${zone.name}"][data-time="${start - 1}"][data-counter="${counter}"]`
-                );
+    //             // 2️⃣ PRIORITY: Continue already running counter
+    //             const prevCell = document.querySelector(
+    //                 `.counter-cell[data-zone="${zone.name}"][data-time="${start - 1}"][data-counter="${counter}"]`
+    //             );
 
-                if (prevCell && prevCell.classList.contains("active")) {
-                    score += 50;  // VERY HIGH PRIORITY
-                }
+    //             if (prevCell && prevCell.classList.contains("active")) {
+    //                 score += 50;  // VERY HIGH PRIORITY
+    //             }
 
-                // 3️⃣ Fill gaps (zone under 50%)
-                const activeNow =
-                    [...document.querySelectorAll(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
-                    )].length;
+    //             // 3️⃣ Fill gaps (zone under 50%)
+    //             const activeNow =
+    //                 [...document.querySelectorAll(
+    //                     `.counter-cell[data-zone="${zone.name}"][data-time="${start}"].active`
+    //                 )].length;
 
-                const ratio = activeNow / zone.counters.length;
+    //             const ratio = activeNow / zone.counters.length;
 
-                if (ratio < 0.5) {
-                    score += 20; // help reach 50%
-                }
+    //             if (ratio < 0.5) {
+    //                 score += 20; // help reach 50%
+    //             }
 
-                // 4️⃣ Slight preference to higher counters (back-first logic)
-                const counterNumber = parseInt(counter.replace(/\D/g, ""));
-                score += counterNumber / 100;
+    //             // 4️⃣ Slight preference to higher counters (back-first logic)
+    //             const counterNumber = parseInt(counter.replace(/\D/g, ""));
+    //             score += counterNumber / 100;
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestCandidate = {
-                        zone: zone.name,
-                        counter: counter
-                    };
-                }
-            });
-        });
+    //             if (score > bestScore) {
+    //                 bestScore = score;
+    //                 bestCandidate = {
+    //                     zone: zone.name,
+    //                     counter: counter
+    //                 };
+    //             }
+    //         });
+    //     });
 
-        return bestCandidate;
-    }
+    //     return bestCandidate;
+    // }
 
     function getOTPatterns(start, end, times) {
 
