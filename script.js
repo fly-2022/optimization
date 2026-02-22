@@ -1017,137 +1017,161 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------------- OT ALLOCATION ----------------
     function allocateOTOfficers(count, otStart, otEnd) {
+
         const times = generateTimeSlots();
+
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
 
-        if (startIndex === -1) { alert("OT start time outside current shift."); return; }
+        if (startIndex === -1) {
+            alert("OT start time outside current shift.");
+            return;
+        }
+
         if (endIndex === -1) endIndex = times.length;
 
-        const releaseEarlySlots = 30 / 15; // 30 mins / 15-min slot
+        // 🔹 Release 30 mins early
+        const releaseEarlySlots = 30 / 15;
         endIndex = Math.max(startIndex, endIndex - releaseEarlySlots);
 
+        // 🔹 Official break timing map
+        const officialBreakMap = {
+            "0600": ["0730", "0815", "0900"],
+            "1100": ["1230", "1315", "1400"],
+            "1600": ["1730", "1815", "1900"]
+        };
+
+        const breakOptions = officialBreakMap[otStart] || [];
+
+        const breakLengthSlots = 45 / 15;
+
+        // 🔹 Unique OT numbering
         otGlobalCounter++;
 
-        const breakLengthSlots = Math.floor(45 / 15); // 45 min break
-
-        // official break slots
-        let officialBreakSlots = [];
-        if (otStart === "0600") officialBreakSlots = ["0730", "0815", "0900"];
-        else if (otStart === "1100") officialBreakSlots = ["1230", "1315", "1400"];
-        else if (otStart === "1600") officialBreakSlots = ["1730", "1815", "1900"];
-
         for (let i = 0; i < count; i++) {
+
             const officerLabel = "OT" + (otGlobalCounter + i);
-            const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
-            const breakStart = times.findIndex(t => t === breakTimeStr);
+
+            // Rotate official breaks evenly
+            const breakTimeStr = breakOptions[i % breakOptions.length];
+            let breakStart = times.findIndex(t => t === breakTimeStr);
+            if (breakStart === -1) breakStart = startIndex + 4; // fallback safety
+
             const breakEnd = Math.min(breakStart + breakLengthSlots, endIndex);
 
-            // Two blocks: before break & after break
+            // Two work blocks
             const blocks = [
                 { start: startIndex, end: breakStart },
                 { start: breakEnd, end: endIndex }
             ];
 
+            // 🔥 Allocate SLOT BY SLOT (continuity priority)
             blocks.forEach(block => {
-                let assigned = false;
 
-                // 🔹 First priority: fill **empty counters** to ensure running counters
-                const allZones = zones[currentMode].filter(z => z.name !== "BIKES");
-                // shuffle zones to spread OT evenly
-                allZones.sort(() => Math.random() - 0.5);
+                for (let t = block.start; t < block.end; t++) {
 
-                for (let z = 0; z < allZones.length; z++) {
-                    const zone = allZones[z];
-                    for (let c = zone.counters.length - 1; c >= 0; c--) { // back to front
-                        const counter = zone.counters[c];
+                    let assigned = false;
 
-                        let blockFree = true;
-                        for (let t = block.start; t < block.end; t++) {
-                            const cell = document.querySelector(
-                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                            );
-                            if (!cell || cell.classList.contains("active")) {
-                                blockFree = false;
-                                break;
-                            }
-                        }
+                    // ================================
+                    // STEP 1: TAKEOVER (keep running counters)
+                    // ================================
+                    zones[currentMode]
+                        .filter(z => z.name !== "BIKES")
+                        .forEach(zone => {
 
-                        if (blockFree) {
-                            for (let t = block.start; t < block.end; t++) {
-                                const cell = document.querySelector(
+                            zone.counters.forEach(counter => {
+
+                                if (assigned) return;
+
+                                const prevCell = document.querySelector(
+                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t - 1}"][data-counter="${counter}"]`
+                                );
+
+                                const currCell = document.querySelector(
                                     `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                                 );
-                                if (!cell) continue;
-                                cell.classList.add("active");
-                                cell.style.background = currentColor;
-                                cell.dataset.officer = officerLabel;
-                                cell.dataset.type = "ot";
-                            }
-                            assigned = true;
-                            break;
-                        }
-                    }
-                    if (assigned) break;
-                }
 
-                // 🔹 Second priority: if still unassigned, fill zones to balance manning
-                if (!assigned) {
-                    const zoneStats = [];
-                    zones[currentMode].forEach(zone => {
-                        if (zone.name === "BIKES") return;
-                        let activeCount = 0;
-                        zone.counters.forEach(counter => {
-                            for (let t = block.start; t < block.end; t++) {
-                                const cell = document.querySelector(
-                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                                );
-                                if (cell && cell.classList.contains("active")) { activeCount++; break; }
-                            }
+                                if (
+                                    prevCell &&
+                                    prevCell.classList.contains("active") &&
+                                    currCell &&
+                                    !currCell.classList.contains("active")
+                                ) {
+                                    currCell.classList.add("active");
+                                    currCell.style.background = currentColor;
+                                    currCell.dataset.officer = officerLabel;
+                                    currCell.dataset.type = "ot";
+                                    assigned = true;
+                                }
+                            });
+
                         });
-                        zoneStats.push({ zone: zone.name, active: activeCount });
-                    });
 
-                    zoneStats.sort((a, b) => a.active - b.active);
-                    for (let z = 0; z < zoneStats.length; z++) {
-                        const zoneName = zoneStats[z].zone;
-                        const zone = zones[currentMode].find(z => z.name === zoneName);
+                    // ================================
+                    // STEP 2: OPEN NEW COUNTER (balanced)
+                    // ================================
+                    if (!assigned) {
 
-                        for (let c = zone.counters.length - 1; c >= 0; c--) {
-                            const counter = zone.counters[c];
-                            let blockFree = true;
-                            for (let t = block.start; t < block.end; t++) {
-                                const cell = document.querySelector(
-                                    `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
-                                );
-                                if (!cell || cell.classList.contains("active")) { blockFree = false; break; }
-                            }
-                            if (blockFree) {
-                                for (let t = block.start; t < block.end; t++) {
+                        const zonesSorted = zones[currentMode]
+                            .filter(z => z.name !== "BIKES")
+                            .map(zone => {
+
+                                let activeCount = 0;
+
+                                zone.counters.forEach(counter => {
                                     const cell = document.querySelector(
-                                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                                     );
-                                    if (!cell) continue;
+                                    if (cell && cell.classList.contains("active")) activeCount++;
+                                });
+
+                                return {
+                                    zone: zone,
+                                    ratio: activeCount / zone.counters.length
+                                };
+                            })
+                            .sort((a, b) => a.ratio - b.ratio); // lowest manning first
+
+                        for (let z = 0; z < zonesSorted.length; z++) {
+
+                            const zone = zonesSorted[z].zone;
+
+                            // Fill from BACK counters first
+                            for (let c = zone.counters.length - 1; c >= 0; c--) {
+
+                                const counter = zone.counters[c];
+
+                                const cell = document.querySelector(
+                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                                );
+
+                                if (cell && !cell.classList.contains("active")) {
+
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
                                     cell.dataset.officer = officerLabel;
                                     cell.dataset.type = "ot";
+
+                                    assigned = true;
+                                    break;
                                 }
-                                assigned = true;
-                                break;
                             }
+
+                            if (assigned) break;
                         }
-                        if (assigned) break;
                     }
                 }
             });
         }
 
         otGlobalCounter += count - 1;
-        updateAll();
-        if (typeof updateOTRosterTable === "function") updateOTRosterTable();
-    }
 
+        updateAll();
+
+        if (typeof updateOTRosterTable === "function") {
+            updateOTRosterTable();
+        }
+    }
 
     // -------------------- Add Officers Global --------------------
     function addOfficersGlobal(count, startTime, endTime) {
