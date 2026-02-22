@@ -102,12 +102,6 @@ function generateTimeSlots() {
 
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
-    // const key = `${currentMode}_${currentShift}`;
-    // if (renderedTables[key]) {
-    //     // Table already exists, just restore previous selections
-    //     restoreCellStates();
-    //     return;
-    // }
 
     table.innerHTML = "";
     tableEventsAttached = false;   // ← ADD THIS LINE
@@ -319,167 +313,187 @@ document.getElementById("clearGridBtn").addEventListener("click", () => {
 });
 
 function updateMainRoster() {
+
     const tbody = document.querySelector("#mainRosterTable tbody");
     tbody.innerHTML = "";
 
     const times = generateTimeSlots();
     const officerMap = {};
 
-    // collect all active cells by officer
-    document.querySelectorAll(".counter-cell.active").forEach(cell => {
-        // document.querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])').forEach(cell => {
-        const officerNum = cell.dataset.officer;
-        if (!officerMap[officerNum]) officerMap[officerNum] = [];
-        officerMap[officerNum].push(parseInt(cell.dataset.time));
-    });
+    // 🔥 ONLY MAIN OFFICERS
+    document
+        .querySelectorAll('.counter-cell.active:not([data-type="ot"]):not([data-type="sos"])')
+        .forEach(cell => {
 
-    // for each officer, generate roster chronologically
-    Object.keys(officerMap).sort((a, b) => parseInt(a) - parseInt(b)).forEach(officerNum => {
-        let slots = officerMap[officerNum];
-        slots.sort((a, b) => a - b);
+            const officerNum = cell.dataset.officer;
 
-        let prevEnd = null;
+            if (!officerMap[officerNum]) officerMap[officerNum] = [];
 
-        // group consecutive slots on the same counter
-        let currentGroup = null;
-        slots.forEach((timeIndex, idx) => {
-            const cell = document.querySelector(`.counter-cell.active[data-time="${timeIndex}"][data-officer="${officerNum}"]`);
-            const counter = cell.dataset.counter;
-
-            if (!currentGroup) {
-                currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
-            } else if (counter === currentGroup.counter && timeIndex === currentGroup.endIndex + 1) {
-                currentGroup.endIndex = timeIndex;
-            } else {
-                // output previous group
-                appendRosterRow(currentGroup, prevEnd, officerNum, times);
-                prevEnd = currentGroup.endIndex;
-                currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
-            }
-
-            // output last group at the end
-            if (idx === slots.length - 1) {
-                appendRosterRow(currentGroup, prevEnd, officerNum, times);
-            }
+            officerMap[officerNum].push(parseInt(cell.dataset.time));
         });
-    });
 
-    function appendRosterRow(group, prevEnd, officerNum, times) {
-        // Add break if there is a gap
-        if (prevEnd !== null && group.startIndex > prevEnd + 1) {
-            const trBreak = document.createElement("tr");
-            trBreak.classList.add("break-row");
-            const tdOfficer = document.createElement("td");
-            tdOfficer.innerText = officerNum;
-            const tdCounter = document.createElement("td");
-            tdCounter.innerText = "Break";
-            const tdStart = document.createElement("td");
-            tdStart.innerText = formatTime(times[prevEnd + 1]);
-            const tdEnd = document.createElement("td");
-            tdEnd.innerText = formatTime(times[group.startIndex]);
-            trBreak.appendChild(tdOfficer);
-            trBreak.appendChild(tdCounter);
-            trBreak.appendChild(tdStart);
-            trBreak.appendChild(tdEnd);
-            tbody.appendChild(trBreak);
-        }
+    Object.keys(officerMap)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .forEach(officerNum => {
 
-        // Add deployment
-        const tr = document.createElement("tr");
+            let slots = officerMap[officerNum];
+            slots.sort((a, b) => a - b);
+
+            let prevEnd = null;
+            let currentGroup = null;
+
+            slots.forEach((timeIndex, idx) => {
+
+                const cell = document.querySelector(
+                    `.counter-cell.active[data-time="${timeIndex}"][data-officer="${officerNum}"]`
+                );
+
+                const counter = cell.dataset.counter;
+
+                if (!currentGroup) {
+                    currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
+                }
+                else if (
+                    counter === currentGroup.counter &&
+                    timeIndex === currentGroup.endIndex + 1
+                ) {
+                    currentGroup.endIndex = timeIndex;
+                }
+                else {
+                    appendRosterRow(currentGroup, prevEnd, officerNum, times);
+                    prevEnd = currentGroup.endIndex;
+                    currentGroup = { counter, startIndex: timeIndex, endIndex: timeIndex };
+                }
+
+                if (idx === slots.length - 1) {
+                    appendRosterRow(currentGroup, prevEnd, officerNum, times);
+                }
+            });
+        });
+}
+
+function appendRosterRow(group, prevEnd, officerNum, times) {
+    // Add break if there is a gap
+    if (prevEnd !== null && group.startIndex > prevEnd + 1) {
+        const trBreak = document.createElement("tr");
+        trBreak.classList.add("break-row");
         const tdOfficer = document.createElement("td");
         tdOfficer.innerText = officerNum;
         const tdCounter = document.createElement("td");
-        tdCounter.innerText = group.counter;
+        tdCounter.innerText = "Break";
         const tdStart = document.createElement("td");
-        tdStart.innerText = formatTime(times[group.startIndex]);
+        tdStart.innerText = formatTime(times[prevEnd + 1]);
         const tdEnd = document.createElement("td");
-        // end time is the next slot after the last occupied
-        tdEnd.innerText = formatTime(times[group.endIndex + 1] || times[group.endIndex]);
-        tr.appendChild(tdOfficer);
-        tr.appendChild(tdCounter);
-        tr.appendChild(tdStart);
-        tr.appendChild(tdEnd);
-        tbody.appendChild(tr);
+        tdEnd.innerText = formatTime(times[group.startIndex]);
+        trBreak.appendChild(tdOfficer);
+        trBreak.appendChild(tdCounter);
+        trBreak.appendChild(tdStart);
+        trBreak.appendChild(tdEnd);
+        tbody.appendChild(trBreak);
     }
 
-    function formatTime(hhmm) {
-        return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
-    }
+    // Add deployment
+    const tr = document.createElement("tr");
+    const tdOfficer = document.createElement("td");
+    tdOfficer.innerText = officerNum;
+    const tdCounter = document.createElement("td");
+    tdCounter.innerText = group.counter;
+    const tdStart = document.createElement("td");
+    tdStart.innerText = formatTime(times[group.startIndex]);
+    const tdEnd = document.createElement("td");
+    // end time is the next slot after the last occupied
+    tdEnd.innerText = formatTime(times[group.endIndex + 1] || times[group.endIndex]);
+    tr.appendChild(tdOfficer);
+    tr.appendChild(tdCounter);
+    tr.appendChild(tdStart);
+    tr.appendChild(tdEnd);
+    tbody.appendChild(tr);
 }
+
+function formatTime(hhmm) {
+    return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+}
+
 
 function updateOTRosterTable() {
-    const table = document.getElementById("otRosterTable");
-    const tbody = table.querySelector("tbody");
+
+    const times = generateTimeSlots();
+    const tbody = document.querySelector("#otRosterTable tbody");
+
+    if (!tbody) return;
+
     tbody.innerHTML = "";
 
-    // Get all cells on grid assigned to OT
-    const otCells = [...document.querySelectorAll(".counter-cell[data-officer^='OT']")];
+    const officerMap = {};
 
-    // Group by officer label
-    const officersMap = {};
+    // Collect OT blocks
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
 
-    otCells.forEach(cell => {
+        if (cell.dataset.type !== "ot") return;
+
         const officer = cell.dataset.officer;
-        const counter = cell.dataset.counter;
         const zone = cell.dataset.zone;
-        const time = cell.dataset.time;
+        const counter = cell.dataset.counter;
+        const time = parseInt(cell.dataset.time);
 
-        if (!officersMap[officer]) officersMap[officer] = [];
-        officersMap[officer].push({ counter, zone, time });
+        if (!officerMap[officer]) officerMap[officer] = [];
+
+        officerMap[officer].push({
+            time,
+            zone,
+            counter
+        });
     });
 
-    // Sort OT officers numerically
-    const sortedOfficers = Object.keys(officersMap).sort((a, b) => {
-        const numA = parseInt(a.replace("OT", ""));
-        const numB = parseInt(b.replace("OT", ""));
-        return numA - numB;
+    // Sort officers numerically (OT1, OT2, OT3...)
+    const officers = Object.keys(officerMap).sort((a, b) => {
+        return parseInt(a.replace("OT", "")) - parseInt(b.replace("OT", ""));
     });
 
-    // Populate table
-    sortedOfficers.forEach(officer => {
-        const assignments = officersMap[officer];
+    officers.forEach(officer => {
 
-        // Find continuous blocks to define work1/break/work2
-        assignments.sort((a, b) => a.time - b.time);
+        const records = officerMap[officer].sort((a, b) => a.time - b.time);
 
-        // Determine break automatically: gap between consecutive time slots
-        let start = assignments[0].time;
-        let counter = assignments[0].counter;
-        let end = start;
+        if (records.length === 0) return;
 
-        for (let i = 1; i < assignments.length; i++) {
-            if (parseInt(assignments[i].time) === parseInt(end) + 1) {
-                end = assignments[i].time;
-            } else {
-                // row for previous block
+        let start = records[0].time;
+        let prev = records[0].time;
+        let currentZone = records[0].zone;
+        let currentCounter = records[0].counter;
+
+        for (let i = 1; i <= records.length; i++) {
+
+            const isBreak =
+                i === records.length ||
+                records[i].time !== prev + 1 ||
+                records[i].zone !== currentZone ||
+                records[i].counter !== currentCounter;
+
+            if (isBreak) {
+
                 const row = document.createElement("tr");
+
                 row.innerHTML = `
                     <td>${officer}</td>
-                    <td>${counter}</td>
-                    <td>${formatHHMM(start)}</td>
-                    <td>${formatHHMM(end)}</td>
+                    <td>${times[start]}</td>
+                    <td>${times[prev + 1] || times[times.length - 1]}</td>
+                    <td>${currentZone}</td>
+                    <td>${currentCounter}</td>
                 `;
+
                 tbody.appendChild(row);
 
-                // start new block
-                start = assignments[i].time;
-                counter = assignments[i].counter;
-                end = start;
+                if (i < records.length) {
+                    start = records[i].time;
+                    currentZone = records[i].zone;
+                    currentCounter = records[i].counter;
+                }
             }
-        }
 
-        // Last block
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${officer}</td>
-            <td>${counter}</td>
-            <td>${formatHHMM(start)}</td>
-            <td>${formatHHMM(end)}</td>
-        `;
-        tbody.appendChild(row);
+            if (i < records.length) prev = records[i].time;
+        }
     });
 }
-
 // helper to convert "HHMM" number to HH:MM format
 function formatHHMM(time) {
     time = parseInt(time);
