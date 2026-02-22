@@ -1061,8 +1061,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             fillOTBlock(counter1, block1Start, block1End, officerLabel);
 
-            // 🔓 BLOCK 2 – MAY SWITCH COUNTER
-            const counter2 = findStrictContinuousCounter(block2Start, block2End);
+            // 🔓 BLOCK 2 – TRY CONTINUING RUNNING COUNTER FIRST
+
+            let counter2 = findRunningCounterFirst(block2Start, block2End);
+
+            if (!counter2) {
+                counter2 = findStrictContinuousCounter(block2Start, block2End);
+            }
 
             if (counter2) {
                 fillOTBlock(counter2, block2Start, block2End, officerLabel);
@@ -1073,7 +1078,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateOTRosterTable();
     }
 
-    function findStrictContinuousCounter(start, end) {
+    function findRunningCounterFirst(start, end) {
 
         const zoneStats = [];
 
@@ -1084,10 +1089,10 @@ document.addEventListener("DOMContentLoaded", function () {
             let activeCounters = 0;
 
             zone.counters.forEach(counter => {
-                const firstCell = document.querySelector(
+                const cell = document.querySelector(
                     `.counter-cell[data-zone="${zone.name}"][data-time="${start}"][data-counter="${counter}"]`
                 );
-                if (firstCell && firstCell.classList.contains("active")) {
+                if (cell && cell.classList.contains("active")) {
                     activeCounters++;
                 }
             });
@@ -1098,7 +1103,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
 
-        // Lowest manning first
+        // Lowest manning zone first
         zoneStats.sort((a, b) => a.ratio - b.ratio);
 
         for (let z = 0; z < zoneStats.length; z++) {
@@ -1106,12 +1111,19 @@ document.addEventListener("DOMContentLoaded", function () {
             const zoneName = zoneStats[z].zone;
             const zone = zones[currentMode].find(z => z.name === zoneName);
 
-            // Back counters first
+            // BACK counters first
             for (let c = zone.counters.length - 1; c >= 0; c--) {
 
                 const counter = zone.counters[c];
 
-                let fullyFree = true;
+                // Must be ACTIVE at start (so it's running)
+                const startCell = document.querySelector(
+                    `.counter-cell[data-zone="${zoneName}"][data-time="${start}"][data-counter="${counter}"]`
+                );
+
+                if (!startCell || !startCell.classList.contains("active")) continue;
+
+                let fullyFreeAfter = true;
 
                 for (let t = start; t < end; t++) {
 
@@ -1119,36 +1131,20 @@ document.addEventListener("DOMContentLoaded", function () {
                         `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
                     );
 
+                    // If already taken by someone else (not break continuation)
                     if (!cell || cell.classList.contains("active")) {
-                        fullyFree = false;
+                        fullyFreeAfter = false;
                         break;
                     }
                 }
 
-                if (fullyFree) {
+                if (fullyFreeAfter) {
                     return { zone: zoneName, counter };
                 }
             }
         }
 
         return null;
-    }
-
-    function fillOTBlock(counterObj, blockStart, blockEnd, officerLabel) {
-
-        for (let t = blockStart; t < blockEnd; t++) {
-
-            const cell = document.querySelector(
-                `.counter-cell[data-zone="${counterObj.zone}"][data-time="${t}"][data-counter="${counterObj.counter}"]`
-            );
-
-            if (!cell) continue;
-
-            cell.classList.add("active");
-            cell.style.background = currentColor;
-            cell.dataset.officer = officerLabel;
-            cell.dataset.type = "ot";
-        }
     }
 
     function allocateSOSOfficers(count, sosStart, sosEnd) {
