@@ -1031,134 +1031,99 @@ document.addEventListener("DOMContentLoaded", function () {
         if (endIndex === -1) endIndex = times.length;
 
         // 🔹 Release 30 mins early
-        const releaseEarlySlots = 30 / 15;
-        endIndex = Math.max(startIndex, endIndex - releaseEarlySlots);
-
-        // 🔹 Official break timing map
-        const officialBreakMap = {
-            "0600": ["0730", "0815", "0900"],
-            "1100": ["1230", "1315", "1400"],
-            "1600": ["1730", "1815", "1900"]
-        };
-
-        const breakOptions = officialBreakMap[otStart] || [];
+        const releaseSlots = 30 / 15;
+        endIndex = Math.max(startIndex, endIndex - releaseSlots);
 
         const breakLengthSlots = 45 / 15;
 
-        // 🔹 Unique OT numbering
+        // 🔹 Official break slots
+        let officialBreaks = [];
+        if (otStart === "0600") officialBreaks = ["0730", "0815", "0900"];
+        if (otStart === "1100") officialBreaks = ["1230", "1315", "1400"];
+        if (otStart === "1600") officialBreaks = ["1730", "1815", "1900"];
+
+        if (officialBreaks.length === 0) return;
+
         otGlobalCounter++;
 
         for (let i = 0; i < count; i++) {
 
             const officerLabel = "OT" + (otGlobalCounter + i);
 
-            // Rotate official breaks evenly
-            const breakTimeStr = breakOptions[i % breakOptions.length];
-            let breakStart = times.findIndex(t => t === breakTimeStr);
-            if (breakStart === -1) breakStart = startIndex + 4; // fallback safety
+            const breakStr = officialBreaks[i % officialBreaks.length];
+            const breakStart = times.findIndex(t => t === breakStr);
+            const breakEnd = breakStart + breakLengthSlots;
 
-            const breakEnd = Math.min(breakStart + breakLengthSlots, endIndex);
-
-            // Two work blocks
-            const blocks = [
+            const workBlocks = [
                 { start: startIndex, end: breakStart },
                 { start: breakEnd, end: endIndex }
             ];
 
-            // 🔥 Allocate SLOT BY SLOT (continuity priority)
-            blocks.forEach(block => {
+            workBlocks.forEach(block => {
 
                 for (let t = block.start; t < block.end; t++) {
 
-                    let assigned = false;
+                    // ---- STEP 1: Calculate zone ratios ----
+                    let zoneStats = [];
 
-                    // ================================
-                    // STEP 1: TAKEOVER (keep running counters)
-                    // ================================
-                    zones[currentMode]
-                        .filter(z => z.name !== "BIKES")
-                        .forEach(zone => {
+                    zones[currentMode].forEach(zone => {
+                        if (zone.name === "BIKES") return;
 
-                            zone.counters.forEach(counter => {
+                        let active = 0;
 
-                                if (assigned) return;
-
-                                const prevCell = document.querySelector(
-                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t - 1}"][data-counter="${counter}"]`
-                                );
-
-                                const currCell = document.querySelector(
-                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                                );
-
-                                if (
-                                    prevCell &&
-                                    prevCell.classList.contains("active") &&
-                                    currCell &&
-                                    !currCell.classList.contains("active")
-                                ) {
-                                    currCell.classList.add("active");
-                                    currCell.style.background = currentColor;
-                                    currCell.dataset.officer = officerLabel;
-                                    currCell.dataset.type = "ot";
-                                    assigned = true;
-                                }
-                            });
-
+                        zone.counters.forEach(counter => {
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
+                            if (cell && cell.classList.contains("active")) active++;
                         });
 
-                    // ================================
-                    // STEP 2: OPEN NEW COUNTER (balanced)
-                    // ================================
-                    if (!assigned) {
+                        zoneStats.push({
+                            zone: zone.name,
+                            active: active,
+                            minRequired: Math.ceil(zone.counters.length * 0.5)
+                        });
+                    });
 
-                        const zonesSorted = zones[currentMode]
-                            .filter(z => z.name !== "BIKES")
-                            .map(zone => {
+                    // ---- STEP 2: Enforce 50% first ----
+                    zoneStats.sort((a, b) => {
+                        const aDeficit = a.active < a.minRequired;
+                        const bDeficit = b.active < b.minRequired;
 
-                                let activeCount = 0;
+                        if (aDeficit && !bDeficit) return -1;
+                        if (!aDeficit && bDeficit) return 1;
 
-                                zone.counters.forEach(counter => {
-                                    const cell = document.querySelector(
-                                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                                    );
-                                    if (cell && cell.classList.contains("active")) activeCount++;
-                                });
+                        return a.active - b.active;
+                    });
 
-                                return {
-                                    zone: zone,
-                                    ratio: activeCount / zone.counters.length
-                                };
-                            })
-                            .sort((a, b) => a.ratio - b.ratio); // lowest manning first
+                    let assigned = false;
 
-                        for (let z = 0; z < zonesSorted.length; z++) {
+                    for (let z = 0; z < zoneStats.length; z++) {
 
-                            const zone = zonesSorted[z].zone;
+                        const zoneName = zoneStats[z].zone;
+                        const zone = zones[currentMode].find(z => z.name === zoneName);
 
-                            // Fill from BACK counters first
-                            for (let c = zone.counters.length - 1; c >= 0; c--) {
+                        // Fill from BACK counters first
+                        for (let c = zone.counters.length - 1; c >= 0; c--) {
 
-                                const counter = zone.counters[c];
+                            const counter = zone.counters[c];
 
-                                const cell = document.querySelector(
-                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                                );
+                            const cell = document.querySelector(
+                                `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
+                            );
 
-                                if (cell && !cell.classList.contains("active")) {
+                            if (!cell || cell.classList.contains("active")) continue;
 
-                                    cell.classList.add("active");
-                                    cell.style.background = currentColor;
-                                    cell.dataset.officer = officerLabel;
-                                    cell.dataset.type = "ot";
+                            cell.classList.add("active");
+                            cell.style.background = currentColor;
+                            cell.dataset.officer = officerLabel;
+                            cell.dataset.type = "ot";
 
-                                    assigned = true;
-                                    break;
-                                }
-                            }
-
-                            if (assigned) break;
+                            assigned = true;
+                            break;
                         }
+
+                        if (assigned) break;
                     }
                 }
             });
