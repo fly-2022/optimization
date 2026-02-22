@@ -1030,22 +1030,15 @@ document.addEventListener("DOMContentLoaded", function () {
         if (endIndex === -1) endIndex = times.length;
 
         // Release 30 mins early
-        const releaseSlots = 30 / 15;
-        endIndex = Math.max(startIndex, endIndex - releaseSlots);
+        endIndex -= 2;
 
-        const breakSlots = 45 / 15;
+        const breakSlots = 3; // 45 mins
 
         let officialBreakSlots = [];
 
-        if (otStart === "0600") {
-            officialBreakSlots = ["0730", "0815", "0900"];
-        }
-        else if (otStart === "1100") {
-            officialBreakSlots = ["1230", "1315", "1400"];
-        }
-        else if (otStart === "1600") {
-            officialBreakSlots = ["1730", "1815", "1900"];
-        }
+        if (otStart === "0600") officialBreakSlots = ["0730", "0815", "0900"];
+        if (otStart === "1100") officialBreakSlots = ["1230", "1315", "1400"];
+        if (otStart === "1600") officialBreakSlots = ["1730", "1815", "1900"];
 
         for (let i = 0; i < count; i++) {
 
@@ -1061,15 +1054,15 @@ document.addEventListener("DOMContentLoaded", function () {
             const block2Start = breakEnd;
             const block2End = endIndex;
 
-            // 🔥 BLOCK 1 (MUST STAY SAME COUNTER)
-            const counter1 = findBestOTCounter(block1Start, block1End);
+            // 🔒 BLOCK 1 – STRICT CONTINUOUS COUNTER
+            const counter1 = findStrictContinuousCounter(block1Start, block1End);
 
-            if (counter1) {
-                fillOTBlock(counter1, block1Start, block1End, officerLabel);
-            }
+            if (!counter1) continue; // if cannot place fully → skip officer
 
-            // 🔥 BLOCK 2 (CAN CHANGE COUNTER)
-            const counter2 = findBestOTCounter(block2Start, block2End);
+            fillOTBlock(counter1, block1Start, block1End, officerLabel);
+
+            // 🔓 BLOCK 2 – MAY SWITCH COUNTER
+            const counter2 = findStrictContinuousCounter(block2Start, block2End);
 
             if (counter2) {
                 fillOTBlock(counter2, block2Start, block2End, officerLabel);
@@ -1080,7 +1073,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateOTRosterTable();
     }
 
-    function findBestOTCounter(blockStart, blockEnd) {
+    function findStrictContinuousCounter(start, end) {
 
         const zoneStats = [];
 
@@ -1088,26 +1081,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (zone.name === "BIKES") return;
 
-            let activeCount = 0;
+            let activeCounters = 0;
 
             zone.counters.forEach(counter => {
-
-                for (let t = blockStart; t < blockEnd; t++) {
-
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
-
-                    if (cell && cell.classList.contains("active")) {
-                        activeCount++;
-                        break;
-                    }
+                const firstCell = document.querySelector(
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${start}"][data-counter="${counter}"]`
+                );
+                if (firstCell && firstCell.classList.contains("active")) {
+                    activeCounters++;
                 }
             });
 
             zoneStats.push({
                 zone: zone.name,
-                ratio: activeCount / zone.counters.length
+                ratio: activeCounters / zone.counters.length
             });
         });
 
@@ -1119,26 +1106,26 @@ document.addEventListener("DOMContentLoaded", function () {
             const zoneName = zoneStats[z].zone;
             const zone = zones[currentMode].find(z => z.name === zoneName);
 
-            // Fill from BACK counter first
+            // Back counters first
             for (let c = zone.counters.length - 1; c >= 0; c--) {
 
                 const counter = zone.counters[c];
 
-                let blockFree = true;
+                let fullyFree = true;
 
-                for (let t = blockStart; t < blockEnd; t++) {
+                for (let t = start; t < end; t++) {
 
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
                     );
 
                     if (!cell || cell.classList.contains("active")) {
-                        blockFree = false;
+                        fullyFree = false;
                         break;
                     }
                 }
 
-                if (blockFree) {
+                if (fullyFree) {
                     return { zone: zoneName, counter };
                 }
             }
