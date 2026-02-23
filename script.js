@@ -881,24 +881,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Pick 3 counters (X, Y, Z) from different zones where possible,
         // all free for the full OT window
+        // Track which zone index to take X from next (cycles across zones)
+        let xZoneIndex = 0;
+        const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
+
         function pickXYZ() {
-            // X = the "gapped" counter — pick the FRONT-most free counter (lowest cNum)
-            // Y, Z = the continuously-running counters — pick from back (highest cNum), different zones
-            const free = getFreeSorted(startIndex, effectiveEnd);
-            if (free.length < 3) return null;
+            const all = getFreeSorted(startIndex, effectiveEnd);
+            if (all.length < 3) return null;
 
-            // X: lowest counter number (front counter — gap is acceptable here)
-            const frontSorted = [...free].sort((a, b) => a.cNum - b.cNum);
-            const X = frontSorted[0];
+            // X = front (gapped) counter: pick lowest free cNum from the current X-zone,
+            // cycling across zones so each zone gets roughly equal gap counters.
+            let X = null;
+            for (let attempt = 0; attempt < nonBikeZones.length; attempt++) {
+                const xZoneName = nonBikeZones[(xZoneIndex + attempt) % nonBikeZones.length].name;
+                const zoneCounters = all.filter(c => c.zone === xZoneName);
+                if (zoneCounters.length > 0) {
+                    // Pick lowest counter number in this zone (front counter)
+                    X = zoneCounters.reduce((a, b) => a.cNum < b.cNum ? a : b);
+                    xZoneIndex = (xZoneIndex + attempt + 1) % nonBikeZones.length;
+                    break;
+                }
+            }
+            if (!X) return null;
 
-            // Y, Z: highest counter numbers from different zones (back counters — must run continuously)
-            const backCandidates = free.filter(c => c !== X);
-            const Y = backCandidates.find(c => c.zone !== X.zone) || backCandidates[0];
-            const Z = backCandidates.find(c => c !== Y && c.zone !== X.zone && c.zone !== Y.zone)
-                || backCandidates.find(c => c !== Y)
-                || backCandidates[1];
-
-            if (!X || !Y || !Z || Y === Z) return null;
+            // Y, Z = back (continuous) counters from remaining free list (back-first sort)
+            const rest = all.filter(c => !(c.zone === X.zone && c.counter === X.counter));
+            const Y = rest.find(c => c.zone !== X.zone) || rest[0];
+            if (!Y) return null;
+            const Z = rest.find(c => !(c.zone === Y.zone && c.counter === Y.counter) && c.zone !== X.zone && c.zone !== Y.zone)
+                || rest.find(c => !(c.zone === Y.zone && c.counter === Y.counter))
+                || rest[1];
+            if (!Z || (Z.zone === Y.zone && Z.counter === Y.counter)) return null;
             return { X, Y, Z };
         }
 
