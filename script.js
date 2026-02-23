@@ -824,12 +824,10 @@ document.addEventListener("DOMContentLoaded", function () {
             return String(Math.floor(tot / 60)).padStart(2, "0") + String(tot % 60).padStart(2, "0");
         }
         const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
-        // BK[0]=A break start, BK[1]=B break start, BK[2]=C break start
-        const BKE = BK.map(b => b + breakSlots); // break end indices
+        const BKE = BK.map(b => b + breakSlots);
 
         // ── helpers ──────────────────────────────────────────────────────────
 
-        // Is this counter fully free (no active cell) for [from, to)?
         function counterFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
                 const cell = document.querySelector(
@@ -840,32 +838,33 @@ document.addEventListener("DOMContentLoaded", function () {
             return true;
         }
 
-        // Zone ratio: fraction of counters active right now (for even spread)
-        function zoneRatio(zoneName) {
+        // Dynamic zone ratio — re-evaluated each call so it reflects counters already filled
+        function zoneRatio(zoneName, refSlot) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return 1;
             const active = document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zoneName}"][data-time="${startIndex}"]`
+                `.counter-cell.active[data-zone="${zoneName}"][data-time="${refSlot}"]`
             ).length;
             return active / z.counters.length;
         }
 
-        // All counters free for an entire window, sorted by zone spread then counter number
+        // All counters free for [from,to), sorted: least-filled zone first,
+        // then highest counter number within that zone (back counters first)
         function getFreeSorted(from, to) {
             const list = [];
             zones[currentMode].forEach(zone => {
                 if (zone.name === "BIKES") return;
-                const r = zoneRatio(zone.name);
+                const r = zoneRatio(zone.name, from);
                 zone.counters.forEach(counter => {
                     if (counterFree(zone.name, counter, from, to))
                         list.push({ zone: zone.name, counter, cNum: parseInt(counter.replace(/\D/g, "")) || 0, r });
                 });
             });
+            // Least-filled zone first, then back counter (high cNum) within zone
             list.sort((a, b) => a.r !== b.r ? a.r - b.r : b.cNum - a.cNum);
             return list;
         }
 
-        // Fill cells for an officer on a counter for [from, to)
         function fillBlock(zone, counter, from, to, label) {
             for (let t = from; t < to; t++) {
                 const cell = document.querySelector(
@@ -879,39 +878,62 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Pick 3 counters (X, Y, Z) from different zones where possible,
-        // all free for the full OT window
-        // Track which zone index to take X from next (cycles across zones)
-        let xZoneIndex = 0;
+        // Pick X (gapped front counter) and Y, Z (continuous back counters).
+        // X cycles across zones so gap counters spread evenly.
+        // Y and Z are the two highest free counters globally (back counters).
         const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
+        let xZoneIndex = 0;
 
         function pickXYZ() {
-            const all = getFreeSorted(startIndex, effectiveEnd);
-            if (all.length < 3) return null;
+            const backFree = getFreeSorted(startIndex, effectiveEnd); // back-first (high cNum first)
+            if (backFree.length < 3) return null;
 
-            // X = front (gapped) counter: pick lowest free cNum from the current X-zone,
-            // cycling across zones so each zone gets roughly equal gap counters.
+            // Y: highest free back counter in the current Y-zone (cycles across zones)
+            // Z: highest free back counter in a DIFFERENT zone from Y
+            // X: lowest free counter in yet another zone (front counter, will have gap)
+            // All three from different zones where possible.
+
+            // Pick Y from the least-filled zone (zone ratio drives this via sort),
+            // but also cycle so zones rotate as Y-provider
+            const Y = backFree[0]; // highest cNum in least-filled zone
+
+            // Z: highest free back counter from a different zone than Y
+            const Z = backFree.find(c => c.zone !== Y.zone);
+            if (!Z) return null;
+
+            // X: lowest free counter from a zone different from both Y and Z (cycles)
             let X = null;
             for (let attempt = 0; attempt < nonBikeZones.length; attempt++) {
                 const xZoneName = nonBikeZones[(xZoneIndex + attempt) % nonBikeZones.length].name;
-                const zoneCounters = all.filter(c => c.zone === xZoneName);
-                if (zoneCounters.length > 0) {
-                    // Pick lowest counter number in this zone (front counter)
-                    X = zoneCounters.reduce((a, b) => a.cNum < b.cNum ? a : b);
+                if (xZoneName === Y.zone || xZoneName === Z.zone) continue;
+                const candidates = backFree.filter(c =>
+                    c.zone === xZoneName &&
+                    c.counter !== Y.counter &&
+                    c.counter !== Z.counter
+                );
+                if (candidates.length > 0) {
+                    X = candidates.reduce((a, b) => a.cNum < b.cNum ? a : b); // front = lowest cNum
                     xZoneIndex = (xZoneIndex + attempt + 1) % nonBikeZones.length;
                     break;
                 }
             }
+            // Fallback: X can share zone with Y or Z if no 3rd zone available
+            if (!X) {
+                for (let attempt = 0; attempt < nonBikeZones.length; attempt++) {
+                    const xZoneName = nonBikeZones[(xZoneIndex + attempt) % nonBikeZones.length].name;
+                    const candidates = backFree.filter(c =>
+                        c.zone === xZoneName &&
+                        c.counter !== Y.counter &&
+                        c.counter !== Z.counter
+                    );
+                    if (candidates.length > 0) {
+                        X = candidates.reduce((a, b) => a.cNum < b.cNum ? a : b);
+                        xZoneIndex = (xZoneIndex + attempt + 1) % nonBikeZones.length;
+                        break;
+                    }
+                }
+            }
             if (!X) return null;
-
-            // Y, Z = back (continuous) counters from remaining free list (back-first sort)
-            const rest = all.filter(c => !(c.zone === X.zone && c.counter === X.counter));
-            const Y = rest.find(c => c.zone !== X.zone) || rest[0];
-            if (!Y) return null;
-            const Z = rest.find(c => !(c.zone === Y.zone && c.counter === Y.counter) && c.zone !== X.zone && c.zone !== Y.zone)
-                || rest.find(c => !(c.zone === Y.zone && c.counter === Y.counter))
-                || rest[1];
-            if (!Z || (Z.zone === Y.zone && Z.counter === Y.counter)) return null;
             return { X, Y, Z };
         }
 
@@ -932,13 +954,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!trio) { console.warn("Not enough free counters for group of 3"); break; }
                 const { X, Y, Z } = trio;
 
-                // A: X block1 → Y block2
+                // A: X(block1) → Y(block2)
                 fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
                 fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                // B: Y block1 → Z block2
+                // B: Y(block1) → Z(block2)
                 fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
                 fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB);
-                // C: Z block1 → X block2
+                // C: Z(block1) → X(block2)
                 fillBlock(Z.zone, Z.counter, startIndex, BK[2], labelC);
                 fillBlock(X.zone, X.counter, BKE[2], effectiveEnd, labelC);
 
@@ -949,13 +971,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 const free = getFreeSorted(startIndex, effectiveEnd);
                 if (free.length < 2) { console.warn("Not enough counters for pair"); break; }
-                const X = free[0];
-                const Y = free.find(c => c.zone !== X.zone) || free[1];
+                const Y = free[0];
+                const X = free.find(c => !(c.zone === Y.zone && c.counter === Y.counter)) || free[1];
 
-                // A: X(block1) → Y(block2)
                 fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
                 fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                // B: Y(block1) → best free for block2
                 fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
                 const b2 = getFreeSorted(BKE[1], effectiveEnd);
                 if (b2.length > 0) fillBlock(b2[0].zone, b2[0].counter, BKE[1], effectiveEnd, labelB);
@@ -966,8 +986,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 const free = getFreeSorted(startIndex, effectiveEnd);
                 if (free.length === 0) { console.warn("No counter for solo OT"); break; }
                 const ctr = free[0];
-                fillBlock(ctr.zone, ctr.counter, startIndex, BK[1], labelA);      // block1 (use middle break)
-                fillBlock(ctr.zone, ctr.counter, BKE[1], effectiveEnd, labelA); // block2
+                fillBlock(ctr.zone, ctr.counter, startIndex, BK[1], labelA);
+                fillBlock(ctr.zone, ctr.counter, BKE[1], effectiveEnd, labelA);
             }
         }
 
