@@ -790,46 +790,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * 3-for-2 model: groups of 3 officers [A(1730), B(1815), C(1900)] cover 2 counters fully.
-     *   A: CounterX 1600-1730, break, CounterX 1815-2030
-     *   B: CounterY 1600-1815, break, CounterY 1900-2030
-     *   C: CounterZ 1600-1730 | CounterX 1730-1815 (covers A's break) |
-     *      CounterY 1815-1900 (covers B's break) | break | CounterZ 1945-2030
+     * 2-pass model:
+     *   Pass 1 — Block 1: each officer opens a back counter, spread evenly across zones.
+     *   Pass 2 — Block 2: each officer takes over the counter that went dark closest
+     *            to their block2 start (4-slot lookback), ensuring 45-min gaps max.
      *
-     * CounterX and CounterY run with ZERO GAPS.
-     * CounterZ (C's "own" counter) has a gap 1730-1945 — front counter, acceptable.
-     * Back counters are always prioritised (highest counter number first).
+     * Sorting: lowest zone ratio first (even spread), then highest counter number
+     *          (back counters) as tiebreak within each zone.
      * ================================================== */
 
-    // Find best free counter for a given time window.
-    // Sorts by: back counter first (highest number), then lowest-manned zone.
-    function findOTCounter(from, to) {
-        if (from >= to) return null;
-        const candidates = [];
+    function findOTCounter(blockStart, blockEnd) {
+        if (blockStart >= blockEnd) return null;
+        const gap = [], fresh = [];
+
         zones[currentMode].forEach(zone => {
             if (zone.name === "BIKES") return;
+
+            // Active OT/SOS/main counters in this zone right now → zone ratio
+            const activeNow = document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
+            ).length;
+            const zoneRatio = activeNow / zone.counters.length;
+
             zone.counters.forEach(counter => {
+                // Must be fully free for entire block
                 let blockFree = true;
-                for (let t = from; t < to; t++) {
+                for (let t = blockStart; t < blockEnd; t++) {
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
                     if (!cell || cell.classList.contains("active")) { blockFree = false; break; }
                 }
                 if (!blockFree) return;
-                const cNum = parseInt(counter.replace(/\D/g, "")) || 0;
-                const zoneRatio = document.querySelectorAll(
-                    `.counter-cell.active[data-zone="${zone.name}"][data-time="${from}"]`
-                ).length / zone.counters.length;
-                candidates.push({ zone: zone.name, counter, cNum, zoneRatio });
+
+                // Takeover: was active within 4 slots before blockStart?
+                let isTakeover = false;
+                for (let lb = 1; lb <= 4; lb++) {
+                    const idx = blockStart - lb;
+                    if (idx < 0) break;
+                    const prev = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${idx}"][data-counter="${counter}"]`
+                    );
+                    if (prev && prev.classList.contains("active")) { isTakeover = true; break; }
+                }
+
+                const counterNum = parseInt(counter.replace(/\D/g, "")) || 0;
+                const entry = { zone: zone.name, counter, counterNum, zoneRatio, isTakeover };
+                if (isTakeover) gap.push(entry);
+                else fresh.push(entry);
             });
         });
-        // Back counters (highest number) first, then lowest-manned zone as tiebreak
-        candidates.sort((a, b) => {
-            if (b.cNum !== a.cNum) return b.cNum - a.cNum;
-            return a.zoneRatio - b.zoneRatio;
-        });
-        return candidates[0] || null;
+
+        // Sort: lowest zone ratio first (even spread), then back counter (high number)
+        const sortFn = (a, b) =>
+            a.zoneRatio !== b.zoneRatio ? a.zoneRatio - b.zoneRatio : b.counterNum - a.counterNum;
+        gap.sort(sortFn);
+        fresh.sort(sortFn);
+
+        const best = gap[0] || fresh[0] || null;
+        return best ? { zone: best.zone, counter: best.counter } : null;
     }
 
     function fillOTBlock(counterObj, blockStart, blockEnd, officerLabel) {
@@ -855,69 +874,46 @@ document.addEventListener("DOMContentLoaded", function () {
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
         if (endIndex === -1) endIndex = times.length;
 
-        const releaseSlots = 30 / 15;                         // 30-min early release
+        const releaseSlots = 30 / 15;
         const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
-        const bkSlots = 45 / 15;                              // 45-min break = 3 slots
+        const breakSlots = 45 / 15;
 
-        let breakTimesForSlot = [];
-        if (otStart === "0600") breakTimesForSlot = ["0730", "0815", "0900"];
-        else if (otStart === "1100") breakTimesForSlot = ["1230", "1315", "1400"];
-        else if (otStart === "1600") breakTimesForSlot = ["1730", "1815", "1900"];
+        let officialBreakSlots = [];
+        if (otStart === "0600") officialBreakSlots = ["0730", "0815", "0900"];
+        else if (otStart === "1100") officialBreakSlots = ["1230", "1315", "1400"];
+        else if (otStart === "1600") officialBreakSlots = ["1730", "1815", "1900"];
 
-        const BK = breakTimesForSlot.map(t => times.findIndex(x => x === t));
-        // BK[0]=1730-break index, BK[1]=1815-break index, BK[2]=1900-break index
-
-        // Build officer list with break assignments
-        const officers = [];
+        // Build plans
+        const officerPlans = [];
         for (let i = 0; i < count; i++) {
-            const lbl = "OT" + (otGlobalCounter++);
-            const bkIdx = i % 3;                             // cycles 0,1,2 → A,B,C
-            const bkS = BK[bkIdx];
-            if (bkS === -1) { console.warn(`${lbl}: break time not in shift.`); continue; }
-            officers.push({ lbl, role: bkIdx, bkS, bkE: bkS + bkSlots });
+            const officerLabel = "OT" + (otGlobalCounter++);
+            const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
+            const breakStart = times.findIndex(t => t === breakTimeStr);
+            if (breakStart === -1) { console.warn(`${officerLabel}: break time not found`); continue; }
+            officerPlans.push({
+                officerLabel,
+                block1Start: startIndex,
+                block1End: breakStart,
+                block2Start: breakStart + breakSlots,
+                block2End: effectiveEnd
+            });
         }
 
-        // Process in groups of 3: [A(role0), B(role1), C(role2)]
-        for (let gi = 0; gi < officers.length; gi += 3) {
-            const A = officers[gi];
-            const B = officers[gi + 1] || null;
-            const C = officers[gi + 2] || null;
+        // Pass 1 — Block 1
+        officerPlans.forEach(plan => {
+            if (plan.block1Start >= plan.block1End) return;
+            const counter = findOTCounter(plan.block1Start, plan.block1End);
+            if (counter) fillOTBlock(counter, plan.block1Start, plan.block1End, plan.officerLabel);
+            else console.warn(`${plan.officerLabel}: No counter for Block 1`);
+        });
 
-            if (!A) continue;
-
-            // ── Officer A (break at BK[0]) ──
-            // CounterX: runs fully except during A's break (C covers that).
-            const cX = findOTCounter(startIndex, effectiveEnd); // free the whole shift window
-            if (!cX) { console.warn(`${A.lbl}: No CounterX found`); continue; }
-
-            fillOTBlock(cX, startIndex, A.bkS, A.lbl);           // Block1
-            fillOTBlock(cX, A.bkE, effectiveEnd, A.lbl);         // Block2
-
-            if (!B) continue;
-
-            // ── Officer B (break at BK[1]) ──
-            // CounterY: runs fully except during B's break (C covers that).
-            const cY = findOTCounter(startIndex, effectiveEnd);
-            if (!cY) { console.warn(`${B.lbl}: No CounterY found`); continue; }
-
-            fillOTBlock(cY, startIndex, B.bkS, B.lbl);           // Block1
-            fillOTBlock(cY, B.bkE, effectiveEnd, B.lbl);         // Block2
-
-            if (!C) continue;
-
-            // ── Officer C (break at BK[2]) ──
-            // C covers A's break on CounterX, then B's break on CounterY.
-            // C also has their own counter (CounterZ) for the remaining slots.
-            fillOTBlock(cX, A.bkS, A.bkE, C.lbl);               // Cover A's break on CounterX
-            fillOTBlock(cY, B.bkS, B.bkE, C.lbl);               // Cover B's break on CounterY
-
-            // CounterZ: C's own counter for 1600-BK[0] and BK[2]+break to effectiveEnd
-            const cZ1 = findOTCounter(startIndex, A.bkS);        // 1600-1730 window
-            if (cZ1) fillOTBlock(cZ1, startIndex, A.bkS, C.lbl);
-
-            const cZ2 = findOTCounter(C.bkE, effectiveEnd);      // post-C-break window
-            if (cZ2) fillOTBlock(cZ2, C.bkE, effectiveEnd, C.lbl);
-        }
+        // Pass 2 — Block 2 (takeover preferred via 4-slot lookback in findOTCounter)
+        officerPlans.forEach(plan => {
+            if (plan.block2Start >= plan.block2End) return;
+            const counter = findOTCounter(plan.block2Start, plan.block2End);
+            if (counter) fillOTBlock(counter, plan.block2Start, plan.block2End, plan.officerLabel);
+            else console.warn(`${plan.officerLabel}: No counter for Block 2`);
+        });
 
         updateAll();
         updateOTRosterTable();
