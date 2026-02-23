@@ -790,82 +790,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * 2-pass model:
-     *   Pass 1 — Block 1: each officer opens a back counter, spread evenly across zones.
-     *   Pass 2 — Block 2: each officer takes over the counter that went dark closest
-     *            to their block2 start (4-slot lookback), ensuring 45-min gaps max.
+     * Chain-handoff model — groups of 3 officers [A, B, C] share 3 counters:
+     *   A (break +90min):  CounterX → CounterY
+     *   B (break +135min): CounterY → CounterZ
+     *   C (break +180min): CounterZ → CounterX
      *
-     * Sorting: lowest zone ratio first (even spread), then highest counter number
-     *          (back counters) as tiebreak within each zone.
+     *   CounterY runs continuously: B block1 + A block2 (no gap)
+     *   CounterZ runs continuously: C block1 + B block2 (no gap)
+     *   CounterX has one gap (A block1 + C block2 only) — acceptable front counter gap
+     *
+     * X, Y, Z are picked from different zones where possible (even spread).
+     * Leftover officers (group of 2 or 1) fall back to simpler assignment.
+     * Fully dynamic — adapts to any number of main + OT officers.
      * ================================================== */
 
-    function findOTCounter(blockStart, blockEnd) {
-        if (blockStart >= blockEnd) return null;
-        const gap = [], fresh = [];
-
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-
-            // Active OT/SOS/main counters in this zone right now → zone ratio
-            const activeNow = document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
-            ).length;
-            const zoneRatio = activeNow / zone.counters.length;
-
-            zone.counters.forEach(counter => {
-                // Must be fully free for entire block
-                let blockFree = true;
-                for (let t = blockStart; t < blockEnd; t++) {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
-                    if (!cell || cell.classList.contains("active")) { blockFree = false; break; }
-                }
-                if (!blockFree) return;
-
-                // Takeover: was active within 4 slots before blockStart?
-                let isTakeover = false;
-                for (let lb = 1; lb <= 4; lb++) {
-                    const idx = blockStart - lb;
-                    if (idx < 0) break;
-                    const prev = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${idx}"][data-counter="${counter}"]`
-                    );
-                    if (prev && prev.classList.contains("active")) { isTakeover = true; break; }
-                }
-
-                const counterNum = parseInt(counter.replace(/\D/g, "")) || 0;
-                const entry = { zone: zone.name, counter, counterNum, zoneRatio, isTakeover };
-                if (isTakeover) gap.push(entry);
-                else fresh.push(entry);
-            });
-        });
-
-        // Sort: lowest zone ratio first (even spread), then back counter (high number)
-        const sortFn = (a, b) =>
-            a.zoneRatio !== b.zoneRatio ? a.zoneRatio - b.zoneRatio : b.counterNum - a.counterNum;
-        gap.sort(sortFn);
-        fresh.sort(sortFn);
-
-        const best = gap[0] || fresh[0] || null;
-        return best ? { zone: best.zone, counter: best.counter } : null;
-    }
-
-    function fillOTBlock(counterObj, blockStart, blockEnd, officerLabel) {
-        for (let t = blockStart; t < blockEnd; t++) {
-            const cell = document.querySelector(
-                `.counter-cell[data-zone="${counterObj.zone}"][data-time="${t}"][data-counter="${counterObj.counter}"]`
-            );
-            if (!cell) continue;
-            cell.classList.add("active");
-            cell.style.background = currentColor;
-            cell.dataset.officer = officerLabel;
-            cell.dataset.type = "ot";
-        }
-    }
-
     function allocateOTOfficers(count, otStart, otEnd) {
-
         const times = generateTimeSlots();
 
         let startIndex = times.findIndex(t => t === otStart);
@@ -878,42 +817,138 @@ document.addEventListener("DOMContentLoaded", function () {
         const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
         const breakSlots = 45 / 15;
 
-        let officialBreakSlots = [];
-        if (otStart === "0600") officialBreakSlots = ["0730", "0815", "0900"];
-        else if (otStart === "1100") officialBreakSlots = ["1230", "1315", "1400"];
-        else if (otStart === "1600") officialBreakSlots = ["1730", "1815", "1900"];
+        // Compute break slot indices: +90, +135, +180 min from otStart
+        function addMins(timeStr, mins) {
+            const h = parseInt(timeStr.slice(0, 2)), m = parseInt(timeStr.slice(2));
+            const tot = h * 60 + m + mins;
+            return String(Math.floor(tot / 60)).padStart(2, "0") + String(tot % 60).padStart(2, "0");
+        }
+        const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
+        // BK[0]=A break start, BK[1]=B break start, BK[2]=C break start
+        const BKE = BK.map(b => b + breakSlots); // break end indices
 
-        // Build plans
-        const officerPlans = [];
-        for (let i = 0; i < count; i++) {
-            const officerLabel = "OT" + (otGlobalCounter++);
-            const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
-            const breakStart = times.findIndex(t => t === breakTimeStr);
-            if (breakStart === -1) { console.warn(`${officerLabel}: break time not found`); continue; }
-            officerPlans.push({
-                officerLabel,
-                block1Start: startIndex,
-                block1End: breakStart,
-                block2Start: breakStart + breakSlots,
-                block2End: effectiveEnd
-            });
+        // ── helpers ──────────────────────────────────────────────────────────
+
+        // Is this counter fully free (no active cell) for [from, to)?
+        function counterFree(zone, counter, from, to) {
+            for (let t = from; t < to; t++) {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+                );
+                if (!cell || cell.classList.contains("active")) return false;
+            }
+            return true;
         }
 
-        // Pass 1 — Block 1
-        officerPlans.forEach(plan => {
-            if (plan.block1Start >= plan.block1End) return;
-            const counter = findOTCounter(plan.block1Start, plan.block1End);
-            if (counter) fillOTBlock(counter, plan.block1Start, plan.block1End, plan.officerLabel);
-            else console.warn(`${plan.officerLabel}: No counter for Block 1`);
-        });
+        // Zone ratio: fraction of counters active right now (for even spread)
+        function zoneRatio(zoneName) {
+            const z = zones[currentMode].find(z => z.name === zoneName);
+            if (!z) return 1;
+            const active = document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zoneName}"][data-time="${startIndex}"]`
+            ).length;
+            return active / z.counters.length;
+        }
 
-        // Pass 2 — Block 2 (takeover preferred via 4-slot lookback in findOTCounter)
-        officerPlans.forEach(plan => {
-            if (plan.block2Start >= plan.block2End) return;
-            const counter = findOTCounter(plan.block2Start, plan.block2End);
-            if (counter) fillOTBlock(counter, plan.block2Start, plan.block2End, plan.officerLabel);
-            else console.warn(`${plan.officerLabel}: No counter for Block 2`);
-        });
+        // All counters free for an entire window, sorted by zone spread then counter number
+        function getFreeSorted(from, to) {
+            const list = [];
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                const r = zoneRatio(zone.name);
+                zone.counters.forEach(counter => {
+                    if (counterFree(zone.name, counter, from, to))
+                        list.push({ zone: zone.name, counter, cNum: parseInt(counter.replace(/\D/g, "")) || 0, r });
+                });
+            });
+            list.sort((a, b) => a.r !== b.r ? a.r - b.r : a.cNum - b.cNum);
+            return list;
+        }
+
+        // Fill cells for an officer on a counter for [from, to)
+        function fillBlock(zone, counter, from, to, label) {
+            for (let t = from; t < to; t++) {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+                );
+                if (!cell) continue;
+                cell.classList.add("active");
+                cell.style.background = currentColor;
+                cell.dataset.officer = label;
+                cell.dataset.type = "ot";
+            }
+        }
+
+        // Pick 3 counters (X, Y, Z) from different zones where possible,
+        // all free for the full OT window
+        function pickXYZ() {
+            const free = getFreeSorted(startIndex, effectiveEnd);
+            if (free.length < 3) return null;
+
+            const X = free[0];
+            const Y = free.find(c => c.zone !== X.zone) || free[1];
+            const Z = free.find(c => c.zone !== X.zone && c.zone !== Y.zone)
+                || free.find(c => c !== X && c !== Y)
+                || free[2];
+            if (!X || !Y || !Z || X === Y || Y === Z) return null;
+            return { X, Y, Z };
+        }
+
+        // ── main loop ────────────────────────────────────────────────────────
+
+        let i = 0;
+        while (i < count) {
+            const remaining = count - i;
+            const labelA = "OT" + (otGlobalCounter++);
+
+            if (remaining >= 3) {
+                // ── Full group of 3 ──
+                const labelB = "OT" + (otGlobalCounter++);
+                const labelC = "OT" + (otGlobalCounter++);
+                i += 3;
+
+                const trio = pickXYZ();
+                if (!trio) { console.warn("Not enough free counters for group of 3"); break; }
+                const { X, Y, Z } = trio;
+
+                // A: X block1 → Y block2
+                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
+                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
+                // B: Y block1 → Z block2
+                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
+                fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB);
+                // C: Z block1 → X block2
+                fillBlock(Z.zone, Z.counter, startIndex, BK[2], labelC);
+                fillBlock(X.zone, X.counter, BKE[2], effectiveEnd, labelC);
+
+            } else if (remaining === 2) {
+                // ── Pair: A + B ──
+                const labelB = "OT" + (otGlobalCounter++);
+                i += 2;
+
+                const free = getFreeSorted(startIndex, effectiveEnd);
+                if (free.length < 2) { console.warn("Not enough counters for pair"); break; }
+                const X = free[0];
+                const Y = free.find(c => c.zone !== X.zone) || free[1];
+
+                // A: X(block1) → Y(block2)
+                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
+                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
+                // B: Y(block1) → best free for block2
+                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
+                const b2 = getFreeSorted(BKE[1], effectiveEnd);
+                if (b2.length > 0) fillBlock(b2[0].zone, b2[0].counter, BKE[1], effectiveEnd, labelB);
+
+            } else {
+                // ── Solo officer ──
+                i += 1;
+                const free = getFreeSorted(startIndex, effectiveEnd);
+                if (free.length === 0) { console.warn("No counter for solo OT"); break; }
+                const ctr = free[0];
+                fillBlock(ctr.zone, ctr.counter, startIndex, BK[1], labelA);      // block1 (use middle break)
+                fillBlock(ctr.zone, ctr.counter, BKE[1], effectiveEnd, labelA); // block2
+            }
+        }
 
         updateAll();
         updateOTRosterTable();
