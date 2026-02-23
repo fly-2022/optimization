@@ -790,18 +790,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * Chain-handoff model — groups of 3 officers [A, B, C] share 3 counters:
-     *   A (break +90min):  CounterX → CounterY
-     *   B (break +135min): CounterY → CounterZ
-     *   C (break +180min): CounterZ → CounterX
+     * Simple 2-pass model:
+     *   Pass 1 — each officer opens the best free counter (back counter first,
+     *            least-filled zone first) and works block1 until their break.
+     *   Pass 2 — each officer returns to the SAME counter after their break
+     *            for block2. The 45-min break window stays dark on that counter.
      *
-     *   CounterY runs continuously: B block1 + A block2 (no gap)
-     *   CounterZ runs continuously: C block1 + B block2 (no gap)
-     *   CounterX has one gap (A block1 + C block2 only) — acceptable front counter gap
-     *
-     * X, Y, Z are picked from different zones where possible (even spread).
-     * Leftover officers (group of 2 or 1) fall back to simpler assignment.
-     * Fully dynamic — adapts to any number of main + OT officers.
+     * Break times cycle +90min / +135min / +180min from otStart so gaps
+     * stagger across rows. No complex handoffs — simple and gap-free logic.
+     * Fully dynamic: adapts to any number of main + OT officers.
      * ================================================== */
 
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -817,14 +814,13 @@ document.addEventListener("DOMContentLoaded", function () {
         const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
         const breakSlots = 45 / 15;
 
-        // Compute break slot indices: +90, +135, +180 min from otStart
+        // Break times: +90min, +135min, +180min from otStart
         function addMins(timeStr, mins) {
             const h = parseInt(timeStr.slice(0, 2)), m = parseInt(timeStr.slice(2));
             const tot = h * 60 + m + mins;
             return String(Math.floor(tot / 60)).padStart(2, "0") + String(tot % 60).padStart(2, "0");
         }
-        const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
-        const BKE = BK.map(b => b + breakSlots);
+        const breakTimes = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
 
         // ── helpers ──────────────────────────────────────────────────────────
 
@@ -838,31 +834,29 @@ document.addEventListener("DOMContentLoaded", function () {
             return true;
         }
 
-        // Dynamic zone ratio — re-evaluated each call so it reflects counters already filled
-        function zoneRatio(zoneName, refSlot) {
+        function zoneRatio(zoneName, slot) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return 1;
-            const active = document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zoneName}"][data-time="${refSlot}"]`
-            ).length;
-            return active / z.counters.length;
+            return document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zoneName}"][data-time="${slot}"]`
+            ).length / z.counters.length;
         }
 
-        // All counters free for [from,to), sorted: least-filled zone first,
-        // then highest counter number within that zone (back counters first)
-        function getFreeSorted(from, to) {
+        // Best free counter: least-filled zone first, then highest counter number (back first)
+        function findBest(from, to) {
             const list = [];
             zones[currentMode].forEach(zone => {
                 if (zone.name === "BIKES") return;
                 const r = zoneRatio(zone.name, from);
                 zone.counters.forEach(counter => {
-                    if (counterFree(zone.name, counter, from, to))
-                        list.push({ zone: zone.name, counter, cNum: parseInt(counter.replace(/\D/g, "")) || 0, r });
+                    if (counterFree(zone.name, counter, from, to)) {
+                        const cNum = parseInt(counter.replace(/\D/g, "")) || 0;
+                        list.push({ zone: zone.name, counter, cNum, r });
+                    }
                 });
             });
-            // Least-filled zone first, then back counter (high cNum) within zone
             list.sort((a, b) => a.r !== b.r ? a.r - b.r : b.cNum - a.cNum);
-            return list;
+            return list[0] || null;
         }
 
         function fillBlock(zone, counter, from, to, label) {
@@ -878,118 +872,40 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Pick X (gapped front counter) and Y, Z (continuous back counters).
-        // X cycles across zones so gap counters spread evenly.
-        // Y and Z are the two highest free counters globally (back counters).
-        const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
-        let xZoneIndex = 0;
+        // ── build plans ──────────────────────────────────────────────────────
 
-        function pickXYZ() {
-            const backFree = getFreeSorted(startIndex, effectiveEnd); // back-first (high cNum first)
-            if (backFree.length < 3) return null;
-
-            // Y: highest free back counter in the current Y-zone (cycles across zones)
-            // Z: highest free back counter in a DIFFERENT zone from Y
-            // X: lowest free counter in yet another zone (front counter, will have gap)
-            // All three from different zones where possible.
-
-            // Pick Y from the least-filled zone (zone ratio drives this via sort),
-            // but also cycle so zones rotate as Y-provider
-            const Y = backFree[0]; // highest cNum in least-filled zone
-
-            // Z: highest free back counter from a different zone than Y
-            const Z = backFree.find(c => c.zone !== Y.zone);
-            if (!Z) return null;
-
-            // X: lowest free counter from a zone different from both Y and Z (cycles)
-            let X = null;
-            for (let attempt = 0; attempt < nonBikeZones.length; attempt++) {
-                const xZoneName = nonBikeZones[(xZoneIndex + attempt) % nonBikeZones.length].name;
-                if (xZoneName === Y.zone || xZoneName === Z.zone) continue;
-                const candidates = backFree.filter(c =>
-                    c.zone === xZoneName &&
-                    c.counter !== Y.counter &&
-                    c.counter !== Z.counter
-                );
-                if (candidates.length > 0) {
-                    X = candidates.reduce((a, b) => a.cNum < b.cNum ? a : b); // front = lowest cNum
-                    xZoneIndex = (xZoneIndex + attempt + 1) % nonBikeZones.length;
-                    break;
-                }
-            }
-            // Fallback: X can share zone with Y or Z if no 3rd zone available
-            if (!X) {
-                for (let attempt = 0; attempt < nonBikeZones.length; attempt++) {
-                    const xZoneName = nonBikeZones[(xZoneIndex + attempt) % nonBikeZones.length].name;
-                    const candidates = backFree.filter(c =>
-                        c.zone === xZoneName &&
-                        c.counter !== Y.counter &&
-                        c.counter !== Z.counter
-                    );
-                    if (candidates.length > 0) {
-                        X = candidates.reduce((a, b) => a.cNum < b.cNum ? a : b);
-                        xZoneIndex = (xZoneIndex + attempt + 1) % nonBikeZones.length;
-                        break;
-                    }
-                }
-            }
-            if (!X) return null;
-            return { X, Y, Z };
+        const plans = [];
+        for (let i = 0; i < count; i++) {
+            const label = "OT" + (otGlobalCounter++);
+            const bkS = breakTimes[i % 3];
+            const bkE = bkS + breakSlots;
+            plans.push({ label, bkS, bkE, counter: null });
         }
 
-        // ── main loop ────────────────────────────────────────────────────────
-
-        let i = 0;
-        while (i < count) {
-            const remaining = count - i;
-            const labelA = "OT" + (otGlobalCounter++);
-
-            if (remaining >= 3) {
-                // ── Full group of 3 ──
-                const labelB = "OT" + (otGlobalCounter++);
-                const labelC = "OT" + (otGlobalCounter++);
-                i += 3;
-
-                const trio = pickXYZ();
-                if (!trio) { console.warn("Not enough free counters for group of 3"); break; }
-                const { X, Y, Z } = trio;
-
-                // A: X(block1) → Y(block2)
-                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
-                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                // B: Y(block1) → Z(block2)
-                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
-                fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB);
-                // C: Z(block1) → X(block2)
-                fillBlock(Z.zone, Z.counter, startIndex, BK[2], labelC);
-                fillBlock(X.zone, X.counter, BKE[2], effectiveEnd, labelC);
-
-            } else if (remaining === 2) {
-                // ── Pair: A + B ──
-                const labelB = "OT" + (otGlobalCounter++);
-                i += 2;
-
-                const free = getFreeSorted(startIndex, effectiveEnd);
-                if (free.length < 2) { console.warn("Not enough counters for pair"); break; }
-                const Y = free[0];
-                const X = free.find(c => !(c.zone === Y.zone && c.counter === Y.counter)) || free[1];
-
-                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
-                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
-                const b2 = getFreeSorted(BKE[1], effectiveEnd);
-                if (b2.length > 0) fillBlock(b2[0].zone, b2[0].counter, BKE[1], effectiveEnd, labelB);
-
+        // Pass 1 — block1: each officer claims the best free back counter
+        plans.forEach(p => {
+            if (p.bkS <= startIndex) return;
+            const c = findBest(startIndex, p.bkS);
+            if (c) {
+                fillBlock(c.zone, c.counter, startIndex, p.bkS, p.label);
+                p.counter = c;
             } else {
-                // ── Solo officer ──
-                i += 1;
-                const free = getFreeSorted(startIndex, effectiveEnd);
-                if (free.length === 0) { console.warn("No counter for solo OT"); break; }
-                const ctr = free[0];
-                fillBlock(ctr.zone, ctr.counter, startIndex, BK[1], labelA);
-                fillBlock(ctr.zone, ctr.counter, BKE[1], effectiveEnd, labelA);
+                console.warn(`${p.label}: no counter for block1`);
             }
-        }
+        });
+
+        // Pass 2 — block2: each officer returns to the same counter after break
+        plans.forEach(p => {
+            if (!p.counter || p.bkE >= effectiveEnd) return;
+            if (counterFree(p.counter.zone, p.counter.counter, p.bkE, effectiveEnd)) {
+                fillBlock(p.counter.zone, p.counter.counter, p.bkE, effectiveEnd, p.label);
+            } else {
+                // Counter was taken by someone else — find next best
+                const c = findBest(p.bkE, effectiveEnd);
+                if (c) fillBlock(c.zone, c.counter, p.bkE, effectiveEnd, p.label);
+                else console.warn(`${p.label}: no counter for block2`);
+            }
+        });
 
         updateAll();
         updateOTRosterTable();
