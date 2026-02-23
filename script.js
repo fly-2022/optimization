@@ -882,15 +882,23 @@ document.addEventListener("DOMContentLoaded", function () {
         // Pick 3 counters (X, Y, Z) from different zones where possible,
         // all free for the full OT window
         function pickXYZ() {
+            // X = the "gapped" counter — pick the FRONT-most free counter (lowest cNum)
+            // Y, Z = the continuously-running counters — pick from back (highest cNum), different zones
             const free = getFreeSorted(startIndex, effectiveEnd);
             if (free.length < 3) return null;
 
-            const X = free[0];
-            const Y = free.find(c => c.zone !== X.zone) || free[1];
-            const Z = free.find(c => c.zone !== X.zone && c.zone !== Y.zone)
-                || free.find(c => c !== X && c !== Y)
-                || free[2];
-            if (!X || !Y || !Z || X === Y || Y === Z) return null;
+            // X: lowest counter number (front counter — gap is acceptable here)
+            const frontSorted = [...free].sort((a, b) => a.cNum - b.cNum);
+            const X = frontSorted[0];
+
+            // Y, Z: highest counter numbers from different zones (back counters — must run continuously)
+            const backCandidates = free.filter(c => c !== X);
+            const Y = backCandidates.find(c => c.zone !== X.zone) || backCandidates[0];
+            const Z = backCandidates.find(c => c !== Y && c.zone !== X.zone && c.zone !== Y.zone)
+                || backCandidates.find(c => c !== Y)
+                || backCandidates[1];
+
+            if (!X || !Y || !Z || Y === Z) return null;
             return { X, Y, Z };
         }
 
