@@ -826,14 +826,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 if (!blockFree) return;
 
-                // Was this counter active in the slot immediately before blockStart?
-                // If yes → takeover (someone just left/went on break)
-                const slotBefore = blockStart > 0
-                    ? document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${blockStart - 1}"][data-counter="${counter}"]`
-                    )
-                    : null;
-                const isTakeover = !!(slotBefore && slotBefore.classList.contains("active"));
+                // Look back up to 4 slots (covers the 45min break window = 3 slots + buffer).
+                // A counter that was active before the break but is now free is a takeover target.
+                // Checking only blockStart-1 misses Block 2 cases where the break slots are empty.
+                let isTakeover = false;
+                for (let lookback = 1; lookback <= 4; lookback++) {
+                    const idx = blockStart - lookback;
+                    if (idx < 0) break;
+                    const prevCell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${idx}"][data-counter="${counter}"]`
+                    );
+                    if (prevCell && prevCell.classList.contains("active")) {
+                        isTakeover = true;
+                        break;
+                    }
+                }
 
                 // Extract numeric part of counter for back-first sorting (e.g. AC10 → 10, DC8 → 8)
                 const counterNum = parseInt(counter.replace(/\D/g, "")) || 0;
