@@ -966,14 +966,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (endIndex === -1) endIndex = times.length;
 
-        // FIX: compute effectiveEnd ONCE outside the loop so all officers get the same end
-        const releaseSlots = 30 / 15; // 2 slots = 30 mins early release
+        const releaseSlots = 30 / 15;
         const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
-
-        const breakSlots = 45 / 15; // 3 slots = 45 min break
+        const breakSlots = 45 / 15;
 
         let officialBreakSlots = [];
-
         if (otStart === "0600") {
             officialBreakSlots = ["0730", "0815", "0900"];
         } else if (otStart === "1100") {
@@ -982,53 +979,130 @@ document.addEventListener("DOMContentLoaded", function () {
             officialBreakSlots = ["1730", "1815", "1900"];
         }
 
+        // Build officer plan: each officer gets a breakStart, block1, block2
+        const officerPlans = [];
+
         for (let i = 0; i < count; i++) {
-
             const officerLabel = "OT" + (otGlobalCounter++);
-
             const breakTimeStr = officialBreakSlots[i % officialBreakSlots.length];
             const breakStart = times.findIndex(t => t === breakTimeStr);
 
             if (breakStart === -1) {
-                console.warn(`${officerLabel}: break time ${breakTimeStr} not found in current shift slots.`);
+                console.warn(`${officerLabel}: break time ${breakTimeStr} not in shift.`);
                 continue;
             }
 
             const breakEnd = breakStart + breakSlots;
 
-            const block1Start = startIndex;
-            const block1End = breakStart;       // up to (not including) break start
+            officerPlans.push({
+                officerLabel,
+                block1Start: startIndex,
+                block1End: breakStart,
+                breakStart,
+                breakEnd,
+                block2Start: breakEnd,
+                block2End: effectiveEnd
+            });
+        }
 
-            const block2Start = breakEnd;       // after break ends
-            const block2End = effectiveEnd;     // FIX: use effectiveEnd, not mutated endIndex
-
-            // Validate Block 1 has actual slots
-            if (block1Start >= block1End) {
-                console.warn(`${officerLabel}: Block 1 has no slots (${block1Start}–${block1End})`);
-                continue;
-            }
-
-            // 🔥 BLOCK 1: officer stays on counter1 the entire block
-            const counter1 = findBestOTCounter(block1Start, block1End);
+        // ── STEP 1: Assign all Block 1s first ──
+        officerPlans.forEach(plan => {
+            if (plan.block1Start >= plan.block1End) return;
+            const counter1 = findBestOTCounter(plan.block1Start, plan.block1End);
             if (counter1) {
-                fillOTBlock(counter1, block1Start, block1End, officerLabel);
+                plan.counter1 = counter1;
+                fillOTBlock(counter1, plan.block1Start, plan.block1End, plan.officerLabel);
             } else {
-                console.warn(`${officerLabel}: No free counter for Block 1.`);
+                console.warn(`${plan.officerLabel}: No free counter for Block 1.`);
             }
+        });
 
-            // 🔥 BLOCK 2: officer stays on counter2 the entire block (can differ from counter1)
-            if (block2Start < block2End) {
-                const counter2 = findBestOTCounter(block2Start, block2End);
+        // ── STEP 2: Assign Block 2s, prioritising counters vacated by OTHER officers ──
+        officerPlans.forEach(plan => {
+            if (plan.block2Start >= plan.block2End) return;
+
+            // Find counters that were running at block2Start - 1 but are now free for block2
+            // i.e. another officer's Block 1 ended and left this counter dark
+            const handoffCounter = findHandoffCounter(plan.block2Start, plan.block2End);
+
+            if (handoffCounter) {
+                plan.counter2 = handoffCounter;
+                fillOTBlock(handoffCounter, plan.block2Start, plan.block2End, plan.officerLabel);
+            } else {
+                // No handoff available — fall back to best free counter
+                const counter2 = findBestOTCounter(plan.block2Start, plan.block2End);
                 if (counter2) {
-                    fillOTBlock(counter2, block2Start, block2End, officerLabel);
+                    plan.counter2 = counter2;
+                    fillOTBlock(counter2, plan.block2Start, plan.block2End, plan.officerLabel);
                 } else {
-                    console.warn(`${officerLabel}: No free counter for Block 2.`);
+                    console.warn(`${plan.officerLabel}: No free counter for Block 2.`);
                 }
             }
-        }
+        });
 
         updateAll();
         updateOTRosterTable();
+    }
+
+    // Finds a counter that was active just before blockStart (i.e. another officer just vacated it)
+    // AND is fully free for the entire block2 range
+    function findHandoffCounter(blockStart, blockEnd) {
+
+        const candidates = [];
+
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+
+            for (let c = zone.counters.length - 1; c >= 0; c--) {
+                const counter = zone.counters[c];
+
+                // Must be free for the full block2 duration
+                let blockFree = true;
+                for (let t = blockStart; t < blockEnd; t++) {
+                    const cell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                    );
+                    if (!cell || cell.classList.contains("active")) {
+                        blockFree = false;
+                        break;
+                    }
+                }
+                if (!blockFree) continue;
+
+                // Was this counter running in the slot just before block2 starts?
+                // Check a window — the break is 45 mins (3 slots), so look back up to 3 slots
+                let wasRecentlyActive = false;
+                for (let lookback = 1; lookback <= 3; lookback++) {
+                    const prevCell = document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${blockStart - lookback}"][data-counter="${counter}"]`
+                    );
+                    if (prevCell && prevCell.classList.contains("active")) {
+                        wasRecentlyActive = true;
+                        break;
+                    }
+                }
+
+                if (wasRecentlyActive) {
+                    candidates.push({ zone: zone.name, counter });
+                }
+            }
+        });
+
+        if (!candidates.length) return null;
+
+        // Among handoff candidates, prefer lowest-manned zone
+        const zoneStats = {};
+        zones[currentMode].forEach(zone => {
+            if (zone.name === "BIKES") return;
+            const activeCells = document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
+            );
+            zoneStats[zone.name] = activeCells.length / zone.counters.length;
+        });
+
+        candidates.sort((a, b) => (zoneStats[a.zone] || 0) - (zoneStats[b.zone] || 0));
+
+        return candidates[0];
     }
 
     function findBestOTCounter(blockStart, blockEnd) {
@@ -1036,19 +1110,14 @@ document.addEventListener("DOMContentLoaded", function () {
         const zoneStats = [];
 
         zones[currentMode].forEach(zone => {
-
             if (zone.name === "BIKES") return;
 
             let activeCount = 0;
-
             zone.counters.forEach(counter => {
-
                 for (let t = blockStart; t < blockEnd; t++) {
-
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
                     );
-
                     if (cell && cell.classList.contains("active")) {
                         activeCount++;
                         break;
@@ -1056,42 +1125,30 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             });
 
-            zoneStats.push({
-                zone: zone.name,
-                ratio: activeCount / zone.counters.length
-            });
+            zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
         });
 
-        // Lowest manning first
         zoneStats.sort((a, b) => a.ratio - b.ratio);
 
         for (let z = 0; z < zoneStats.length; z++) {
-
             const zoneName = zoneStats[z].zone;
             const zone = zones[currentMode].find(z => z.name === zoneName);
 
-            // Fill from BACK counter first
             for (let c = zone.counters.length - 1; c >= 0; c--) {
-
                 const counter = zone.counters[c];
 
                 let blockFree = true;
-
-                for (let t = blockStart; t < blockEnd; t++) {  // FIX: strict < not <=
-
+                for (let t = blockStart; t < blockEnd; t++) {
                     const cell = document.querySelector(
                         `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
                     );
-
                     if (!cell || cell.classList.contains("active")) {
                         blockFree = false;
                         break;
                     }
                 }
 
-                if (blockFree) {
-                    return { zone: zoneName, counter };
-                }
+                if (blockFree) return { zone: zoneName, counter };
             }
         }
 
