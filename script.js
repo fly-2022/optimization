@@ -861,7 +861,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         list.push({ zone: zone.name, counter, cNum: parseInt(counter.replace(/\D/g, "")) || 0, r });
                 });
             });
-            list.sort((a, b) => a.r !== b.r ? a.r - b.r : a.cNum - b.cNum);
+            list.sort((a, b) => a.r !== b.r ? a.r - b.r : b.cNum - a.cNum);
             return list;
         }
 
