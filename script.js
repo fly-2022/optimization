@@ -1044,11 +1044,10 @@ document.addEventListener("DOMContentLoaded", function () {
         updateOTRosterTable();
     }
 
-    // Finds a counter that was active just before blockStart (i.e. another officer just vacated it)
-    // AND is fully free for the entire block2 range
-    function findHandoffCounter(blockStart, blockEnd) {
+    function findOTCounter(blockStart, blockEnd) {
 
-        const candidates = [];
+        const takeoverCandidates = [];
+        const newCounterCandidates = [];
 
         zones[currentMode].forEach(zone => {
             if (zone.name === "BIKES") return;
@@ -1056,7 +1055,6 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let c = zone.counters.length - 1; c >= 0; c--) {
                 const counter = zone.counters[c];
 
-                // Must be free for the full block2 duration
                 let blockFree = true;
                 for (let t = blockStart; t < blockEnd; t++) {
                     const cell = document.querySelector(
@@ -1069,87 +1067,35 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 if (!blockFree) continue;
 
-                // Was this counter running in the slot just before block2 starts?
-                // Check a window — the break is 45 mins (3 slots), so look back up to 3 slots
-                let wasRecentlyActive = false;
-                for (let lookback = 1; lookback <= 3; lookback++) {
-                    const prevCell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${blockStart - lookback}"][data-counter="${counter}"]`
-                    );
-                    if (prevCell && prevCell.classList.contains("active")) {
-                        wasRecentlyActive = true;
-                        break;
-                    }
-                }
+                const slotBefore = blockStart > 0
+                    ? document.querySelector(
+                        `.counter-cell[data-zone="${zone.name}"][data-time="${blockStart - 1}"][data-counter="${counter}"]`
+                    )
+                    : null;
 
-                if (wasRecentlyActive) {
-                    candidates.push({ zone: zone.name, counter });
+                const wasActiveJustBefore = slotBefore && slotBefore.classList.contains("active");
+
+                const zoneRatio = document.querySelectorAll(
+                    `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
+                ).length / zone.counters.length;
+
+                if (wasActiveJustBefore) {
+                    takeoverCandidates.push({ zone: zone.name, counter, zoneRatio });
+                } else {
+                    newCounterCandidates.push({ zone: zone.name, counter, zoneRatio });
                 }
             }
         });
 
-        if (!candidates.length) return null;
+        takeoverCandidates.sort((a, b) => a.zoneRatio - b.zoneRatio);
+        newCounterCandidates.sort((a, b) => a.zoneRatio - b.zoneRatio);
 
-        // Among handoff candidates, prefer lowest-manned zone
-        const zoneStats = {};
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-            const activeCells = document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
-            );
-            zoneStats[zone.name] = activeCells.length / zone.counters.length;
-        });
+        if (takeoverCandidates.length > 0) {
+            return { zone: takeoverCandidates[0].zone, counter: takeoverCandidates[0].counter };
+        }
 
-        candidates.sort((a, b) => (zoneStats[a.zone] || 0) - (zoneStats[b.zone] || 0));
-
-        return candidates[0];
-    }
-
-    function findBestOTCounter(blockStart, blockEnd) {
-
-        const zoneStats = [];
-
-        zones[currentMode].forEach(zone => {
-            if (zone.name === "BIKES") return;
-
-            let activeCount = 0;
-            zone.counters.forEach(counter => {
-                for (let t = blockStart; t < blockEnd; t++) {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
-                    if (cell && cell.classList.contains("active")) {
-                        activeCount++;
-                        break;
-                    }
-                }
-            });
-
-            zoneStats.push({ zone: zone.name, ratio: activeCount / zone.counters.length });
-        });
-
-        zoneStats.sort((a, b) => a.ratio - b.ratio);
-
-        for (let z = 0; z < zoneStats.length; z++) {
-            const zoneName = zoneStats[z].zone;
-            const zone = zones[currentMode].find(z => z.name === zoneName);
-
-            for (let c = zone.counters.length - 1; c >= 0; c--) {
-                const counter = zone.counters[c];
-
-                let blockFree = true;
-                for (let t = blockStart; t < blockEnd; t++) {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
-                    );
-                    if (!cell || cell.classList.contains("active")) {
-                        blockFree = false;
-                        break;
-                    }
-                }
-
-                if (blockFree) return { zone: zoneName, counter };
-            }
+        if (newCounterCandidates.length > 0) {
+            return { zone: newCounterCandidates[0].zone, counter: newCounterCandidates[0].counter };
         }
 
         return null;
