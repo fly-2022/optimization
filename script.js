@@ -804,17 +804,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function findOTCounter(blockStart, blockEnd) {
 
-        const takeoverCandidates = [];
-        const newCounterCandidates = [];
+        // Build a flat list of ALL counters across all zones (excluding BIKES)
+        // Each entry tracks whether it's free for the block and whether it's a takeover
+        const allCandidates = [];
 
         zones[currentMode].forEach(zone => {
             if (zone.name === "BIKES") return;
 
-            // Back counters first (iterate from end of array)
-            for (let c = zone.counters.length - 1; c >= 0; c--) {
-                const counter = zone.counters[c];
+            zone.counters.forEach(counter => {
 
-                // Counter must be fully free for the entire block duration
+                // Must be fully free for the entire block duration
                 let blockFree = true;
                 for (let t = blockStart; t < blockEnd; t++) {
                     const cell = document.querySelector(
@@ -825,42 +824,48 @@ document.addEventListener("DOMContentLoaded", function () {
                         break;
                     }
                 }
-                if (!blockFree) continue;
+                if (!blockFree) return;
 
                 // Was this counter active in the slot immediately before blockStart?
+                // If yes → takeover (someone just left/went on break)
                 const slotBefore = blockStart > 0
                     ? document.querySelector(
                         `.counter-cell[data-zone="${zone.name}"][data-time="${blockStart - 1}"][data-counter="${counter}"]`
                     )
                     : null;
+                const isTakeover = !!(slotBefore && slotBefore.classList.contains("active"));
 
-                const wasActiveJustBefore = slotBefore && slotBefore.classList.contains("active");
+                // Extract numeric part of counter for back-first sorting (e.g. AC10 → 10, DC8 → 8)
+                const counterNum = parseInt(counter.replace(/\D/g, "")) || 0;
 
-                // Zone ratio at blockStart for tie-breaking (lower = needs more coverage)
+                // Zone manning ratio at blockStart (lower = needs more help)
                 const zoneRatio = document.querySelectorAll(
                     `.counter-cell.active[data-zone="${zone.name}"][data-time="${blockStart}"]`
                 ).length / zone.counters.length;
 
-                if (wasActiveJustBefore) {
-                    takeoverCandidates.push({ zone: zone.name, counter, zoneRatio });
-                } else {
-                    newCounterCandidates.push({ zone: zone.name, counter, zoneRatio });
-                }
-            }
+                allCandidates.push({
+                    zone: zone.name,
+                    counter,
+                    isTakeover,
+                    counterNum,
+                    zoneRatio
+                });
+            });
         });
 
-        // Lowest-manned zone first within each priority tier
-        takeoverCandidates.sort((a, b) => a.zoneRatio - b.zoneRatio);
-        newCounterCandidates.sort((a, b) => a.zoneRatio - b.zoneRatio);
+        if (!allCandidates.length) return null;
 
-        if (takeoverCandidates.length > 0) {
-            return { zone: takeoverCandidates[0].zone, counter: takeoverCandidates[0].counter };
-        }
-        if (newCounterCandidates.length > 0) {
-            return { zone: newCounterCandidates[0].zone, counter: newCounterCandidates[0].counter };
-        }
+        // Sort priority:
+        // 1. Takeover counters first (someone just went on break there)
+        // 2. Within each tier: lowest-manned zone first
+        // 3. Within same zone: highest counter number first (back counters first)
+        allCandidates.sort((a, b) => {
+            if (b.isTakeover !== a.isTakeover) return b.isTakeover - a.isTakeover; // takeover first
+            if (a.zoneRatio !== b.zoneRatio) return a.zoneRatio - b.zoneRatio;     // lowest manning first
+            return b.counterNum - a.counterNum;                                      // back counter first
+        });
 
-        return null;
+        return { zone: allCandidates[0].zone, counter: allCandidates[0].counter };
     }
 
     function fillOTBlock(counterObj, blockStart, blockEnd, officerLabel) {
