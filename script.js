@@ -1155,3 +1155,4 @@ function copyTable(tableId) {
 
     navigator.clipboard.writeText(text);
     alert("Copied to clipboard!");
+}
