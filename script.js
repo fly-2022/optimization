@@ -790,17 +790,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * Priority order:
-     *  1. Cover zones below 50% manning first (deficit zones)
-     *  2. Back counters first within each zone (highest cNum = closest to main)
-     *  3. Chain-handoff groups of 3 to eliminate gaps on back counters:
-     *       A(+90):  X → block1,  Y → block2   |  Y runs CONTINUOUSLY
-     *       B(+135): Y → block1,  Z → block2   |  Z runs CONTINUOUSLY
-     *       C(+180): Z → block1,  X → block2   |  X has a gap (front counter)
+     * Chain-handoff groups of 3 [A(+90), B(+135), C(+180)]:
+     *   A: X(block1) → Y(block2)    Y = CONTINUOUS (B fills then A)
+     *   B: Y(block1) → Z(block2)    Z = CONTINUOUS (C fills then B)
+     *   C: Z(block1) → X(block2)    X = gap counter (front, acceptable)
      *
-     * X, Y, Z can come from ANY zone — no zone restrictions.
-     * Each group is picked fresh so manning % is re-evaluated after every fill.
-     * Works with any combination of main officers and OT count.
+     * Each counter is only checked against its OWN required time windows:
+     *   Y must be free: [sIdx→BK1] and [BKE0→end]
+     *   Z must be free: [sIdx→BK2] and [BKE1→end]
+     *   X must be free: [sIdx→BK0] and [BKE2→end]
+     * This lets OT use counters that main officers vacate mid-shift.
+     *
+     * Selection per group (re-evaluated live after every fill):
+     *   Y = highest free back counter in least-manned zone  (50% rule)
+     *   Z = highest free back counter overall for Z-windows
+     *   X = lowest free front counter overall for X-windows (gap falls here)
      * ================================================== */
 
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -825,7 +829,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // ── helpers ──────────────────────────────────────────────────────────
 
-        function counterFree(zone, counter, from, to) {
+        function blockFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
@@ -850,7 +854,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
 
-        // Manning % for a zone — re-evaluated live from the DOM
         function manning(zoneName) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z || !z.counters.length) return 1;
@@ -860,20 +863,21 @@ document.addEventListener("DOMContentLoaded", function () {
             return active / z.counters.length;
         }
 
-        // All free counters (full OT window), sorted by:
-        //   1. Zone manning % ASC  → under-manned zones get filled first (50% rule)
-        //   2. Counter cNum DESC   → back counters before front within each zone
-        // Re-called each group so priorities update as counters are filled.
-        function getAllFree() {
+        // Candidates for a role — checks only the windows that role actually needs
+        // Sorted: least-manned zone first, then highest cNum (back counters first)
+        function getCandidates(b1From, b1To, b2From, b2To, excludeCounters = []) {
             const list = [];
             nonBikeZones.forEach(zone => {
                 const m = manning(zone.name);
                 zone.counters.forEach(counter => {
-                    if (!counterFree(zone.name, counter, startIndex, effectiveEnd)) return;
+                    if (excludeCounters.includes(counter)) return;
+                    if (!blockFree(zone.name, counter, b1From, b1To)) return;
+                    if (!blockFree(zone.name, counter, b2From, b2To)) return;
                     const cNum = parseInt(counter.replace(/\D/g, "")) || 0;
                     list.push({ zone: zone.name, counter, cNum, manning: m });
                 });
             });
+            // Least-manned zone first (50% rule), then back counters first
             list.sort((a, b) =>
                 a.manning !== b.manning ? a.manning - b.manning : b.cNum - a.cNum
             );
@@ -887,32 +891,28 @@ document.addEventListener("DOMContentLoaded", function () {
             const remaining = count - i;
             const labelA = "OT" + (otGlobalCounter++);
 
-            // Re-evaluate free list each iteration — reflects current manning %
-            const free = getAllFree();
-            if (!free.length) break;
-
             if (remaining >= 3) {
                 const labelB = "OT" + (otGlobalCounter++);
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
 
-                if (free.length < 3) { console.warn("Not enough free counters"); break; }
+                // Y: free for B-block1 [sIdx→BK1] and A-block2 [BKE0→end]
+                const yCands = getCandidates(startIndex, BK[1], BKE[0], effectiveEnd);
+                if (!yCands.length) break;
+                const Y = yCands[0];
 
-                // Y = top of list: back counter in most under-manned zone → CONTINUOUS
-                const Y = free[0];
+                // Z: free for C-block1 [sIdx→BK2] and B-block2 [BKE1→end]
+                const zCands = getCandidates(startIndex, BK[2], BKE[1], effectiveEnd, [Y.counter]);
+                if (!zCands.length) break;
+                const Z = zCands[0];
 
-                // Z = next back counter in list (any zone) → CONTINUOUS
-                const Z = free.find(c => c.counter !== Y.counter);
-                if (!Z) break;
-
-                // X = the gap counter: pick the LOWEST cNum (front counter) from
-                // the most over-manned zone in the remaining list, so the gap
-                // falls where it matters least
-                const rest = free.filter(c => c.counter !== Y.counter && c.counter !== Z.counter);
-                if (!rest.length) break;
-                const X = rest.slice().sort((a, b) =>
-                    // most-manned zone first (gap hurts least there), then lowest cNum
-                    b.manning !== a.manning ? b.manning - a.manning : a.cNum - b.cNum
+                // X: free for A-block1 [sIdx→BK0] and C-block2 [BKE2→end]
+                // Pick LOWEST cNum (front counter) — the gap falls here
+                const xCands = getCandidates(startIndex, BK[0], BKE[2], effectiveEnd, [Y.counter, Z.counter]);
+                if (!xCands.length) break;
+                // Among valid candidates, pick the front counter (lowest cNum) in best zone
+                const X = xCands.slice().sort((a, b) =>
+                    a.manning !== b.manning ? a.manning - b.manning : a.cNum - b.cNum
                 )[0];
 
                 // A: X(block1) → Y(block2)
@@ -929,10 +929,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Remainder 1–2: same counter, unavoidable gap
                 for (let r = 0; r < remaining; r++) {
                     const lbl = r === 0 ? labelA : "OT" + (otGlobalCounter++);
-                    const f = getAllFree();
-                    if (!f.length) break;
-                    fillBlock(f[0].zone, f[0].counter, startIndex, BK[r % 3], lbl);
-                    fillBlock(f[0].zone, f[0].counter, BKE[r % 3], effectiveEnd, lbl);
+                    const cands = getCandidates(startIndex, BK[r % 3], BKE[r % 3], effectiveEnd);
+                    if (!cands.length) break;
+                    fillBlock(cands[0].zone, cands[0].counter, startIndex, BK[r % 3], lbl);
+                    fillBlock(cands[0].zone, cands[0].counter, BKE[r % 3], effectiveEnd, lbl);
                 }
                 break;
             }
