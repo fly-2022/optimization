@@ -863,8 +863,8 @@ document.addEventListener("DOMContentLoaded", function () {
             return active / z.counters.length;
         }
 
-        // Candidates for a role — checks only the windows that role actually needs
-        // Sorted: least-manned zone first, then highest cNum (back counters first)
+        // Candidates — counters free across given window(s), sorted:
+        //   least-manned zone first (50% rule), then highest cNum (back counters first)
         function getCandidates(b1From, b1To, b2From, b2To, excludeCounters = []) {
             const list = [];
             nonBikeZones.forEach(zone => {
@@ -896,23 +896,28 @@ document.addEventListener("DOMContentLoaded", function () {
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
 
-                // Y: free for B-block1 [sIdx→BK1] and A-block2 [BKE0→end]
-                const yCands = getCandidates(startIndex, BK[1], BKE[0], effectiveEnd);
-                if (!yCands.length) break;
-                const Y = yCands[0];
+                // Pick 3 candidates by zone/manning priority (least-manned first, back counters first):
+                //   P1 = top candidate overall
+                //   P2 = top candidate from a DIFFERENT zone than P1 (cross-zone spread)
+                //   P3 = top candidate from remaining (any zone)
+                const p1Cands = getCandidates(startIndex, effectiveEnd, startIndex, effectiveEnd);
+                if (!p1Cands.length) break;
+                const P1 = p1Cands[0];
 
-                // Z: free for C-block1 [sIdx→BK2] and B-block2 [BKE1→end]
-                // Must come from a DIFFERENT zone than Y (ensures cross-zone spread)
-                const zCands = getCandidates(startIndex, BK[2], BKE[1], effectiveEnd, [Y.counter])
-                    .filter(c => c.zone !== Y.zone);
-                if (!zCands.length) break;
-                const Z = zCands[0];
+                const p2Cands = getCandidates(startIndex, effectiveEnd, startIndex, effectiveEnd, [P1.counter])
+                    .filter(c => c.zone !== P1.zone);
+                if (!p2Cands.length) break;
+                const P2 = p2Cands[0];
 
-                // X: free for A-block1 [sIdx→BK0] and C-block2 [BKE2→end]
-                // Takes highest free counter in least-manned zone (same priority as Y/Z)
-                const xCands = getCandidates(startIndex, BK[0], BKE[2], effectiveEnd, [Y.counter, Z.counter]);
-                if (!xCands.length) break;
-                const X = xCands[0];
+                const p3Cands = getCandidates(startIndex, effectiveEnd, startIndex, effectiveEnd, [P1.counter, P2.counter]);
+                if (!p3Cands.length) break;
+                const P3 = p3Cands[0];
+
+                // Assign roles: lowest cNum → X (gap counter), higher two → Y and Z (continuous)
+                const trio = [P1, P2, P3].sort((a, b) => a.cNum - b.cNum);
+                const X = trio[0]; // lowest = gap (front counter)
+                const Y = trio[2]; // highest = Y (continuous: B fills then A)
+                const Z = trio[1]; // middle = Z (continuous: C fills then B)
 
                 // A: X(block1) → Y(block2)
                 fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
@@ -1154,4 +1159,3 @@ function copyTable(tableId) {
 
     navigator.clipboard.writeText(text);
     alert("Copied to clipboard!");
-}
