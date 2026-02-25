@@ -790,17 +790,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * Officers are distributed across zones (least-filled zone first).
-     * Within each zone, officers are grouped in sets of 3 using chain-handoff
-     * so that 2 of the 3 counters run CONTINUOUSLY (no gap):
+     * Priority order:
+     *  1. Cover zones below 50% manning first (deficit zones)
+     *  2. Back counters first within each zone (highest cNum = closest to main)
+     *  3. Chain-handoff groups of 3 to eliminate gaps on back counters:
+     *       A(+90):  X → block1,  Y → block2   |  Y runs CONTINUOUSLY
+     *       B(+135): Y → block1,  Z → block2   |  Z runs CONTINUOUSLY
+     *       C(+180): Z → block1,  X → block2   |  X has a gap (front counter)
      *
-     *   Pick 3 highest free counters in zone: Y(highest), Z(2nd), X(3rd/lowest)
-     *   A(+90 break):  X block1 → Y block2    |  Y = CONTINUOUS (B then A)
-     *   B(+135 break): Y block1 → Z block2    |  Z = CONTINUOUS (C then B)
-     *   C(+180 break): Z block1 → X block2    |  X = gap (A+C only, front counter)
-     *
-     * Leftover officers (remainder 1 or 2) get their own counter — unavoidable gap.
-     * All assignments stay within the same zone — no cross-zone handoffs.
+     * X, Y, Z can come from ANY zone — no zone restrictions.
+     * Each group is picked fresh so manning % is re-evaluated after every fill.
+     * Works with any combination of main officers and OT count.
      * ================================================== */
 
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -835,24 +835,6 @@ document.addEventListener("DOMContentLoaded", function () {
             return true;
         }
 
-        // Free counters in a zone for the full OT window, sorted back→front (high cNum first)
-        function freeInZone(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return [];
-            return z.counters
-                .filter(c => counterFree(zoneName, c, startIndex, effectiveEnd))
-                .sort((a, b) =>
-                    (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
-                );
-        }
-
-        // Active counters in zone at startIndex (for zone ratio / spread)
-        function zoneActiveCount(zoneName) {
-            return document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zoneName}"][data-time="${startIndex}"]`
-            ).length;
-        }
-
         function fillBlock(zone, counter, from, to, label) {
             for (let t = from; t < to; t++) {
                 const cell = document.querySelector(
@@ -866,103 +848,95 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // ── distribute officer slots across zones ─────────────────────────────
-        // Each zone gets slots proportional to its free counters, totalling = count.
         const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
 
-        function computeSlots() {
-            const freeCounts = nonBikeZones.map(z => ({
-                name: z.name,
-                free: freeInZone(z.name).length
-            }));
-            const totalFree = freeCounts.reduce((s, z) => s + z.free, 0);
-            if (totalFree === 0) return freeCounts.map(z => ({ name: z.name, slots: 0 }));
-
-            // Proportional share, rounded, summing to count
-            let slots = freeCounts.map(z => ({
-                name: z.name,
-                slots: Math.floor(count * z.free / totalFree),
-                rem: (count * z.free / totalFree) % 1,
-                free: z.free
-            }));
-            let assigned = slots.reduce((s, z) => s + z.slots, 0);
-            // Distribute remainder to zones with largest fractional part
-            slots.sort((a, b) => b.rem - a.rem);
-            for (let i = 0; assigned < count; i++) {
-                slots[i % slots.length].slots++;
-                assigned++;
-            }
-            return slots;
+        // Manning % for a zone — re-evaluated live from the DOM
+        function manning(zoneName) {
+            const z = zones[currentMode].find(z => z.name === zoneName);
+            if (!z || !z.counters.length) return 1;
+            const active = document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zoneName}"][data-time="${startIndex}"]`
+            ).length;
+            return active / z.counters.length;
         }
 
-        const zoneSlots = computeSlots();
-        // Sort zones: least active first (even spread)
-        zoneSlots.sort((a, b) => zoneActiveCount(a.name) - zoneActiveCount(b.name));
+        // All free counters (full OT window), sorted by:
+        //   1. Zone manning % ASC  → under-manned zones get filled first (50% rule)
+        //   2. Counter cNum DESC   → back counters before front within each zone
+        // Re-called each group so priorities update as counters are filled.
+        function getAllFree() {
+            const list = [];
+            nonBikeZones.forEach(zone => {
+                const m = manning(zone.name);
+                zone.counters.forEach(counter => {
+                    if (!counterFree(zone.name, counter, startIndex, effectiveEnd)) return;
+                    const cNum = parseInt(counter.replace(/\D/g, "")) || 0;
+                    list.push({ zone: zone.name, counter, cNum, manning: m });
+                });
+            });
+            list.sort((a, b) =>
+                a.manning !== b.manning ? a.manning - b.manning : b.cNum - a.cNum
+            );
+            return list;
+        }
 
-        // ── assign officers zone by zone ──────────────────────────────────────
-        let breakCycleIdx = 0; // cycles 0,1,2 across all officer assignments
+        // ── main loop ────────────────────────────────────────────────────────
 
-        zoneSlots.forEach(({ name: zoneName, slots }) => {
-            if (slots <= 0) return;
+        let i = 0;
+        while (i < count) {
+            const remaining = count - i;
+            const labelA = "OT" + (otGlobalCounter++);
 
-            const free = freeInZone(zoneName); // sorted back→front
-            // Assign officers in groups of 3, then leftovers
-            let assignedInZone = 0;
+            // Re-evaluate free list each iteration — reflects current manning %
+            const free = getAllFree();
+            if (!free.length) break;
 
-            while (assignedInZone < slots) {
-                const remaining = slots - assignedInZone;
+            if (remaining >= 3) {
+                const labelB = "OT" + (otGlobalCounter++);
+                const labelC = "OT" + (otGlobalCounter++);
+                i += 3;
 
-                if (remaining >= 3) {
-                    // Chain-handoff group of 3
-                    // Y = free[0] (highest = closest to main), Z = free[1], X = free[2] (lowest = front)
-                    const Yi = assignedInZone;     // index into free[] for Y
-                    const Zi = assignedInZone + 1; // Z
-                    const Xi = assignedInZone + 2; // X
+                if (free.length < 3) { console.warn("Not enough free counters"); break; }
 
-                    if (Xi >= free.length) break; // not enough free counters
+                // Y = top of list: back counter in most under-manned zone → CONTINUOUS
+                const Y = free[0];
 
-                    const Y = { zone: zoneName, counter: free[Yi] };
-                    const Z = { zone: zoneName, counter: free[Zi] };
-                    const X = { zone: zoneName, counter: free[Xi] };
+                // Z = next back counter in list (any zone) → CONTINUOUS
+                const Z = free.find(c => c.counter !== Y.counter);
+                if (!Z) break;
 
-                    const bkA = BK[breakCycleIdx % 3], bkAE = BKE[breakCycleIdx % 3];
-                    const bkB = BK[(breakCycleIdx + 1) % 3], bkBE = BKE[(breakCycleIdx + 1) % 3];
-                    const bkC = BK[(breakCycleIdx + 2) % 3], bkCE = BKE[(breakCycleIdx + 2) % 3];
-                    breakCycleIdx += 3;
+                // X = the gap counter: pick the LOWEST cNum (front counter) from
+                // the most over-manned zone in the remaining list, so the gap
+                // falls where it matters least
+                const rest = free.filter(c => c.counter !== Y.counter && c.counter !== Z.counter);
+                if (!rest.length) break;
+                const X = rest.slice().sort((a, b) =>
+                    // most-manned zone first (gap hurts least there), then lowest cNum
+                    b.manning !== a.manning ? b.manning - a.manning : a.cNum - b.cNum
+                )[0];
 
-                    const lA = "OT" + (otGlobalCounter++);
-                    const lB = "OT" + (otGlobalCounter++);
-                    const lC = "OT" + (otGlobalCounter++);
+                // A: X(block1) → Y(block2)
+                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
+                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
+                // B: Y(block1) → Z(block2)
+                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
+                fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB);
+                // C: Z(block1) → X(block2)
+                fillBlock(Z.zone, Z.counter, startIndex, BK[2], labelC);
+                fillBlock(X.zone, X.counter, BKE[2], effectiveEnd, labelC);
 
-                    // A: X(block1) → Y(block2)
-                    fillBlock(X.zone, X.counter, startIndex, bkA, lA);
-                    fillBlock(Y.zone, Y.counter, bkAE, effectiveEnd, lA);
-                    // B: Y(block1) → Z(block2)
-                    fillBlock(Y.zone, Y.counter, startIndex, bkB, lB);
-                    fillBlock(Z.zone, Z.counter, bkBE, effectiveEnd, lB);
-                    // C: Z(block1) → X(block2)
-                    fillBlock(Z.zone, Z.counter, startIndex, bkC, lC);
-                    fillBlock(X.zone, X.counter, bkCE, effectiveEnd, lC);
-
-                    assignedInZone += 3;
-
-                } else {
-                    // Solo or pair — same counter, unavoidable gap
-                    for (let r = 0; r < remaining; r++) {
-                        const ci = assignedInZone + r;
-                        if (ci >= free.length) break;
-                        const counter = free[ci];
-                        const bkS = BK[breakCycleIdx % 3];
-                        const bkE = BKE[breakCycleIdx % 3];
-                        breakCycleIdx++;
-                        const lbl = "OT" + (otGlobalCounter++);
-                        fillBlock(zoneName, counter, startIndex, bkS, lbl);
-                        fillBlock(zoneName, counter, bkE, effectiveEnd, lbl);
-                    }
-                    assignedInZone += remaining;
+            } else {
+                // Remainder 1–2: same counter, unavoidable gap
+                for (let r = 0; r < remaining; r++) {
+                    const lbl = r === 0 ? labelA : "OT" + (otGlobalCounter++);
+                    const f = getAllFree();
+                    if (!f.length) break;
+                    fillBlock(f[0].zone, f[0].counter, startIndex, BK[r % 3], lbl);
+                    fillBlock(f[0].zone, f[0].counter, BKE[r % 3], effectiveEnd, lbl);
                 }
+                break;
             }
-        });
+        }
 
         updateAll();
         updateOTRosterTable();
@@ -1181,4 +1155,3 @@ function copyTable(tableId) {
 
     navigator.clipboard.writeText(text);
     alert("Copied to clipboard!");
-}
