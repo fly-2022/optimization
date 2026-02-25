@@ -240,7 +240,7 @@ function updateSubtotals() {
         let zone = td.dataset.zone;
         let time = td.dataset.time;
         let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone}"][data-time="${time}"]`)];
-        let sum = cells.filter(c => c.dataset.type === "main" || c.dataset.type === "ot" || c.dataset.type === "sos").length;
+        let sum = cells.filter(c => c.classList.contains("active")).length;
         td.innerText = sum;
     });
 }
@@ -803,21 +803,6 @@ document.addEventListener("DOMContentLoaded", function () {
      * All assignments stay within the same zone — no cross-zone handoffs.
      * ================================================== */
 
-    function isCellFreeForOT(zone, counter, timeIndex) {
-        const cell = document.querySelector(
-            `.counter-cell[data-zone="${zone}"][data-time="${timeIndex}"][data-counter="${counter}"]`
-        );
-
-        if (!cell) return false;
-
-        // If any manpower already there → reject
-        if (cell.dataset.type === "main") return false;
-        if (cell.dataset.type === "ot") return false;
-        if (cell.dataset.type === "sos") return false;
-
-        return true;
-    }
-
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
 
@@ -845,7 +830,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
                 );
-                if (!isCellFreeForOT(zone.name, counter, t)) return false;
+                if (!cell || cell.classList.contains("active")) return false;
             }
             return true;
         }
