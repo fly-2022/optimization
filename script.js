@@ -790,15 +790,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ================== OT ALLOCATION ==================
      *
-     * Chain-handoff: groups of 3 [A, B, C] → counters X, Y, Z
-     *   A: X(block1) → Y(block2)   |  Y = CONTINUOUS (B then A)
-     *   B: Y(block1) → Z(block2)   |  Z = CONTINUOUS (C then B)
-     *   C: Z(block1) → X(block2)   |  X = gap counter (front, acceptable)
+     * Each OT officer is assigned ONE counter for their whole shift:
+     *   Block 1: otStart → break
+     *   Break:   45 min
+     *   Block 2: breakEnd → effectiveEnd   (same counter)
      *
-     * Zone balancing: each zone gets at most ceil(count/numZones) block-1 openings.
-     * Within a zone, highest free counter number picked first (back counters).
-     * X cycles through zones so gap counters spread evenly.
-     * Fully dynamic — works with any number of main + OT officers.
+     * Counter selection — re-evaluated live for each officer:
+     *   1. Least-filled zone first (even spread across zones)
+     *   2. Highest free counter number within that zone (fills from just
+     *      below main officers downward, no skipping)
+     *
+     * Break times cycle +90 / +135 / +180 min from otStart so gaps
+     * stagger across rows. Fully dynamic — adapts to any main schedule.
      * ================================================== */
 
     function allocateOTOfficers(count, otStart, otEnd) {
@@ -821,48 +824,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
         const BKE = BK.map(b => b + breakSlots);
 
-        // ── zone balancing ───────────────────────────────────────────────────
-        const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
-        const zoneOpenings = {};
-        nonBikeZones.forEach(z => zoneOpenings[z.name] = 0);
-
-        // Cap per zone = proportional share of OT count based on how many
-        // free counters each zone actually has (reflects real main officer schedule).
-        // Recomputed dynamically so it always matches the live grid.
-        function computeMaxPerZone() {
-            const freeCounts = {};
-            let totalFree = 0;
-            nonBikeZones.forEach(z => {
-                const n = z.counters.filter(c => {
-                    const cell = document.querySelector(
-                        `.counter-cell[data-zone="${z.name}"][data-time="${startIndex}"][data-counter="${c}"]`
-                    );
-                    return cell && !cell.classList.contains("active");
-                }).length;
-                freeCounts[z.name] = n;
-                totalFree += n;
-            });
-            // Each zone gets a share proportional to its free counters, min 1
-            const maxPerZone = {};
-            let assigned = 0;
-            nonBikeZones.forEach(z => {
-                const share = totalFree > 0
-                    ? Math.max(1, Math.round(count * freeCounts[z.name] / totalFree))
-                    : Math.ceil(count / nonBikeZones.length);
-                maxPerZone[z.name] = share;
-                assigned += share;
-            });
-            // Adjust rounding errors so total = count
-            let diff = count - assigned;
-            const sorted = [...nonBikeZones].sort((a, b) => freeCounts[b.name] - freeCounts[a.name]);
-            for (let i = 0; diff !== 0; i = (i + 1) % sorted.length) {
-                if (diff > 0) { maxPerZone[sorted[i].name]++; diff--; }
-                else { if (maxPerZone[sorted[i].name] > 1) { maxPerZone[sorted[i].name]--; diff++; } }
-            }
-            return maxPerZone;
-        }
-        const maxPerZone = computeMaxPerZone();
-
         // ── helpers ──────────────────────────────────────────────────────────
 
         function counterFree(zone, counter, from, to) {
@@ -875,32 +836,36 @@ document.addEventListener("DOMContentLoaded", function () {
             return true;
         }
 
-        // Highest free counter in zone (back first), optionally excluding some counters
-        function bestInZone(zoneName, from, to, excludeCounters = []) {
+        // Active counters in zone at a given slot (re-evaluated each call)
+        function zoneRatio(zoneName, slot) {
             const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return null;
-            const c = z.counters
-                .filter(c => !excludeCounters.includes(c) && counterFree(zoneName, c, from, to))
-                .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
-            return c ? { zone: zoneName, counter: c } : null;
+            if (!z) return 1;
+            return document.querySelectorAll(
+                `.counter-cell.active[data-zone="${zoneName}"][data-time="${slot}"]`
+            ).length / z.counters.length;
         }
 
-        // Lowest free counter in zone (front first)
-        function frontInZone(zoneName, from, to, excludeCounters = []) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return null;
-            const c = z.counters
-                .filter(c => !excludeCounters.includes(c) && counterFree(zoneName, c, from, to))
-                .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-            return c ? { zone: zoneName, counter: c } : null;
-        }
-
-        // Zones sorted by openings count asc, optionally filtered to under-cap only
-        function sortedZones(excludeZones = [], underCapOnly = false) {
-            return nonBikeZones
-                .filter(z => !excludeZones.includes(z.name) &&
-                    (!underCapOnly || zoneOpenings[z.name] < maxPerZone[z.name]))
-                .sort((a, b) => zoneOpenings[a.name] - zoneOpenings[b.name]);
+        // Best free counter for a given window:
+        //   - least-filled zone first (spreads OT evenly)
+        //   - highest counter number within that zone (fills from back/main downward)
+        function findBest(bkStart, bkEnd) {
+            const candidates = [];
+            zones[currentMode].forEach(zone => {
+                if (zone.name === "BIKES") return;
+                const ratio = zoneRatio(zone.name, startIndex);
+                zone.counters.forEach(counter => {
+                    // Must be free for both block1 AND block2
+                    if (!counterFree(zone.name, counter, startIndex, bkStart)) return;
+                    if (!counterFree(zone.name, counter, bkEnd, effectiveEnd)) return;
+                    const cNum = parseInt(counter.replace(/\D/g, "")) || 0;
+                    candidates.push({ zone: zone.name, counter, cNum, ratio });
+                });
+            });
+            // Least-filled zone first, then highest counter number (back → front)
+            candidates.sort((a, b) =>
+                a.ratio !== b.ratio ? a.ratio - b.ratio : b.cNum - a.cNum
+            );
+            return candidates[0] || null;
         }
 
         function fillBlock(zone, counter, from, to, label) {
@@ -916,101 +881,20 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        const zoneNames = nonBikeZones.map(z => z.name);
-        let xZoneIdx = 0;
+        // ── assign each officer ───────────────────────────────────────────────
 
-        function pickBest(excludeZones = [], excludeCounters = [], underCapOnly = true) {
-            const zList = sortedZones(excludeZones, underCapOnly);
-            for (const z of zList) {
-                const c = bestInZone(z.name, startIndex, effectiveEnd, excludeCounters);
-                if (c) return c;
-            }
-            if (underCapOnly) {
-                // Fallback: ignore cap
-                for (const z of sortedZones(excludeZones, false)) {
-                    const c = bestInZone(z.name, startIndex, effectiveEnd, excludeCounters);
-                    if (c) return c;
-                }
-            }
-            return null;
-        }
+        for (let i = 0; i < count; i++) {
+            const label = "OT" + (otGlobalCounter++);
+            const bkS = BK[i % 3];
+            const bkE = BKE[i % 3];
 
-        function pickFront(excludeCounters = [], underCapOnly = true) {
-            for (let attempt = 0; attempt < zoneNames.length; attempt++) {
-                const zn = zoneNames[(xZoneIdx + attempt) % zoneNames.length];
-                if (underCapOnly && zoneOpenings[zn] >= maxPerZone[zn]) continue;
-                const c = frontInZone(zn, startIndex, effectiveEnd, excludeCounters);
-                if (c) {
-                    xZoneIdx = (xZoneIdx + attempt + 1) % zoneNames.length;
-                    return c;
-                }
-            }
-            if (underCapOnly) return pickFront(excludeCounters, false);
-            return null;
-        }
+            if (bkS < startIndex || bkS >= effectiveEnd) continue;
 
-        function pickGroup() {
-            const Y = pickBest([], []);
-            if (!Y) return null;
-            const Z = pickBest([Y.zone], [Y.counter]);
-            if (!Z) return null;
-            const X = pickFront([Y.counter, Z.counter]);
-            if (!X) return null;
-            return { X, Y, Z };
-        }
+            const best = findBest(bkS, bkE);
+            if (!best) { console.warn(`${label}: no counter available`); continue; }
 
-        // ── main loop ────────────────────────────────────────────────────────
-
-        let i = 0;
-        while (i < count) {
-            const remaining = count - i;
-            const labelA = "OT" + (otGlobalCounter++);
-
-            if (remaining >= 3) {
-                const labelB = "OT" + (otGlobalCounter++);
-                const labelC = "OT" + (otGlobalCounter++);
-                i += 3;
-
-                const g = pickGroup();
-                if (!g) { console.warn("Not enough counters"); break; }
-
-                // Register openings BEFORE filling so next group sees updated counts
-                zoneOpenings[g.X.zone]++;
-                zoneOpenings[g.Y.zone]++;
-                zoneOpenings[g.Z.zone]++;
-
-                fillBlock(g.X.zone, g.X.counter, startIndex, BK[0], labelA);
-                fillBlock(g.Y.zone, g.Y.counter, BKE[0], effectiveEnd, labelA);
-                fillBlock(g.Y.zone, g.Y.counter, startIndex, BK[1], labelB);
-                fillBlock(g.Z.zone, g.Z.counter, BKE[1], effectiveEnd, labelB);
-                fillBlock(g.Z.zone, g.Z.counter, startIndex, BK[2], labelC);
-                fillBlock(g.X.zone, g.X.counter, BKE[2], effectiveEnd, labelC);
-
-            } else if (remaining === 2) {
-                const labelB = "OT" + (otGlobalCounter++);
-                i += 2;
-
-                const Y = pickBest([], []);
-                const X = pickFront(Y ? [Y.counter] : []);
-                if (X && Y) {
-                    zoneOpenings[X.zone]++;
-                    zoneOpenings[Y.zone]++;
-                    fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
-                    fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                    fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
-                    const Z = pickBest([Y.zone], [Y.counter]);
-                    if (Z) { zoneOpenings[Z.zone]++; fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB); }
-                }
-
-            } else {
-                i += 1;
-                const Y = pickBest([], []);
-                if (Y) {
-                    zoneOpenings[Y.zone]++;
-                    fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelA);
-                    fillBlock(Y.zone, Y.counter, BKE[1], effectiveEnd, labelA);
-                }
-            }
+            fillBlock(best.zone, best.counter, startIndex, bkS, label); // block 1
+            fillBlock(best.zone, best.counter, bkE, effectiveEnd, label); // block 2
         }
 
         updateAll();
