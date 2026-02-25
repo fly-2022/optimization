@@ -902,18 +902,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 const Y = yCands[0];
 
                 // Z: free for C-block1 [sIdx→BK2] and B-block2 [BKE1→end]
-                const zCands = getCandidates(startIndex, BK[2], BKE[1], effectiveEnd, [Y.counter]);
+                // Must come from a DIFFERENT zone than Y (ensures cross-zone spread)
+                const zCands = getCandidates(startIndex, BK[2], BKE[1], effectiveEnd, [Y.counter])
+                    .filter(c => c.zone !== Y.zone);
                 if (!zCands.length) break;
                 const Z = zCands[0];
 
                 // X: free for A-block1 [sIdx→BK0] and C-block2 [BKE2→end]
-                // Pick LOWEST cNum (front counter) — the gap falls here
+                // Takes highest free counter in least-manned zone (same priority as Y/Z)
                 const xCands = getCandidates(startIndex, BK[0], BKE[2], effectiveEnd, [Y.counter, Z.counter]);
                 if (!xCands.length) break;
-                // Among valid candidates, pick the front counter (lowest cNum) in best zone
-                const X = xCands.slice().sort((a, b) =>
-                    a.manning !== b.manning ? a.manning - b.manning : a.cNum - b.cNum
-                )[0];
+                const X = xCands[0];
 
                 // A: X(block1) → Y(block2)
                 fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
