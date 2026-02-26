@@ -826,8 +826,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
         const BKE = BK.map(b => b + breakSlots);
-        const gapWinStart = BK[0];   // start of gap window (e.g. 1730)
-        const gapWinEnd = BKE[2];  // end of gap window   (e.g. 1945)
+        const gapWinStart = BK[0];   // 1730 — when X goes on break
+        const gapWinEnd = BKE[2];  // 1945 — when X returns
 
         function blockFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
@@ -844,9 +844,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const cell = document.querySelector(
                     `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
                 );
-                if (!cell) continue;
-                // Only fill if slot is currently free
-                if (cell.classList.contains("active")) continue;
+                if (!cell || cell.classList.contains("active")) continue;
                 cell.classList.add("active");
                 cell.style.background = currentColor;
                 cell.dataset.officer = label;
@@ -864,15 +862,22 @@ document.addEventListener("DOMContentLoaded", function () {
             ).length / z.counters.length;
         }
 
-        // Counters free for a given back-block window, sorted highest cNum first
-        function getCands(zoneName, backFrom, backTo, exclude = []) {
+        // Counters that are NOT yet active at OT start (not current main officers)
+        // AND free for at least one back block. Sorted descending (back-counters first).
+        function fullyFreeDesc(zoneName) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
-            return z.counters
-                .filter(c => !exclude.includes(c) && blockFree(zoneName, c, backFrom, backTo))
-                .sort((a, b) =>
-                    (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
+            return z.counters.filter(c => {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${zoneName}"][data-time="${startIndex}"][data-counter="${c}"]`
                 );
+                if (!cell || cell.classList.contains("active")) return false; // skip active-at-start
+                return blockFree(zoneName, c, BKE[0], effectiveEnd) ||
+                    blockFree(zoneName, c, BKE[1], effectiveEnd) ||
+                    blockFree(zoneName, c, BKE[2], effectiveEnd);
+            }).sort((a, b) =>
+                (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
+            );
         }
 
         // ── equal zone quotas ─────────────────────────────────────────────────
@@ -882,20 +887,26 @@ document.addEventListener("DOMContentLoaded", function () {
             const base = Math.floor(count / n);
             const rem = count - base * n;
             nonBikeZones.forEach(z => zoneQuota[z.name] = base);
-            // Remainder to zones with most free back-block candidates
             [...nonBikeZones]
-                .sort((a, b) =>
-                    getCands(b.name, startIndex, effectiveEnd).length -
-                    getCands(a.name, startIndex, effectiveEnd).length
-                )
+                .sort((a, b) => fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length)
                 .slice(0, rem)
                 .forEach(z => zoneQuota[z.name]++);
         }
 
+        // ── pre-select pool per zone ──────────────────────────────────────────
+        // Take the top `quota` back-counters (highest cNum = closest to main).
+        // Within this pool:
+        //   X = lowest counter in pool (front-most of the selected group → gets the gap)
+        //   Y/Z = higher counters (back-most → continuous, closer to main)
+        // This ensures OT fills from the back (adjacent to main) inward.
+        const zonePool = {};
+        nonBikeZones.forEach(z => {
+            zonePool[z.name] = fullyFreeDesc(z.name).slice(0, zoneQuota[z.name]);
+        });
+
         // ── max gaps per zone ─────────────────────────────────────────────────
-        // During the gap window (BK[0]→BKE[2]), X counters are inactive.
-        // Max gaps a zone can absorb = min_main_during_gap + quota - minRequired.
-        // This ensures: main_during_gap + continuous_OT - gaps >= minRequired.
+        // max_gaps = min_main_during_gap + quota - minRequired
+        // Prevents any zone from dropping below 50% during 1730-1945.
         const maxGaps = {}, gapsUsed = {};
         nonBikeZones.forEach(z => {
             const minRequired = Math.ceil(z.counters.length / 2);
@@ -910,6 +921,14 @@ document.addEventListener("DOMContentLoaded", function () {
             gapsUsed[z.name] = 0;
         });
 
+        // ── available pool (consumed as counters are assigned) ────────────────
+        const available = {};
+        nonBikeZones.forEach(z => { available[z.name] = [...zonePool[z.name]]; });
+
+        function useCounter(zoneName, counter) {
+            available[zoneName] = available[zoneName].filter(c => c !== counter);
+        }
+
         // ── main loop ─────────────────────────────────────────────────────────
         let i = 0;
         while (i < count) {
@@ -921,68 +940,71 @@ document.addEventListener("DOMContentLoaded", function () {
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
 
-                // 3 least-manned zones with quota remaining
                 const availZones = nonBikeZones
-                    .filter(z => zoneQuota[z.name] > 0)
+                    .filter(z => available[z.name].length > 0)
                     .sort((a, b) => manning(a.name) - manning(b.name));
                 if (availZones.length < 3) break;
+                const top3 = availZones.slice(0, 3);
 
-                // For each zone pick the highest-cNum counter free for ANY back block
-                const picks = [];
-                for (const z of availZones) {
-                    if (picks.length >= 3) break;
-                    const excl = picks.map(p => p.counter);
-                    const yC = getCands(z.name, BKE[0], effectiveEnd, excl);
-                    const zC = getCands(z.name, BKE[1], effectiveEnd, excl);
-                    const xC = getCands(z.name, BKE[2], effectiveEnd, excl);
-                    const all = [...new Set([...yC, ...zC, ...xC])]
-                        .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
-                    if (!all.length) continue;
-                    const best = all[0];
-                    picks.push({
-                        zone: z.name, counter: best,
-                        cNum: parseInt(best.replace(/\D/g, "")) || 0,
-                        canY: yC.includes(best),
-                        canZ: zC.includes(best),
-                        canX: xC.includes(best)
-                    });
+                // X zone: first in top3 with gap budget; X counter = LOWEST in its pool
+                let xZone = null, xCounter = null;
+                for (const z of top3) {
+                    if (gapsUsed[z.name] >= maxGaps[z.name]) continue;
+                    const xC = available[z.name]
+                        .filter(c => blockFree(z.name, c, BKE[2], effectiveEnd))
+                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                    if (xC) { xZone = z; xCounter = xC; break; }
                 }
-                if (picks.length < 3) break;
-                picks.forEach(p => zoneQuota[p.zone]--);
+                if (!xZone) {
+                    xZone = top3[0];
+                    xCounter = available[xZone.name]
+                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                }
 
-                // Sort by cNum ascending; assign X to lowest-cNum pick that:
-                //   (a) canX, and (b) zone hasn't exceeded maxGaps
-                picks.sort((a, b) => a.cNum - b.cNum);
-                let xIdx = picks.findIndex(p => p.canX && gapsUsed[p.zone] < maxGaps[p.zone]);
-                if (xIdx === -1) xIdx = picks.findIndex(p => gapsUsed[p.zone] < maxGaps[p.zone]);
-                if (xIdx === -1) xIdx = 0; // fallback
+                const yzZones = top3.filter(z => z !== xZone);
 
-                const X = picks[xIdx];
-                const rest = picks.filter((_, j) => j !== xIdx).sort((a, b) => b.cNum - a.cNum);
-                const Y = rest[0], Z = rest[1];
-                gapsUsed[X.zone]++;
+                // Y counter: HIGHEST in pool free for Y back block
+                const yZone = yzZones[0];
+                const yCounter = available[yZone.name]
+                    .filter(c => blockFree(yZone.name, c, BKE[0], effectiveEnd))
+                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
 
-                // Fill — front blocks skip already-occupied slots (handles partial main coverage)
-                fillBlock(X.zone, X.counter, startIndex, BK[0], labelA);
-                fillBlock(Y.zone, Y.counter, BKE[0], effectiveEnd, labelA);
-                fillBlock(Y.zone, Y.counter, startIndex, BK[1], labelB);
-                fillBlock(Z.zone, Z.counter, BKE[1], effectiveEnd, labelB);
-                fillBlock(Z.zone, Z.counter, startIndex, BK[2], labelC);
-                fillBlock(X.zone, X.counter, BKE[2], effectiveEnd, labelC);
+                // Z counter: HIGHEST in pool free for Z back block
+                const zZone = yzZones[1];
+                const zCounter = available[zZone.name]
+                    .filter(c => blockFree(zZone.name, c, BKE[1], effectiveEnd))
+                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
+
+                if (!xCounter || !yCounter || !zCounter) break;
+                useCounter(xZone.name, xCounter);
+                useCounter(yZone.name, yCounter);
+                useCounter(zZone.name, zCounter);
+                gapsUsed[xZone.name]++;
+
+                // Chain fills — front blocks skip occupied slots (handles partial main handoff)
+                fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
+                fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
+                fillBlock(yZone.name, yCounter, startIndex, BK[1], labelB);
+                fillBlock(zZone.name, zCounter, BKE[1], effectiveEnd, labelB);
+                fillBlock(zZone.name, zCounter, startIndex, BK[2], labelC);
+                fillBlock(xZone.name, xCounter, BKE[2], effectiveEnd, labelC);
 
             } else {
                 // Remainder 1–2: unavoidable gap
                 for (let r = 0; r < remaining; r++) {
                     const lbl = r === 0 ? labelA : "OT" + (otGlobalCounter++);
                     const z = nonBikeZones
-                        .filter(z => zoneQuota[z.name] > 0 &&
-                            getCands(z.name, BKE[r % 3], effectiveEnd).length > 0)
+                        .filter(z => available[z.name].length > 0)
                         .sort((a, b) => manning(a.name) - manning(b.name))[0];
                     if (!z) break;
-                    const f = getCands(z.name, BKE[r % 3], effectiveEnd);
-                    zoneQuota[z.name]--;
-                    fillBlock(z.name, f[0], startIndex, BK[r % 3], lbl);
-                    fillBlock(z.name, f[0], BKE[r % 3], effectiveEnd, lbl);
+                    // remainder: lowest remaining pool counter gets the gap
+                    const c = available[z.name]
+                        .filter(cn => blockFree(z.name, cn, BKE[r % 3], effectiveEnd))
+                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                    if (!c) break;
+                    useCounter(z.name, c);
+                    fillBlock(z.name, c, startIndex, BK[r % 3], lbl);
+                    fillBlock(z.name, c, BKE[r % 3], effectiveEnd, lbl);
                 }
                 break;
             }
