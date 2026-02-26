@@ -813,10 +813,16 @@ document.addEventListener("DOMContentLoaded", function () {
         let startIndex = times.findIndex(t => t === otStart);
         let endIndex = times.findIndex(t => t === otEnd);
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
-        if (endIndex === -1) endIndex = times.length;
 
         const releaseSlots = 30 / 15;
-        const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
+        let effectiveEnd;
+        if (endIndex === -1) {
+            // otEnd is beyond the grid (e.g. night 0600-1100 where grid ends 0945)
+            // Use the last slot of the grid — no release deduction since shift already ends
+            effectiveEnd = times.length - 1;
+        } else {
+            effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
+        }
         const breakSlots = 45 / 15;
 
         function addMins(timeStr, mins) {
@@ -832,8 +838,8 @@ document.addEventListener("DOMContentLoaded", function () {
             return idx === -1 ? effectiveEnd : idx;
         });
         const BKE = BK.map(b => b + breakSlots);
-        // Number of usable breaks: how many BKE[n] < effectiveEnd
-        const numBreaks = BKE.filter(b => b < effectiveEnd).length;  // 0, 1, 2, or 3
+        // Number of usable breaks: how many BKE[n] <= effectiveEnd
+        const numBreaks = BKE.filter(b => b <= effectiveEnd).length;  // 0, 1, 2, or 3
         const gapWinStart = numBreaks > 0 ? BK[0] : startIndex;
         const gapWinEnd = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
 
