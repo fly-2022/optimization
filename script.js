@@ -945,14 +945,17 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ── main loop ─────────────────────────────────────────────────────────
-        // Group size = numBreaks (3 for full window, 2 for medium, 1 for short, 0 = solo)
-        const groupSize = Math.max(1, numBreaks); // at least 1 per iteration
+        // Use the largest chain that fits:
+        //   numBreaks >= 3 → groups of 3 (full morning chain: X has gap, Y/Z continuous)
+        //   numBreaks == 2 → groups of 2 (A: X[start→BK0]+Y[BKE1→end], B: Y[start→BK1]+X[BKE1→end])
+        //   numBreaks <= 1 → solo fill (straight through, no chain)
         let i = 0;
         while (i < count) {
             const remaining = count - i;
             const labelA = "OT" + (otGlobalCounter++);
 
             if (remaining >= 3 && numBreaks >= 3) {
+                // ── 3-person chain ──────────────────────────────────────────
                 const labelB = "OT" + (otGlobalCounter++);
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
@@ -979,14 +982,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 const yzZones = top3.filter(z => z !== xZone);
-
-                // Y counter: HIGHEST in pool free for Y back block
                 const yZone = yzZones[0];
                 const yCounter = available[yZone.name]
                     .filter(c => blockFree(yZone.name, c, BKE[0], effectiveEnd))
                     .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
-
-                // Z counter: HIGHEST in pool free for Z back block
                 const zZone = yzZones[1];
                 const zCounter = available[zZone.name]
                     .filter(c => blockFree(zZone.name, c, BKE[1], effectiveEnd))
@@ -998,7 +997,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 useCounter(zZone.name, zCounter);
                 gapsUsed[xZone.name]++;
 
-                // Chain fills — front blocks skip occupied slots (handles partial main handoff)
                 fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
                 fillBlock(yZone.name, yCounter, startIndex, BK[1], labelB);
@@ -1006,14 +1004,58 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(zZone.name, zCounter, startIndex, BK[2], labelC);
                 fillBlock(xZone.name, xCounter, BKE[2], effectiveEnd, labelC);
 
+            } else if (remaining >= 2 && numBreaks >= 2) {
+                // ── 2-person chain ──────────────────────────────────────────
+                // A: X[start→BK0] + Y[BKE0→end]   (A breaks at BK0)
+                // B: Y[start→BK1] + X[BKE1→end]   (B breaks at BK1)
+                // X has a gap [BK0→BKE1]; Y is continuous
+                const labelB = "OT" + (otGlobalCounter++);
+                i += 2;
+
+                const availZones = nonBikeZones
+                    .filter(z => available[z.name].length > 0)
+                    .sort((a, b) => manning(a.name) - manning(b.name));
+                if (availZones.length < 2) break;
+                const top2 = availZones.slice(0, 2);
+
+                // X zone: has gap budget; X counter = LOWEST (front)
+                let xZone = null, xCounter = null;
+                for (const z of top2) {
+                    if (gapsUsed[z.name] >= maxGaps[z.name]) continue;
+                    const xC = available[z.name]
+                        .filter(c => blockFree(z.name, c, BKE[1], effectiveEnd))
+                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                    if (xC) { xZone = z; xCounter = xC; break; }
+                }
+                if (!xZone) {
+                    xZone = top2[0];
+                    xCounter = available[xZone.name]
+                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                }
+
+                const yZone = top2.find(z => z !== xZone) || top2[0];
+                const yCounter = available[yZone.name]
+                    .filter(c => blockFree(yZone.name, c, BKE[0], effectiveEnd))
+                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
+
+                if (!xCounter || !yCounter) break;
+                useCounter(xZone.name, xCounter);
+                useCounter(yZone.name, yCounter);
+                gapsUsed[xZone.name]++;
+
+                // A: covers X front then Y back
+                fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
+                fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
+                // B: covers Y front then X back
+                fillBlock(yZone.name, yCounter, startIndex, BK[1], labelB);
+                fillBlock(xZone.name, xCounter, BKE[1], effectiveEnd, labelB);
+
             } else {
-                // Short window OR remainder: assign one counter straight through
-                // Pick least-manned zone with available pool counter
+                // ── solo fill (no usable breaks) ────────────────────────────
                 const z = nonBikeZones
                     .filter(z => available[z.name].length > 0)
                     .sort((a, b) => manning(a.name) - manning(b.name))[0];
                 if (!z) break;
-                // For short windows use lowest (front) counter; for remainder use lowest too
                 const c = available[z.name]
                     .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
                 if (!c) break;
