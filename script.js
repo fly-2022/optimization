@@ -824,10 +824,18 @@ document.addEventListener("DOMContentLoaded", function () {
             const tot = h * 60 + m + mins;
             return String(Math.floor(tot / 60)).padStart(2, "0") + String(tot % 60).padStart(2, "0");
         }
-        const BK = [90, 135, 180].map(m => times.findIndex(t => t === addMins(otStart, m)));
+        // Determine how many chain breaks fit in the window.
+        // Each group needs: startIndex → BK[n] (front) + BKE[n] → effectiveEnd (back).
+        // Only count a break as usable if there's at least 1 slot of back block after it.
+        const BK = [90, 135, 180].map(m => {
+            const idx = times.findIndex(t => t === addMins(otStart, m));
+            return idx === -1 ? effectiveEnd : idx;
+        });
         const BKE = BK.map(b => b + breakSlots);
-        const gapWinStart = BK[0];   // 1730 — when X goes on break
-        const gapWinEnd = BKE[2];  // 1945 — when X returns
+        // Number of usable breaks: how many BKE[n] < effectiveEnd
+        const numBreaks = BKE.filter(b => b < effectiveEnd).length;  // 0, 1, 2, or 3
+        const gapWinStart = numBreaks > 0 ? BK[0] : startIndex;
+        const gapWinEnd = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
 
         function blockFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
@@ -868,18 +876,20 @@ document.addEventListener("DOMContentLoaded", function () {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
             return z.counters.filter(c => {
-                // Exclude counters that are "main"-type active at OT start
-                // (still on their regular shift — not available for new OT)
-                // Allow counters active as OT/SOS or inactive at start
+                // Exclude main-type counters still on shift at OT start
                 const cellAtStart = document.querySelector(
                     `.counter-cell[data-zone="${zoneName}"][data-time="${startIndex}"][data-counter="${c}"]`
                 );
                 if (cellAtStart && cellAtStart.classList.contains("active") &&
                     cellAtStart.dataset.type === "main") return false;
-                // Must be free for at least one back block
-                return blockFree(zoneName, c, BKE[0], effectiveEnd) ||
-                    blockFree(zoneName, c, BKE[1], effectiveEnd) ||
-                    blockFree(zoneName, c, BKE[2], effectiveEnd);
+                // For full windows: must be free for at least one back block
+                if (numBreaks >= 3) {
+                    return blockFree(zoneName, c, BKE[0], effectiveEnd) ||
+                        blockFree(zoneName, c, BKE[1], effectiveEnd) ||
+                        blockFree(zoneName, c, BKE[2], effectiveEnd);
+                }
+                // For short windows: just needs any free slot in the window
+                return blockFree(zoneName, c, startIndex, effectiveEnd);
             }).sort((a, b) =>
                 (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
             );
@@ -935,12 +945,14 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ── main loop ─────────────────────────────────────────────────────────
+        // Group size = numBreaks (3 for full window, 2 for medium, 1 for short, 0 = solo)
+        const groupSize = Math.max(1, numBreaks); // at least 1 per iteration
         let i = 0;
         while (i < count) {
             const remaining = count - i;
             const labelA = "OT" + (otGlobalCounter++);
 
-            if (remaining >= 3) {
+            if (remaining >= 3 && numBreaks >= 3) {
                 const labelB = "OT" + (otGlobalCounter++);
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
@@ -995,23 +1007,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(xZone.name, xCounter, BKE[2], effectiveEnd, labelC);
 
             } else {
-                // Remainder 1–2: unavoidable gap
-                for (let r = 0; r < remaining; r++) {
-                    const lbl = r === 0 ? labelA : "OT" + (otGlobalCounter++);
-                    const z = nonBikeZones
-                        .filter(z => available[z.name].length > 0)
-                        .sort((a, b) => manning(a.name) - manning(b.name))[0];
-                    if (!z) break;
-                    // remainder: lowest remaining pool counter gets the gap
-                    const c = available[z.name]
-                        .filter(cn => blockFree(z.name, cn, BKE[r % 3], effectiveEnd))
-                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-                    if (!c) break;
-                    useCounter(z.name, c);
-                    fillBlock(z.name, c, startIndex, BK[r % 3], lbl);
-                    fillBlock(z.name, c, BKE[r % 3], effectiveEnd, lbl);
-                }
-                break;
+                // Short window OR remainder: assign one counter straight through
+                // Pick least-manned zone with available pool counter
+                const z = nonBikeZones
+                    .filter(z => available[z.name].length > 0)
+                    .sort((a, b) => manning(a.name) - manning(b.name))[0];
+                if (!z) break;
+                // For short windows use lowest (front) counter; for remainder use lowest too
+                const c = available[z.name]
+                    .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                if (!c) break;
+                useCounter(z.name, c);
+                i++;
+                fillBlock(z.name, c, startIndex, effectiveEnd, labelA);
             }
         }
 
