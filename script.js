@@ -882,19 +882,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
             return z.counters.filter(c => {
-                // Exclude main-type counters still on shift at OT start
-                const cellAtStart = document.querySelector(
-                    `.counter-cell[data-zone="${zoneName}"][data-time="${startIndex}"][data-counter="${c}"]`
-                );
-                if (cellAtStart && cellAtStart.classList.contains("active") &&
-                    cellAtStart.dataset.type === "main") return false;
-                // For full windows: must be free for at least one back block
-                if (numBreaks >= 3) {
-                    return blockFree(zoneName, c, BKE[0], effectiveEnd) ||
-                        blockFree(zoneName, c, BKE[1], effectiveEnd) ||
-                        blockFree(zoneName, c, BKE[2], effectiveEnd);
-                }
-                // For short windows: just needs any free slot in the window
+                // Counter must be completely free for the entire OT window
+                // (no existing assignments — neither main nor prior OT)
                 return blockFree(zoneName, c, startIndex, effectiveEnd);
             }).sort((a, b) =>
                 (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
@@ -951,53 +940,46 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ── main loop ─────────────────────────────────────────────────────────
-        // Use the largest chain that fits:
-        //   numBreaks >= 3 → groups of 3 (full morning chain: X has gap, Y/Z continuous)
-        //   numBreaks == 2 → groups of 2 (A: X[start→BK0]+Y[BKE1→end], B: Y[start→BK1]+X[BKE1→end])
-        //   numBreaks <= 1 → solo fill (straight through, no chain)
+        // Pool guarantees every counter is free for [startIndex, effectiveEnd].
+        // So back-block checks are redundant — just pick by cNum:
+        //   X = lowest cNum (front counter, gets the gap)
+        //   Y = highest cNum (back counter, continuous)
+        //   Z = second-highest cNum (back counter, continuous)
+        // Group size: 3 when numBreaks>=3 and 3 zones available,
+        //             2 when numBreaks>=2 and 2 zones available,
+        //             1 (solo) otherwise.
+        // Falls through gracefully so ALL count officers get placed.
+        const sortAsc = (a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0);
+        const sortDesc = (a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0);
+
         let i = 0;
         while (i < count) {
-            const remaining = count - i;
+            const zonesLeft = nonBikeZones
+                .filter(z => available[z.name].length > 0)
+                .sort((a, b) => manning(a.name) - manning(b.name));
+            if (zonesLeft.length === 0) break;
+
+            const useChain3 = count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
+            const useChain2 = !useChain3 && count - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
             const labelA = "OT" + (otGlobalCounter++);
 
-            if (remaining >= 3 && numBreaks >= 3) {
-                // ── 3-person chain ──────────────────────────────────────────
+            if (useChain3) {
+                // ── 3-person chain (A,B,C) ──────────────────────────────────
                 const labelB = "OT" + (otGlobalCounter++);
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
+                const top3 = zonesLeft.slice(0, 3);
 
-                const availZones = nonBikeZones
-                    .filter(z => available[z.name].length > 0)
-                    .sort((a, b) => manning(a.name) - manning(b.name));
-                if (availZones.length < 3) break;
-                const top3 = availZones.slice(0, 3);
-
-                // X zone: first in top3 with gap budget; X counter = LOWEST in its pool
-                let xZone = null, xCounter = null;
-                for (const z of top3) {
-                    if (gapsUsed[z.name] >= maxGaps[z.name]) continue;
-                    const xC = available[z.name]
-                        .filter(c => blockFree(z.name, c, BKE[2], effectiveEnd))
-                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-                    if (xC) { xZone = z; xCounter = xC; break; }
-                }
-                if (!xZone) {
-                    xZone = top3[0];
-                    xCounter = available[xZone.name]
-                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-                }
-
+                // X zone: first with gap budget
+                let xZone = top3.find(z => gapsUsed[z.name] < maxGaps[z.name]) || top3[0];
+                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];  // LOWEST
                 const yzZones = top3.filter(z => z !== xZone);
                 const yZone = yzZones[0];
-                const yCounter = available[yZone.name]
-                    .filter(c => blockFree(yZone.name, c, BKE[0], effectiveEnd))
-                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
+                const yCounter = available[yZone.name].slice().sort(sortDesc)[0]; // HIGHEST
                 const zZone = yzZones[1];
-                const zCounter = available[zZone.name]
-                    .filter(c => blockFree(zZone.name, c, BKE[1], effectiveEnd))
-                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
+                const zCounter = available[zZone.name].slice().sort(sortDesc)[0]; // HIGHEST
 
-                if (!xCounter || !yCounter || !zCounter) break;
+                if (!xCounter || !yCounter || !zCounter) { i -= 3; otGlobalCounter -= 3; break; }
                 useCounter(xZone.name, xCounter);
                 useCounter(yZone.name, yCounter);
                 useCounter(zZone.name, zCounter);
@@ -1010,60 +992,33 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(zZone.name, zCounter, startIndex, BK[2], labelC);
                 fillBlock(xZone.name, xCounter, BKE[2], effectiveEnd, labelC);
 
-            } else if (remaining >= 2 && numBreaks >= 2) {
-                // ── 2-person chain ──────────────────────────────────────────
+            } else if (useChain2) {
+                // ── 2-person chain (A,B) ────────────────────────────────────
                 // A: X[start→BK0] + Y[BKE0→end]   (A breaks at BK0)
                 // B: Y[start→BK1] + X[BKE1→end]   (B breaks at BK1)
-                // X has a gap [BK0→BKE1]; Y is continuous
                 const labelB = "OT" + (otGlobalCounter++);
                 i += 2;
+                const top2 = zonesLeft.slice(0, 2);
 
-                const availZones = nonBikeZones
-                    .filter(z => available[z.name].length > 0)
-                    .sort((a, b) => manning(a.name) - manning(b.name));
-                if (availZones.length < 2) break;
-                const top2 = availZones.slice(0, 2);
-
-                // X zone: has gap budget; X counter = LOWEST (front)
-                let xZone = null, xCounter = null;
-                for (const z of top2) {
-                    if (gapsUsed[z.name] >= maxGaps[z.name]) continue;
-                    const xC = available[z.name]
-                        .filter(c => blockFree(z.name, c, BKE[1], effectiveEnd))
-                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-                    if (xC) { xZone = z; xCounter = xC; break; }
-                }
-                if (!xZone) {
-                    xZone = top2[0];
-                    xCounter = available[xZone.name]
-                        .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
-                }
-
+                let xZone = top2.find(z => gapsUsed[z.name] < maxGaps[z.name]) || top2[0];
+                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];  // LOWEST
                 const yZone = top2.find(z => z !== xZone) || top2[0];
-                const yCounter = available[yZone.name]
-                    .filter(c => blockFree(yZone.name, c, BKE[0], effectiveEnd))
-                    .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0))[0];
+                const yCounter = available[yZone.name].slice().sort(sortDesc)[0]; // HIGHEST
 
-                if (!xCounter || !yCounter) break;
+                if (!xCounter || !yCounter) { i -= 2; otGlobalCounter -= 2; break; }
                 useCounter(xZone.name, xCounter);
                 useCounter(yZone.name, yCounter);
                 gapsUsed[xZone.name]++;
 
-                // A: covers X front then Y back
                 fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
-                // B: covers Y front then X back
                 fillBlock(yZone.name, yCounter, startIndex, BK[1], labelB);
                 fillBlock(xZone.name, xCounter, BKE[1], effectiveEnd, labelB);
 
             } else {
-                // ── solo fill (no usable breaks) ────────────────────────────
-                const z = nonBikeZones
-                    .filter(z => available[z.name].length > 0)
-                    .sort((a, b) => manning(a.name) - manning(b.name))[0];
-                if (!z) break;
-                const c = available[z.name]
-                    .sort((a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0))[0];
+                // ── solo fill ───────────────────────────────────────────────
+                const z = zonesLeft[0];
+                const c = available[z.name].slice().sort(sortAsc)[0];
                 if (!c) break;
                 useCounter(z.name, c);
                 i++;
