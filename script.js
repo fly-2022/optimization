@@ -940,23 +940,31 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ── main loop ─────────────────────────────────────────────────────────
-        // Pool guarantees every counter is free for [startIndex, effectiveEnd].
-        // So back-block checks are redundant — just pick by cNum:
-        //   X = lowest cNum (front counter, gets the gap)
-        //   Y = highest cNum (back counter, continuous)
-        //   Z = second-highest cNum (back counter, continuous)
-        // Group size: 3 when numBreaks>=3 and 3 zones available,
-        //             2 when numBreaks>=2 and 2 zones available,
-        //             1 (solo) otherwise.
-        // Falls through gracefully so ALL count officers get placed.
+        // Groups cycle through all available zones (not just top-3) so every
+        // zone gets OT. Within each group:
+        //   X = zone whose lowest pool counter has the HIGHEST cNum (best gap placement)
+        //       → keeps low-numbered zones (e.g. Zone 1) as Y/Z (continuous)
+        //   Y/Z = highest cNum counter from their zones (back counters first)
         const sortAsc = (a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0);
         const sortDesc = (a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0);
 
+        // Track how many groups each zone has participated in (for rotation)
+        const timesUsed = {};
+        nonBikeZones.forEach(z => { timesUsed[z.name] = 0; });
+
         let i = 0;
         while (i < count) {
-            const zonesLeft = nonBikeZones
-                .filter(z => available[z.name].length > 0)
-                .sort((a, b) => manning(a.name) - manning(b.name));
+            // Sort: fewest uses first; tiebreak by lowest-pool-counter DESC
+            // so zones with high-numbered counters (Zone 3/4) appear before
+            // Zone 1 and become X candidates, leaving Zone 1 as continuous Y/Z
+            const zonesLeft = nonBikeZones.filter(z => available[z.name].length > 0)
+                .sort((a, b) => {
+                    const diff = timesUsed[a.name] - timesUsed[b.name];
+                    if (diff !== 0) return diff;
+                    const aLo = parseInt((available[a.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLo = parseInt((available[b.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    return bLo - aLo; // higher lowest-counter first
+                });
             if (zonesLeft.length === 0) break;
 
             const useChain3 = count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
@@ -968,22 +976,40 @@ document.addEventListener("DOMContentLoaded", function () {
                 const labelB = "OT" + (otGlobalCounter++);
                 const labelC = "OT" + (otGlobalCounter++);
                 i += 3;
+
+                // Sort by manning ascending (least-manned first), take top 3
+                // but rotate so all zones eventually get picked
                 const top3 = zonesLeft.slice(0, 3);
 
-                // X zone: first with gap budget
-                let xZone = top3.find(z => gapsUsed[z.name] < maxGaps[z.name]) || top3[0];
-                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];  // LOWEST
+                // X zone: among eligible (gap budget), prefer the one whose
+                // lowest pool counter has the HIGHEST cNum — this assigns the
+                // gap to a zone with numerically large counters, keeping
+                // low-numbered zones (Zone 1) as continuous Y/Z.
+                const eligibleX = top3.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
+                const candidatesX = eligibleX.length > 0 ? eligibleX : top3;
+                const xZone = candidatesX.reduce((best, z) => {
+                    const lo = available[z.name].slice().sort(sortAsc)[0];
+                    const bLo = available[best.name].slice().sort(sortAsc)[0];
+                    const loN = parseInt((lo || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((bLo || '').replace(/\D/g, '')) || 0;
+                    return loN > bLoN ? z : best;
+                });
+                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];   // LOWEST in pool
+
                 const yzZones = top3.filter(z => z !== xZone);
                 const yZone = yzZones[0];
-                const yCounter = available[yZone.name].slice().sort(sortDesc)[0]; // HIGHEST
+                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];  // HIGHEST
                 const zZone = yzZones[1];
-                const zCounter = available[zZone.name].slice().sort(sortDesc)[0]; // HIGHEST
+                const zCounter = available[zZone.name].slice().sort(sortDesc)[0];  // HIGHEST
 
                 if (!xCounter || !yCounter || !zCounter) { i -= 3; otGlobalCounter -= 3; break; }
                 useCounter(xZone.name, xCounter);
                 useCounter(yZone.name, yCounter);
                 useCounter(zZone.name, zCounter);
                 gapsUsed[xZone.name]++;
+                timesUsed[xZone.name]++;
+                timesUsed[yZone.name]++;
+                timesUsed[zZone.name]++;
 
                 fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
@@ -994,21 +1020,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
             } else if (useChain2) {
                 // ── 2-person chain (A,B) ────────────────────────────────────
-                // A: X[start→BK0] + Y[BKE0→end]   (A breaks at BK0)
-                // B: Y[start→BK1] + X[BKE1→end]   (B breaks at BK1)
                 const labelB = "OT" + (otGlobalCounter++);
                 i += 2;
                 const top2 = zonesLeft.slice(0, 2);
 
-                let xZone = top2.find(z => gapsUsed[z.name] < maxGaps[z.name]) || top2[0];
-                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];  // LOWEST
+                const eligibleX2 = top2.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
+                const candidatesX2 = eligibleX2.length > 0 ? eligibleX2 : top2;
+                const xZone = candidatesX2.reduce((best, z) => {
+                    const lo = available[z.name].slice().sort(sortAsc)[0];
+                    const bLo = available[best.name].slice().sort(sortAsc)[0];
+                    const loN = parseInt((lo || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((bLo || '').replace(/\D/g, '')) || 0;
+                    return loN > bLoN ? z : best;
+                });
+                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];
+
                 const yZone = top2.find(z => z !== xZone) || top2[0];
-                const yCounter = available[yZone.name].slice().sort(sortDesc)[0]; // HIGHEST
+                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];
 
                 if (!xCounter || !yCounter) { i -= 2; otGlobalCounter -= 2; break; }
                 useCounter(xZone.name, xCounter);
                 useCounter(yZone.name, yCounter);
                 gapsUsed[xZone.name]++;
+                timesUsed[xZone.name]++;
+                timesUsed[yZone.name]++;
 
                 fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
@@ -1017,8 +1052,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             } else {
                 // ── solo fill ───────────────────────────────────────────────
-                const z = zonesLeft[0];
-                const c = available[z.name].slice().sort(sortAsc)[0];
+                const z = zonesLeft.sort((a, b) => manning(a.name) - manning(b.name))[0];
+                const c = available[z.name].slice().sort(sortDesc)[0]; // HIGHEST (back counter)
                 if (!c) break;
                 useCounter(z.name, c);
                 i++;
