@@ -868,10 +868,15 @@ document.addEventListener("DOMContentLoaded", function () {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
             return z.counters.filter(c => {
-                const cell = document.querySelector(
+                // Exclude counters that are "main"-type active at OT start
+                // (still on their regular shift — not available for new OT)
+                // Allow counters active as OT/SOS or inactive at start
+                const cellAtStart = document.querySelector(
                     `.counter-cell[data-zone="${zoneName}"][data-time="${startIndex}"][data-counter="${c}"]`
                 );
-                if (!cell || cell.classList.contains("active")) return false; // skip active-at-start
+                if (cellAtStart && cellAtStart.classList.contains("active") &&
+                    cellAtStart.dataset.type === "main") return false;
+                // Must be free for at least one back block
                 return blockFree(zoneName, c, BKE[0], effectiveEnd) ||
                     blockFree(zoneName, c, BKE[1], effectiveEnd) ||
                     blockFree(zoneName, c, BKE[2], effectiveEnd);
