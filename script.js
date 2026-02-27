@@ -154,30 +154,34 @@ function renderTableOnce() {
 function attachTableEvents() {
     if (tableEventsAttached) return;
 
+    const paintedThisDrag = new Set();
+
     table.addEventListener("pointerdown", e => {
         const cell = e.target.closest(".counter-cell");
         if (!cell) return;
-        isDragging = true;
+        e.preventDefault();
+        paintedThisDrag.clear();
         dragMode = cell.classList.contains("active") ? "remove" : "add";
+        isDragging = true;
+        table.setPointerCapture(e.pointerId);
         toggleCell(cell);
+        paintedThisDrag.add(cell);
     });
 
-    table.addEventListener("pointerover", e => {
+    table.addEventListener("pointermove", e => {
         if (!isDragging) return;
-        const cell = e.target.closest(".counter-cell");
-        if (!cell) return;
-        toggleCell(cell);
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const cell = el?.closest(".counter-cell");
+        if (!cell || paintedThisDrag.has(cell)) return;
+        const isActive = cell.classList.contains("active");
+        if (dragMode === "add" && !isActive) { toggleCell(cell); paintedThisDrag.add(cell); }
+        if (dragMode === "remove" && isActive) { toggleCell(cell); paintedThisDrag.add(cell); }
     });
 
-    table.addEventListener("pointerup", () => isDragging = false);
-
-    table.addEventListener("click", e => {
-        const cell = e.target.closest(".counter-cell");
-        if (!cell) return;
-        if (!isDragging) toggleCell(cell);
-    });
-
-    document.addEventListener("pointerup", () => isDragging = false);
+    const endDrag = () => { isDragging = false; paintedThisDrag.clear(); };
+    table.addEventListener("pointerup", endDrag);
+    table.addEventListener("pointercancel", endDrag);
+    document.addEventListener("pointerup", endDrag);
 
     tableEventsAttached = true;
     restoreCellStates();
