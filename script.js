@@ -890,17 +890,64 @@ document.addEventListener("DOMContentLoaded", function () {
             );
         }
 
-        // ── equal zone quotas ─────────────────────────────────────────────────
+        // ── zone quotas with 50% floor guarantee ────────────────────────────
+        // Each zone needs at least (minRequired - minMainDuringGap) OT counters
+        // to maintain 50% manning. Compute minMain per zone first, then set
+        // quota = max(base, minNeeded), distributing any leftover fairly.
+        const zoneMinMain = {};
+        nonBikeZones.forEach(z => {
+            const minRequired = Math.ceil(z.counters.length / 2);
+            let minM = z.counters.length;
+            for (let t = gapWinStart; t < gapWinEnd; t++) {
+                const active = document.querySelectorAll(
+                    `.counter-cell.active[data-zone="${z.name}"][data-time="${t}"]`
+                ).length;
+                if (active < minM) minM = active;
+            }
+            zoneMinMain[z.name] = minM;
+        });
+
         const zoneQuota = {};
         {
             const n = nonBikeZones.length;
             const base = Math.floor(count / n);
-            const rem = count - base * n;
-            nonBikeZones.forEach(z => zoneQuota[z.name] = base);
-            [...nonBikeZones]
-                .sort((a, b) => fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length)
-                .slice(0, rem)
-                .forEach(z => zoneQuota[z.name]++);
+
+            // First pass: give each zone max(base, minNeeded)
+            let allocated = 0;
+            nonBikeZones.forEach(z => {
+                const minRequired = Math.ceil(z.counters.length / 2);
+                const minNeeded = Math.max(0, minRequired - zoneMinMain[z.name]);
+                zoneQuota[z.name] = Math.min(
+                    Math.max(base, minNeeded),
+                    fullyFreeDesc(z.name).length  // can't exceed available free counters
+                );
+                allocated += zoneQuota[z.name];
+            });
+
+            // Second pass: distribute remaining quota to zones with most free capacity
+            let remaining = count - allocated;
+            if (remaining > 0) {
+                [...nonBikeZones]
+                    .sort((a, b) => fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length)
+                    .forEach(z => {
+                        if (remaining <= 0) return;
+                        const free = fullyFreeDesc(z.name).length;
+                        const extra = Math.min(remaining, free - zoneQuota[z.name]);
+                        if (extra > 0) { zoneQuota[z.name] += extra; remaining -= extra; }
+                    });
+            } else if (remaining < 0) {
+                // Over-allocated (minNeeded > base for many zones): trim from zones with most quota
+                [...nonBikeZones]
+                    .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
+                    .forEach(z => {
+                        if (remaining >= 0) return;
+                        const minRequired = Math.ceil(z.counters.length / 2);
+                        const minNeeded = Math.max(0, minRequired - zoneMinMain[z.name]);
+                        const canTrim = zoneQuota[z.name] - minNeeded;
+                        const trim = Math.min(-remaining, canTrim);
+                        if (trim > 0) { zoneQuota[z.name] -= trim; remaining += trim; }
+                    });
+            }
         }
 
         // ── pre-select pool per zone ──────────────────────────────────────────
@@ -915,19 +962,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // ── max gaps per zone ─────────────────────────────────────────────────
-        // max_gaps = min_main_during_gap + quota - minRequired
-        // Prevents any zone from dropping below 50% during 1730-1945.
+        // max_gaps = minMainDuringGap + quota - minRequired
+        // A zone with maxGaps=0 must have ALL its OT as continuous (no chain gap).
         const maxGaps = {}, gapsUsed = {};
         nonBikeZones.forEach(z => {
             const minRequired = Math.ceil(z.counters.length / 2);
-            let minMainDuringGap = z.counters.length;
-            for (let t = gapWinStart; t < gapWinEnd; t++) {
-                const active = document.querySelectorAll(
-                    `.counter-cell.active[data-zone="${z.name}"][data-time="${t}"]`
-                ).length;
-                if (active < minMainDuringGap) minMainDuringGap = active;
-            }
-            maxGaps[z.name] = Math.max(0, minMainDuringGap + zoneQuota[z.name] - minRequired);
+            maxGaps[z.name] = Math.max(0, zoneMinMain[z.name] + zoneQuota[z.name] - minRequired);
             gapsUsed[z.name] = 0;
         });
 
@@ -967,8 +1007,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             if (zonesLeft.length === 0) break;
 
-            const useChain3 = count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
-            const useChain2 = !useChain3 && count - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
+            // Only use a chain if at least one zone in zonesLeft has gap budget.
+            // If no zone can absorb a gap, force solo fills (straight through, no chain gap).
+            const anyGapBudget = zonesLeft.some(z => gapsUsed[z.name] < maxGaps[z.name]);
+            const useChain3 = anyGapBudget && count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
+            const useChain2 = anyGapBudget && !useChain3 && count - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
             const labelA = "OT" + (otGlobalCounter++);
 
             if (useChain3) {
@@ -1051,11 +1094,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(xZone.name, xCounter, BKE[1], effectiveEnd, labelB);
 
             } else {
-                // ── solo fill ───────────────────────────────────────────────
-                const z = zonesLeft.sort((a, b) => manning(a.name) - manning(b.name))[0];
+                // ── solo fill (no gap — straight through, back counter first) ──
+                const z = zonesLeft[0]; // already sorted by timesUsed + tiebreak
                 const c = available[z.name].slice().sort(sortDesc)[0]; // HIGHEST (back counter)
                 if (!c) break;
                 useCounter(z.name, c);
+                timesUsed[z.name]++;
                 i++;
                 fillBlock(z.name, c, startIndex, effectiveEnd, labelA);
             }
