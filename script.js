@@ -842,15 +842,29 @@ document.addEventListener("DOMContentLoaded", function () {
         sheetData.forEach(row => {
             const o = String(row.Officer || "").trim().toUpperCase();
             if (o.startsWith(prefix) && !allLabels.includes(row.Officer)) {
-                allLabels.push(row.Officer); // preserve original casing
+                allLabels.push(row.Officer);
             }
         });
 
-        // Deploy only up to `count` officers
-        const toDeploy = allLabels.slice(0, count);
-        if (toDeploy.length === 0) {
-            alert(`No ${prefix} officers found in the template for ${sheetName}.`);
+        // Skip officers already deployed on the grid
+        const alreadyOnGrid = new Set(
+            [...document.querySelectorAll(".counter-cell.active")]
+                .map(c => c.dataset.officer)
+                .filter(o => o && o.toUpperCase().startsWith(prefix))
+                .map(o => o.split(" | ")[0]) // strip name/serial suffix for matching
+        );
+
+        const available = allLabels.filter(l => !alreadyOnGrid.has(l));
+
+        if (available.length === 0) {
+            alert(`All ${prefix} officers from the template are already on the grid.`);
             return;
+        }
+
+        // Deploy up to `count` of the remaining officers
+        const toDeploy = available.slice(0, count);
+        if (toDeploy.length < count) {
+            alert(`Only ${toDeploy.length} ${prefix} officer(s) remaining in template (${allLabels.length} total). Deploying ${toDeploy.length}.`);
         }
 
         const times = generateTimeSlots();
@@ -1327,6 +1341,133 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /* -------------------- Button Clicks -------------------- */
+    /* ── Capacity helpers ───────────────────────────────────────────────── */
+
+    // Returns { used, max, remaining, label } for the current context.
+    // `windowStart` / `windowEnd` are HHMM strings used for OT/SOS checks.
+    function getCapacity(type, windowStart, windowEnd) {
+        const times = generateTimeSlots();
+        const allZones = zones[currentMode].filter(z => z.name !== "BIKES");
+
+        if (type === "main") {
+            // Cap = highest officer number in the template sheet
+            const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+            const sheetData = excelData[sheetName] || [];
+            const max = sheetData.reduce((m, row) => {
+                const n = parseInt(row.Officer);
+                return isNaN(n) ? m : Math.max(m, n);
+            }, 0);
+            if (max === 0) return null; // template not loaded
+            // Used = highest officer number already on grid
+            const used = [...new Set(
+                [...document.querySelectorAll('.counter-cell.active[data-type="main"]')]
+                    .map(c => parseInt(c.dataset.officer))
+                    .filter(n => !isNaN(n))
+            )].length;
+            return { used, max, remaining: max - used, label: "main officers" };
+        }
+
+        if (type === "trainowc") {
+            const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+            const sheetData = excelData[sheetName] || [];
+            const prefix = currentMode === "arrival" ? "TRAIN" : "OWC";
+            const allLabels = [...new Set(
+                sheetData
+                    .filter(r => String(r.Officer || "").trim().toUpperCase().startsWith(prefix))
+                    .map(r => r.Officer)
+            )];
+            const max = allLabels.length;
+            const onGrid = new Set(
+                [...document.querySelectorAll(".counter-cell.active")]
+                    .map(c => c.dataset.officer?.split(" | ")[0])
+                    .filter(o => o && o.toUpperCase().startsWith(prefix))
+            );
+            const used = onGrid.size;
+            return { used, max, remaining: max - used, label: prefix + " officers" };
+        }
+
+        if (type === "ot" || type === "sos") {
+            if (!windowStart || !windowEnd) return null;
+            let si = times.findIndex(t => t === windowStart);
+            let ei = times.findIndex(t => t === windowEnd);
+            if (ei === -1) ei = times.length;
+            if (si === -1 || si >= ei) return null;
+
+            // Count counters that are fully free for the entire window
+            let freeCounters = 0;
+            allZones.forEach(z => {
+                z.counters.forEach(c => {
+                    let free = true;
+                    for (let t = si; t < ei; t++) {
+                        const cell = document.querySelector(
+                            `.counter-cell[data-zone="${z.name}"][data-time="${t}"][data-counter="${c}"]`
+                        );
+                        if (!cell || cell.classList.contains("active")) { free = false; break; }
+                    }
+                    if (free) freeCounters++;
+                });
+            });
+
+            // Count already-assigned officers of this type in this window
+            const assignedLabels = new Set(
+                [...document.querySelectorAll(`.counter-cell.active[data-type="${type}"]`)]
+                    .filter(c => {
+                        const t = parseInt(c.dataset.time);
+                        return t >= si && t < ei;
+                    })
+                    .map(c => c.dataset.officer)
+                    .filter(Boolean)
+            );
+            const used = assignedLabels.size;
+            const max = used + freeCounters; // total capacity = already used + still free
+            return { used, max, remaining: freeCounters, label: type.toUpperCase() + " slots" };
+        }
+        return null;
+    }
+
+    // Show a toast/inline warning near the add button
+    function showCapacityWarning(message, isError = false) {
+        let el = document.getElementById("_capacityWarning");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "_capacityWarning";
+            el.style.cssText = "margin-top:6px;padding:6px 10px;border-radius:5px;font-size:12px;font-weight:600;";
+            const actionBtns = document.querySelector(".action-buttons");
+            if (actionBtns) actionBtns.after(el);
+        }
+        el.textContent = message;
+        el.style.background = isError ? "#ffebee" : "#fff8e1";
+        el.style.color = isError ? "#c62828" : "#e65100";
+        el.style.border = isError ? "1px solid #ef9a9a" : "1px solid #ffcc80";
+        clearTimeout(el._hideTimer);
+        el._hideTimer = setTimeout(() => { if (el.parentNode) el.textContent = ""; el.style.border = "none"; }, 5000);
+    }
+
+    // Returns false and shows warning if count exceeds remaining capacity
+    function checkCapacityBeforeAdd(type, count, windowStart, windowEnd) {
+        const cap = getCapacity(type, windowStart, windowEnd);
+        if (!cap) return true; // can't determine → allow
+
+        if (cap.remaining <= 0) {
+            showCapacityWarning(
+                `⛔ Max ${cap.label} reached (${cap.used}/${cap.max}). No more can be added.`,
+                true
+            );
+            return false;
+        }
+
+        if (count > cap.remaining) {
+            showCapacityWarning(
+                `⚠️ Only ${cap.remaining} ${cap.label} remaining (${cap.used}/${cap.max}). ` +
+                `Requested ${count} — only ${cap.remaining} will be added.`
+            );
+            // Don't block — let the allocation run and it will naturally stop at capacity
+            return true;
+        }
+
+        return true;
+    }
+
     addBtn.addEventListener("click", () => {
         const count = parseInt(document.getElementById("officerCount").value);
         if (!count || count <= 0) return;
@@ -1342,6 +1483,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("SOS time range outside current shift grid.");
                 return;
             }
+            if (!checkCapacityBeforeAdd("sos", count, start, end)) return;
             allocateSOSOfficers(count, start, end);
             updateSOSRoster(start, end);
         }
@@ -1353,18 +1495,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
+            if (!checkCapacityBeforeAdd("ot", count, start, end)) return;
             allocateOTOfficers(count, start, end);
         }
 
         if (manpowerType === "main") {
+            if (!checkCapacityBeforeAdd("main", count)) return;
             applyMainTemplate(count);
-
-            // If night shift, also deploy Train (arrival) or OWC (departure) officers
-            if (currentShift === "night") {
-                const extraCount = parseInt(document.getElementById("trainOwcCount")?.value || "0");
-                if (extraCount > 0) applyTrainOwcTemplate(extraCount);
-            }
         }
+    });
+
+    // Train / OWC — independent add button
+    document.getElementById("addTrainOwcBtn")?.addEventListener("click", () => {
+        const count = parseInt(document.getElementById("trainOwcCount")?.value || "0");
+        if (!count || count <= 0) return;
+        if (!checkCapacityBeforeAdd("trainowc", count)) return;
+        saveState();
+        applyTrainOwcTemplate(count);
     });
 
     removeBtn.addEventListener("click", () => {

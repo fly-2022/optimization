@@ -116,8 +116,23 @@
 
         <!-- Train / OWC — only relevant for night shift, shown/hidden by JS -->
         <div id="trainOwcFields" style="display: none">
+          <hr
+            style="border: none; border-top: 1px solid #e0e0e0; margin: 8px 0"
+          />
           <label id="trainOwcLabel">Train Officers:</label>
-          <input type="number" id="trainOwcCount" min="0" value="0" />
+          <input type="number" id="trainOwcCount" min="1" value="1" />
+          <button id="addTrainOwcBtn">Add</button>
+          <small
+            id="trainOwcHint"
+            style="
+              color: #888;
+              font-size: 11px;
+              display: block;
+              margin-top: 3px;
+            "
+          >
+            Remove individually via Remove Officer
+          </small>
         </div>
 
         <!-- SOS Timing -->
