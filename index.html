@@ -114,6 +114,12 @@
         <label>Number of Officers:</label>
         <input type="number" id="officerCount" min="1" value="1" />
 
+        <!-- Train / OWC — only relevant for night shift, shown/hidden by JS -->
+        <div id="trainOwcFields" style="display: none">
+          <label id="trainOwcLabel">Train Officers:</label>
+          <input type="number" id="trainOwcCount" min="0" value="0" />
+        </div>
+
         <!-- SOS Timing -->
         <div id="sosFields" style="display: none">
           <label>Start (HH:MM)</label>

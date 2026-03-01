@@ -536,6 +536,16 @@ function setMode(mode) {
     isDragging = false;
     dragMode = "add";
     renderTableOnce();
+    updateTrainOwcVisibility();
+}
+
+function updateTrainOwcVisibility() {
+    const el = document.getElementById("trainOwcFields");
+    const label = document.getElementById("trainOwcLabel");
+    if (!el) return;
+    const show = currentShift === "night" && document.querySelector(".mp-type.active")?.dataset.type === "main";
+    el.style.display = show ? "block" : "none";
+    if (label) label.textContent = currentMode === "arrival" ? "Train Officers:" : "OWC Officers:";
 }
 
 function setShift(shift) {
@@ -564,6 +574,7 @@ function setShift(shift) {
     isDragging = false;
     dragMode = "add";
     renderTableOnce();
+    updateTrainOwcVisibility();
 }
 
 arrivalBtn.onclick = () => setMode("arrival");
@@ -623,6 +634,7 @@ document.addEventListener("DOMContentLoaded", function () {
             manpowerType = btn.dataset.type;
             sosFields.style.display = manpowerType === "sos" ? "block" : "none";
             otFields.style.display = manpowerType === "ot" ? "block" : "none";
+            updateTrainOwcVisibility();
         });
     });
 
@@ -809,7 +821,77 @@ document.addEventListener("DOMContentLoaded", function () {
         updateAll();
     }
 
-    /* -------------------- OT Shift Validation -------------------- */
+    /* -------------------- Train / OWC Template Assignment -------------------- */
+    // Arrival night → TRAIN officers; Departure night → OWC officers
+    // label prefix comes from the Excel Officer column (e.g. "TRAIN 1", "OWC 2")
+    const TRAIN_OWC_COLOR = "#87CEEB"; // sky blue — distinct from main orange
+
+    function applyTrainOwcTemplate(count) {
+        if (!excelWorkbook) { alert("Excel template not loaded."); return; }
+        if (currentShift !== "night") { alert("Train/OWC officers only apply to night shift."); return; }
+
+        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+        const sheetData = excelData[sheetName];
+        if (!sheetData) { alert("No sheet found for " + sheetName); return; }
+
+        // Determine prefix based on mode
+        const prefix = currentMode === "arrival" ? "TRAIN" : "OWC";
+
+        // Collect all matching officer labels from the sheet, in order
+        const allLabels = [];
+        sheetData.forEach(row => {
+            const o = String(row.Officer || "").trim().toUpperCase();
+            if (o.startsWith(prefix) && !allLabels.includes(row.Officer)) {
+                allLabels.push(row.Officer); // preserve original casing
+            }
+        });
+
+        // Deploy only up to `count` officers
+        const toDeploy = allLabels.slice(0, count);
+        if (toDeploy.length === 0) {
+            alert(`No ${prefix} officers found in the template for ${sheetName}.`);
+            return;
+        }
+
+        const times = generateTimeSlots();
+
+        function normalizeExcelTime(value) {
+            if (!value) return "";
+            let str = value.toString().trim();
+            if (str.includes(":")) return str.substring(0, 5).replace(":", "");
+            return str.padStart(4, "0");
+        }
+
+        toDeploy.forEach(officerLabel => {
+            const officerRows = sheetData.filter(row => row.Officer === officerLabel);
+            const label = officerLabel + officerSuffix();
+
+            officerRows.forEach(row => {
+                const counter = row.Counter;
+                const start = normalizeExcelTime(row.Start);
+                const end = normalizeExcelTime(row.End);
+
+                let startIndex = times.findIndex(t => t === start);
+                let endIndex = times.findIndex(t => t === end);
+
+                if (endIndex === -1 && end === "1000") endIndex = times.length;
+                if (startIndex === -1 || endIndex === -1) return;
+
+                for (let t = startIndex; t < endIndex; t++) {
+                    [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)].forEach(cell => {
+                        if (cell.parentElement.firstChild.innerText === counter) {
+                            cell.classList.add("active");
+                            cell.style.background = TRAIN_OWC_COLOR;
+                            cell.dataset.officer = label;
+                            cell.dataset.type = "main"; // same roster table as main
+                        }
+                    });
+                }
+            });
+        });
+
+        updateAll();
+    }
     function isOTWithinShift(otStart, otEnd) {
         if (currentShift === "morning") {
             return (otStart === "1100" && otEnd === "1600") ||
@@ -1256,14 +1338,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const end = document.getElementById("sosEnd").value.replace(":", "");
 
             const times = generateTimeSlots();
-            let startIndex = times.findIndex(t => t === start);
-            let endIndex = times.findIndex(t => t === end);
-
-            if (startIndex === -1 || endIndex === -1) {
+            if (times.findIndex(t => t === start) === -1 || times.findIndex(t => t === end) === -1) {
                 alert("SOS time range outside current shift grid.");
                 return;
             }
-
             allocateSOSOfficers(count, start, end);
             updateSOSRoster(start, end);
         }
@@ -1271,17 +1349,21 @@ document.addEventListener("DOMContentLoaded", function () {
         if (manpowerType === "ot") {
             const slot = document.getElementById("otSlot").value;
             const [start, end] = slot.split("-").map(s => s.replace(":", ""));
-
             if (!isOTWithinShift(start, end)) {
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
-
             allocateOTOfficers(count, start, end);
         }
 
         if (manpowerType === "main") {
             applyMainTemplate(count);
+
+            // If night shift, also deploy Train (arrival) or OWC (departure) officers
+            if (currentShift === "night") {
+                const extraCount = parseInt(document.getElementById("trainOwcCount")?.value || "0");
+                if (extraCount > 0) applyTrainOwcTemplate(extraCount);
+            }
         }
     });
 
@@ -1330,7 +1412,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     style="width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:6px;font-size:13px;padding:4px;line-height:1.6;">
                     ${labels.map(l => {
             const type = labelMap[l];
-            const badge = type === "main" ? "🟠" : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
+            const badge = type === "main"
+                ? (l.toUpperCase().startsWith("TRAIN") ? "🚂" : l.toUpperCase().startsWith("OWC") ? "🎓" : "🟠")
+                : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
             return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
         }).join("")}
                 </select>
