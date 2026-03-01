@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Roster Dashboard</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      .officer-identity {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        align-items: center;
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+      }
+      .officer-identity label {
+        font-size: 12px;
+        color: #555;
+        white-space: nowrap;
+      }
+      .officer-identity input {
+        padding: 5px 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 13px;
+        width: 140px;
+      }
+      .optional {
+        font-size: 10px;
+        color: #aaa;
+        font-style: italic;
+      }
+    </style>
   </head>
 
   <body>
@@ -88,7 +118,6 @@
         <div id="sosFields" style="display: none">
           <label>Start (HH:MM)</label>
           <input type="time" id="sosStart" />
-
           <label>End (HH:MM)</label>
           <input type="time" id="sosEnd" />
         </div>
@@ -97,42 +126,49 @@
         <div id="otFields" style="display: none">
           <label>OT Slot</label>
           <select id="otSlot">
-            <option value="0600-1100">0600 - 1100</option>
-            <option value="1100-1600">1100 - 1600</option>
-            <option value="1600-2100">1600 - 2100</option>
+            <option value="0600-1100">0600 – 1100</option>
+            <option value="1100-1600">1100 – 1600</option>
+            <option value="1600-2100">1600 – 2100</option>
           </select>
         </div>
 
-        <!-- ALL ACTION BUTTONS TOGETHER -->
+        <!-- Optional name / serial — shown for all types -->
+        <div class="officer-identity">
+          <label>Name <span class="optional">(optional)</span></label>
+          <input type="text" id="officerName" placeholder="e.g. John" />
+
+          <label>Serial No. <span class="optional">(optional)</span></label>
+          <input type="text" id="officerSerial" placeholder="e.g. S12345" />
+        </div>
+
+        <!-- ACTION BUTTONS -->
         <div class="action-buttons">
           <button id="addOfficerBtn">Add Officers</button>
-          <button id="removeOfficerBtn">Remove Officers</button>
+          <button id="removeOfficerBtn">Remove Officer</button>
           <button id="undoBtn">Undo</button>
         </div>
       </div>
     </div>
-    <!-- ================= MANPOWER INPUT ================= -->
+    <!-- ================= MANPOWER INPUT END ================= -->
 
     <div class="table-container">
       <table id="rosterTable"></table>
     </div>
 
     <h3>Manning Summary</h3>
-
     <div class="summary-controls">
       <button id="copySummaryBtn">Copy Summary</button>
     </div>
-
     <pre id="manningSummary"></pre>
 
-    <script src="script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
 
+    <!-- ================= ROSTER TABLES ================= -->
     <h2>Roster</h2>
 
     <h3>Main Roster</h3>
     <button onclick="copyMainRoster()">Copy Main Roster</button>
-
     <table id="mainRosterTable">
       <thead>
         <tr>
@@ -147,7 +183,6 @@
 
     <h3>SOS Roster</h3>
     <button onclick="copySOSRoster()">Copy SOS Roster</button>
-
     <table id="sosRosterTable">
       <thead>
         <tr>
@@ -162,7 +197,6 @@
 
     <h3>OT Roster</h3>
     <button onclick="copyOTRoster()">Copy OT Roster</button>
-
     <table id="otRosterTable">
       <thead>
         <tr>

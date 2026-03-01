@@ -10,6 +10,8 @@ let dragMode = "add";
 let tableEventsAttached = false;
 let otGlobalCounter = 1;
 let sosGlobalCounter = 1;
+let historyStack = [];
+let _saveStateGlobal = null; // set by DOMContentLoaded, used by attachTableEvents
 
 function resetDragState() {
     isDragging = false;
@@ -164,6 +166,7 @@ function attachTableEvents() {
         dragMode = cell.classList.contains("active") ? "remove" : "add";
         isDragging = true;
         table.setPointerCapture(e.pointerId);
+        if (_saveStateGlobal) _saveStateGlobal(); // save before paint so drag is one undo step
         toggleCell(cell);
         paintedThisDrag.add(cell);
     });
@@ -196,7 +199,8 @@ function saveCellStates() {
         cellStates[key][id] = {
             active: cell.classList.contains("active"),
             color: cell.style.background,
-            officer: cell.dataset.officer || ""
+            officer: cell.dataset.officer || "",
+            type: cell.dataset.type || ""
         };
     });
 }
@@ -210,10 +214,12 @@ function restoreCellStates() {
             cell.classList.add("active");
             cell.style.background = state[id].color;
             cell.dataset.officer = state[id].officer || "";
+            cell.dataset.type = state[id].type || "";
         } else {
             cell.classList.remove("active");
             cell.style.background = "";
             cell.dataset.officer = "";
+            cell.dataset.type = "";
         }
     });
     updateAll();
@@ -597,7 +603,6 @@ document.addEventListener("DOMContentLoaded", function () {
     loadExcelTemplate();
 
     let manpowerType = "main";
-    let historyStack = [];
 
     const sosFields = document.getElementById("sosFields");
     const otFields = document.getElementById("otFields");
@@ -621,29 +626,51 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    /* -------------------- Officer name/serial suffix -------------------- */
+    // Returns " | Name / Serial" if either field has a value, else ""
+    function officerSuffix() {
+        const name = (document.getElementById("officerName")?.value || "").trim();
+        const serial = (document.getElementById("officerSerial")?.value || "").trim();
+        if (!name && !serial) return "";
+        return " | " + [name, serial].filter(Boolean).join(" / ");
+    }
+
     /* -------------------- Save / Restore State -------------------- */
     function saveState() {
         const state = [];
         document.querySelectorAll(".counter-cell").forEach(cell => {
             state.push({
                 zone: cell.dataset.zone,
+                counter: cell.dataset.counter,
                 time: cell.dataset.time,
                 active: cell.classList.contains("active"),
-                color: cell.style.background
+                color: cell.style.background,
+                officer: cell.dataset.officer || "",
+                type: cell.dataset.type || ""
             });
         });
         historyStack.push(state);
+        if (historyStack.length > 50) historyStack.shift(); // cap at 50 steps
     }
+    _saveStateGlobal = saveState; // expose to attachTableEvents
 
     function restoreState(state) {
         document.querySelectorAll(".counter-cell").forEach(cell => {
-            const found = state.find(s => s.zone === cell.dataset.zone && s.time === cell.dataset.time);
+            const found = state.find(s =>
+                s.zone === cell.dataset.zone &&
+                s.counter === cell.dataset.counter &&
+                s.time === cell.dataset.time
+            );
             if (found && found.active) {
                 cell.classList.add("active");
                 cell.style.background = found.color;
+                cell.dataset.officer = found.officer;
+                cell.dataset.type = found.type;
             } else {
                 cell.classList.remove("active");
                 cell.style.background = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
             }
         });
         updateAll();
@@ -668,6 +695,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (let officer = 1; officer <= officerCount; officer++) {
             const officerRows = sheetData.filter(row => parseInt(row.Officer) === officer);
+            const officerLabel = officer + officerSuffix();
 
             officerRows.forEach(row => {
                 const counter = row.Counter;
@@ -704,7 +732,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (rowCounter === counter) {
                             cell.classList.add("active");
                             cell.style.background = currentColor;
-                            cell.dataset.officer = officer;
+                            cell.dataset.officer = officerLabel;
                             cell.dataset.type = "main";
                         }
                     });
@@ -765,7 +793,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                         .filter(c => c.parentElement.firstChild.innerText === counter)[0];
                                     cell.classList.add("active");
                                     cell.style.background = currentColor;
-                                    cell.dataset.officer = officer;
+                                    cell.dataset.officer = officerLabel;
                                     cell.dataset.type = "main";
                                 }
                                 assigned = true;
@@ -1016,12 +1044,12 @@ document.addEventListener("DOMContentLoaded", function () {
             const anyGapBudget = zonesLeft.some(z => gapsUsed[z.name] < maxGaps[z.name]);
             const useChain3 = anyGapBudget && count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
             const useChain2 = anyGapBudget && !useChain3 && count - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
-            const labelA = "OT" + (otGlobalCounter++);
+            const labelA = "OT" + (otGlobalCounter++) + officerSuffix();
 
             if (useChain3) {
                 // ── 3-person chain (A,B,C) ──────────────────────────────────
-                const labelB = "OT" + (otGlobalCounter++);
-                const labelC = "OT" + (otGlobalCounter++);
+                const labelB = "OT" + (otGlobalCounter++) + officerSuffix();
+                const labelC = "OT" + (otGlobalCounter++) + officerSuffix();
                 i += 3;
 
                 // Sort by manning ascending (least-manned first), take top 3
@@ -1067,7 +1095,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             } else if (useChain2) {
                 // ── 2-person chain (A,B) ────────────────────────────────────
-                const labelB = "OT" + (otGlobalCounter++);
+                const labelB = "OT" + (otGlobalCounter++) + officerSuffix();
                 i += 2;
                 const top2 = zonesLeft.slice(0, 2);
 
@@ -1130,7 +1158,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const breakSlots = 45 / 15;
 
         for (let i = 0; i < count; i++) {
-            const officerLabel = "SOS" + (sosGlobalCounter++);
+            const officerLabel = "SOS" + (sosGlobalCounter++) + officerSuffix();
             let currentStart = startIndex;
 
             while (currentStart < endIndex) {
@@ -1258,30 +1286,103 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     removeBtn.addEventListener("click", () => {
-        const count = parseInt(document.getElementById("officerCount").value);
-        if (!count || count <= 0) return;
-
-        saveState();
-
-        const times = generateTimeSlots();
-
-        times.forEach((time, tIndex) => {
-            let allCells = [];
-            zones[currentMode].forEach(zone => {
-                if (zone.name === "BIKES") return;
-                let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${tIndex}"]`)];
-                allCells = allCells.concat(cells);
-            });
-
-            let activeCells = allCells.filter(c => c.classList.contains("active"));
-
-            for (let i = 0; i < count && activeCells.length > 0; i++) {
-                let last = activeCells.pop();
-                last.classList.remove("active");
-                last.style.background = "";
-            }
+        // Collect unique officer labels currently on the grid
+        const labelMap = {}; // label → type
+        document.querySelectorAll(".counter-cell.active").forEach(c => {
+            if (c.dataset.officer) labelMap[c.dataset.officer] = c.dataset.type || "";
         });
-        updateAll();
+
+        const labels = Object.keys(labelMap);
+        if (labels.length === 0) { alert("No officers on grid to remove."); return; }
+
+        // Sort: numeric (main) first ascending, then OT, then SOS
+        labels.sort((a, b) => {
+            const aNum = parseInt(a), bNum = parseInt(b);
+            const aIsNum = !isNaN(aNum) && String(aNum) === a.split(" ")[0];
+            const bIsNum = !isNaN(bNum) && String(bNum) === b.split(" ")[0];
+            if (aIsNum && bIsNum) return aNum - bNum;
+            if (aIsNum) return -1;
+            if (bIsNum) return 1;
+            return a.localeCompare(b);
+        });
+
+        // Helper: extract display text — show serial/id + any name
+        function displayLabel(l) {
+            // e.g. "20 | John / S123" → "20  John / S123"
+            // e.g. "OT3 | Jane"       → "OT3  Jane"
+            // e.g. "20"               → "20"
+            return l.replace(" | ", "  ");
+        }
+
+        // Build modal
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:10px;padding:22px;min-width:300px;max-width:380px;width:90%;box-shadow:0 6px 24px rgba(0,0,0,.35);font-family:inherit;">
+                <h3 style="margin:0 0 14px;font-size:15px;color:#333;">Remove Officer</h3>
+                <input id="_removeSearch" type="text" placeholder="Search by serial no. or name..."
+                    style="width:100%;box-sizing:border-box;padding:8px 10px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;font-size:13px;outline:none;"/>
+                <div style="font-size:11px;color:#888;margin-bottom:6px;">
+                    ${labels.length} officer${labels.length > 1 ? "s" : ""} on grid
+                </div>
+                <select id="_removeSelect" size="10"
+                    style="width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:6px;font-size:13px;padding:4px;line-height:1.6;">
+                    ${labels.map(l => {
+            const type = labelMap[l];
+            const badge = type === "main" ? "🟠" : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
+            return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
+        }).join("")}
+                </select>
+                <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+                    <button id="_removeCancel"
+                        style="padding:7px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:13px;">
+                        Cancel
+                    </button>
+                    <button id="_removeConfirm"
+                        style="padding:7px 16px;border-radius:6px;border:none;background:#e53935;color:#fff;cursor:pointer;font-weight:600;font-size:13px;">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        const searchEl = overlay.querySelector("#_removeSearch");
+        const selectEl = overlay.querySelector("#_removeSelect");
+        searchEl.focus();
+
+        // Live filter
+        searchEl.addEventListener("input", () => {
+            const q = searchEl.value.toLowerCase();
+            let firstVisible = null;
+            [...selectEl.options].forEach(opt => {
+                const match = opt.text.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q);
+                opt.hidden = !match;
+                if (!firstVisible && match) firstVisible = opt;
+            });
+            if (firstVisible) selectEl.value = firstVisible.value;
+        });
+
+        const close = () => document.body.removeChild(overlay);
+        overlay.querySelector("#_removeCancel").addEventListener("click", close);
+        overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+
+        overlay.querySelector("#_removeConfirm").addEventListener("click", () => {
+            const target = selectEl.value;
+            if (!target) { close(); return; }
+            saveState();
+            document.querySelectorAll(".counter-cell.active").forEach(cell => {
+                if (cell.dataset.officer === target) {
+                    cell.classList.remove("active");
+                    cell.style.background = "";
+                    cell.dataset.officer = "";
+                    cell.dataset.type = "";
+                }
+            });
+            updateAll();
+            close();
+        });
     });
 
     undoBtn.addEventListener("click", () => {
