@@ -27,7 +27,7 @@ const cellStates = {
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
-const manningSummaryEl = document.getElementById("manningSummary");
+const manningSummary = document.getElementById("manningSummary");
 const modeHighlight = document.getElementById("modeHighlight");
 const shiftHighlight = document.getElementById("shiftHighlight");
 
@@ -755,68 +755,61 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        // Every 4th Officer Special Period
+        // Every 4th Officer Special Period (2030 to end of shift)
         if ((currentMode === "arrival" || currentMode === "departure") && currentShift === "morning") {
             const specialStart = "2030";
-            const specialEnd = times[times.length - 1];
             const startIndex = times.findIndex(t => t === specialStart);
-            const endIndex = times.findIndex(t => t === specialEnd);
+            const endIndex = times.length; // exclusive — run to end of grid
 
-            if (startIndex !== -1 && endIndex !== -1) {
-                const officersToAssign = Math.floor(officerCount / 4);
-                let assignedOfficers = 0;
-
-                for (let officer = 1; officer <= officerCount; officer++) {
-                    if (officer % 4 !== 0) continue;
-                    if (assignedOfficers >= officersToAssign) break;
+            if (startIndex !== -1) {
+                // Officers 4, 8, 12... that fall within officerCount get the special period
+                for (let officer = 4; officer <= officerCount; officer += 4) {
+                    const specialLabel = officer + officerSuffix(); // correct label per officer
 
                     let assigned = false;
                     const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
                     const zoneOccupancy = candidateZones.map(zone => {
                         let occupiedCount = 0;
-                        for (let t = startIndex; t <= endIndex; t++) {
-                            const activeCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                .filter(c => c.classList.contains("active"));
-                            occupiedCount += activeCells.length;
+                        for (let t = startIndex; t < endIndex; t++) {
+                            occupiedCount += [...document.querySelectorAll(
+                                `.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`
+                            )].filter(c => c.classList.contains("active")).length;
                         }
-                        const totalSlots = zone.counters.length * (endIndex - startIndex + 1);
+                        const totalSlots = zone.counters.length * (endIndex - startIndex);
                         return { zone, occupiedCount, totalSlots, ratio: occupiedCount / totalSlots };
                     });
-
                     zoneOccupancy.sort((a, b) => a.ratio - b.ratio);
 
-                    for (let z = 0; z < zoneOccupancy.length; z++) {
+                    for (let z = 0; z < zoneOccupancy.length && !assigned; z++) {
                         const zone = zoneOccupancy[z].zone;
-                        const counters = [...zone.counters].reverse();
+                        const counters = [...zone.counters].reverse(); // back counters first
 
-                        for (let c = 0; c < counters.length; c++) {
+                        for (let c = 0; c < counters.length && !assigned; c++) {
                             const counter = counters[c];
                             let isFree = true;
 
-                            for (let t = startIndex; t <= endIndex; t++) {
-                                const allCells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                    .filter(cell => cell.parentElement.firstChild.innerText === counter);
-                                if (!allCells.length || allCells[0].classList.contains("active")) {
-                                    isFree = false;
-                                    break;
-                                }
+                            for (let t = startIndex; t < endIndex; t++) {
+                                const cell = document.querySelector(
+                                    `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                                );
+                                if (!cell || cell.classList.contains("active")) { isFree = false; break; }
                             }
 
                             if (isFree) {
-                                for (let t = startIndex; t <= endIndex; t++) {
-                                    const cell = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${t}"]`)]
-                                        .filter(c => c.parentElement.firstChild.innerText === counter)[0];
-                                    cell.classList.add("active");
-                                    cell.style.background = currentColor;
-                                    cell.dataset.officer = officerLabel;
-                                    cell.dataset.type = "main";
+                                for (let t = startIndex; t < endIndex; t++) {
+                                    const cell = document.querySelector(
+                                        `.counter-cell[data-zone="${zone.name}"][data-time="${t}"][data-counter="${counter}"]`
+                                    );
+                                    if (cell) {
+                                        cell.classList.add("active");
+                                        cell.style.background = currentColor;
+                                        cell.dataset.officer = specialLabel;
+                                        cell.dataset.type = "main";
+                                    }
                                 }
                                 assigned = true;
-                                assignedOfficers++;
-                                break;
                             }
                         }
-                        if (assigned) break;
                     }
                 }
             }
