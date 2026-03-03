@@ -638,14 +638,17 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    /* -------------------- Officer name/serial suffix -------------------- */
-    // Returns " | Name / Serial" if either field has a value, else ""
-    function officerSuffix() {
-        const name = (document.getElementById("officerName")?.value || "").trim();
-        const serial = (document.getElementById("officerSerial")?.value || "").trim();
-        if (!name && !serial) return "";
-        return " | " + [name, serial].filter(Boolean).join(" / ");
+    /* -------------------- Officer name suffix -------------------- */
+    function sosSuffix() {
+        const name = (document.getElementById("sosOfficerName")?.value || "").trim();
+        return name ? " | " + name : "";
     }
+    function otSuffix() {
+        const name = (document.getElementById("otOfficerName")?.value || "").trim();
+        return name ? " | " + name : "";
+    }
+    // Main / Train / OWC have no name suffix (identified by serial number)
+    function officerSuffix() { return ""; }
 
     /* -------------------- Save / Restore State -------------------- */
     function saveState() {
@@ -1140,30 +1143,29 @@ document.addEventListener("DOMContentLoaded", function () {
             const anyGapBudget = zonesLeft.some(z => gapsUsed[z.name] < maxGaps[z.name]);
             const useChain3 = anyGapBudget && count - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
             const useChain2 = anyGapBudget && !useChain3 && count - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
-            const labelA = "OT" + (otGlobalCounter++) + officerSuffix();
+            const labelA = "OT" + (otGlobalCounter++) + otSuffix();
 
             if (useChain3) {
                 // ── 3-person chain (A,B,C) ──────────────────────────────────
-                const labelB = "OT" + (otGlobalCounter++) + officerSuffix();
-                const labelC = "OT" + (otGlobalCounter++) + officerSuffix();
+                const labelB = "OT" + (otGlobalCounter++) + otSuffix();
+                const labelC = "OT" + (otGlobalCounter++) + otSuffix();
                 i += 3;
 
                 // Sort by manning ascending (least-manned first), take top 3
                 // but rotate so all zones eventually get picked
                 const top3 = zonesLeft.slice(0, 3);
 
-                // X zone: among eligible (gap budget), prefer the one whose
-                // lowest pool counter has the HIGHEST cNum — this assigns the
-                // gap to a zone with numerically large counters, keeping
-                // low-numbered zones (Zone 1) as continuous Y/Z.
+                // X zone: pick the eligible zone that has used the FEWEST gaps so far
+                // → distributes breaks evenly across all zones instead of one zone
+                //   monopolising the X role. Tiebreak: highest lowest-counter (least impact).
                 const eligibleX = top3.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
                 const candidatesX = eligibleX.length > 0 ? eligibleX : top3;
                 const xZone = candidatesX.reduce((best, z) => {
-                    const lo = available[z.name].slice().sort(sortAsc)[0];
-                    const bLo = available[best.name].slice().sort(sortAsc)[0];
-                    const loN = parseInt((lo || '').replace(/\D/g, '')) || 0;
-                    const bLoN = parseInt((bLo || '').replace(/\D/g, '')) || 0;
-                    return loN > bLoN ? z : best;
+                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    if (gapsUsed[z.name] !== gapsUsed[best.name])
+                        return gapsUsed[z.name] < gapsUsed[best.name] ? z : best; // fewest gaps first
+                    return loN > bLoN ? z : best; // tiebreak: highest lowest-counter
                 });
                 const xCounter = available[xZone.name].slice().sort(sortAsc)[0];   // LOWEST in pool
 
@@ -1191,17 +1193,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
             } else if (useChain2) {
                 // ── 2-person chain (A,B) ────────────────────────────────────
-                const labelB = "OT" + (otGlobalCounter++) + officerSuffix();
+                const labelB = "OT" + (otGlobalCounter++) + otSuffix();
                 i += 2;
                 const top2 = zonesLeft.slice(0, 2);
 
                 const eligibleX2 = top2.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
                 const candidatesX2 = eligibleX2.length > 0 ? eligibleX2 : top2;
                 const xZone = candidatesX2.reduce((best, z) => {
-                    const lo = available[z.name].slice().sort(sortAsc)[0];
-                    const bLo = available[best.name].slice().sort(sortAsc)[0];
-                    const loN = parseInt((lo || '').replace(/\D/g, '')) || 0;
-                    const bLoN = parseInt((bLo || '').replace(/\D/g, '')) || 0;
+                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    if (gapsUsed[z.name] !== gapsUsed[best.name])
+                        return gapsUsed[z.name] < gapsUsed[best.name] ? z : best;
                     return loN > bLoN ? z : best;
                 });
                 const xCounter = available[xZone.name].slice().sort(sortAsc)[0];
@@ -1254,7 +1256,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const breakSlots = 45 / 15;
 
         for (let i = 0; i < count; i++) {
-            const officerLabel = "SOS" + (sosGlobalCounter++) + officerSuffix();
+            const officerLabel = "SOS" + (sosGlobalCounter++) + sosSuffix();
             let currentStart = startIndex;
 
             while (currentStart < endIndex) {
@@ -1549,13 +1551,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
         overlay.innerHTML = `
             <div style="background:#fff;border-radius:10px;padding:22px;min-width:300px;max-width:380px;width:90%;box-shadow:0 6px 24px rgba(0,0,0,.35);font-family:inherit;">
-                <h3 style="margin:0 0 14px;font-size:15px;color:#333;">Remove Officer</h3>
-                <input id="_removeSearch" type="text" placeholder="Search by serial no. or name..."
-                    style="width:100%;box-sizing:border-box;padding:8px 10px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;font-size:13px;outline:none;"/>
-                <div style="font-size:11px;color:#888;margin-bottom:6px;">
-                    ${labels.length} officer${labels.length > 1 ? "s" : ""} on grid
+                <h3 style="margin:0 0 6px;font-size:15px;color:#333;">Remove Officer</h3>
+                <div style="font-size:11px;color:#888;margin-bottom:8px;">
+                    Hold <kbd style="background:#f0f0f0;border:1px solid #ccc;border-radius:3px;padding:0 3px;">Ctrl</kbd> / <kbd style="background:#f0f0f0;border:1px solid #ccc;border-radius:3px;padding:0 3px;">⌘</kbd> to select multiple &nbsp;·&nbsp; ${labels.length} officer${labels.length > 1 ? "s" : ""} on grid
                 </div>
-                <select id="_removeSelect" size="10"
+                <input id="_removeSearch" type="text" placeholder="Search by serial no. or name..."
+                    style="width:100%;box-sizing:border-box;padding:8px 10px;margin-bottom:8px;border:1px solid #ccc;border-radius:6px;font-size:13px;outline:none;"/>
+                <select id="_removeSelect" multiple size="10"
                     style="width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:6px;font-size:13px;padding:4px;line-height:1.6;">
                     ${labels.map(l => {
             const type = labelMap[l];
@@ -1583,16 +1585,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const selectEl = overlay.querySelector("#_removeSelect");
         searchEl.focus();
 
-        // Live filter
+        // Live filter — hide non-matching options, preserve selections
         searchEl.addEventListener("input", () => {
             const q = searchEl.value.toLowerCase();
-            let firstVisible = null;
             [...selectEl.options].forEach(opt => {
-                const match = opt.text.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q);
-                opt.hidden = !match;
-                if (!firstVisible && match) firstVisible = opt;
+                opt.hidden = q && !opt.text.toLowerCase().includes(q) && !opt.value.toLowerCase().includes(q);
             });
-            if (firstVisible) selectEl.value = firstVisible.value;
         });
 
         const close = () => document.body.removeChild(overlay);
@@ -1600,11 +1598,11 @@ document.addEventListener("DOMContentLoaded", function () {
         overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
 
         overlay.querySelector("#_removeConfirm").addEventListener("click", () => {
-            const target = selectEl.value;
-            if (!target) { close(); return; }
+            const targets = [...selectEl.selectedOptions].map(o => o.value);
+            if (targets.length === 0) { close(); return; }
             saveState();
             document.querySelectorAll(".counter-cell.active").forEach(cell => {
-                if (cell.dataset.officer === target) {
+                if (targets.includes(cell.dataset.officer)) {
                     cell.classList.remove("active");
                     cell.style.background = "";
                     cell.dataset.officer = "";
