@@ -1046,9 +1046,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         nonBikeZones.forEach(z => {
             z.counters.forEach(counter => {
+                if (partialFillCount >= count) return; // never exceed requested count
                 if (blockFree(z.name, counter, startIndex, effectiveEnd)) return; // fully free → in main pool
                 const wins = getFreeWindows(z.name, counter);
                 wins.forEach(w => {
+                    if (partialFillCount >= count) return;
                     if (w.to - w.from < 2) return; // too short (< 30 min)
                     const label = "OT" + (otGlobalCounter++) + otSuffix();
                     fillBlock(z.name, counter, w.from, w.to, label);
@@ -1093,7 +1095,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const n = nonBikeZones.length;
             const base = Math.floor(chainCount / n);
 
-            // First pass: give each zone max(base, minNeeded), capped by available free counters
+            // First pass: give each zone max(base, minNeeded), capped by free counters
             let allocated = 0;
             nonBikeZones.forEach(z => {
                 const minRequired = Math.ceil(z.counters.length / 2);
@@ -1103,8 +1105,34 @@ document.addEventListener("DOMContentLoaded", function () {
                 allocated += zoneQuota[z.name];
             });
 
-            // Second pass: distribute remaining quota to zones with most free capacity
-            let remaining = chainCount - allocated;
+            // Always trim total down to chainCount — never allocate more than requested.
+            // Trim from zones with most quota first, but never below base (fair share).
+            if (allocated > chainCount) {
+                let excess = allocated - chainCount;
+                [...nonBikeZones]
+                    .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
+                    .forEach(z => {
+                        if (excess <= 0) return;
+                        const canTrim = Math.max(0, zoneQuota[z.name] - base);
+                        const trim = Math.min(excess, canTrim);
+                        zoneQuota[z.name] -= trim;
+                        excess -= trim;
+                    });
+                // If still over (base itself is too high), trim further regardless
+                if (excess > 0) {
+                    [...nonBikeZones]
+                        .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
+                        .forEach(z => {
+                            if (excess <= 0) return;
+                            const trim = Math.min(excess, zoneQuota[z.name]);
+                            zoneQuota[z.name] -= trim;
+                            excess -= trim;
+                        });
+                }
+            }
+
+            // Second pass: distribute any remaining quota to zones with most free capacity
+            let remaining = chainCount - Object.values(zoneQuota).reduce((s, v) => s + v, 0);
             if (remaining > 0) {
                 [...nonBikeZones]
                     .sort((a, b) => fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length)
@@ -1112,17 +1140,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (remaining <= 0) return;
                         const extra = Math.min(remaining, fullyFreeDesc(z.name).length - zoneQuota[z.name]);
                         if (extra > 0) { zoneQuota[z.name] += extra; remaining -= extra; }
-                    });
-            } else if (remaining < 0) {
-                [...nonBikeZones]
-                    .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
-                    .forEach(z => {
-                        if (remaining >= 0) return;
-                        const minRequired = Math.ceil(z.counters.length / 2);
-                        const minNeeded = Math.max(0, minRequired - zoneMinMain[z.name]);
-                        const canTrim = zoneQuota[z.name] - minNeeded;
-                        const trim = Math.min(-remaining, canTrim);
-                        if (trim > 0) { zoneQuota[z.name] -= trim; remaining += trim; }
                     });
             }
         }
