@@ -1692,7 +1692,103 @@ document.addEventListener("DOMContentLoaded", function () {
         const prev = historyStack.pop();
         restoreState(prev);
     });
-});
+
+    /* ── Edit Names modal ─────────────────────────────────────────────── */
+    document.getElementById("editNamesBtn")?.addEventListener("click", () => {
+        // Collect all OT and SOS officers (main identified by number, not name)
+        const labelMap = {}; // base label → { type, currentLabel }
+        document.querySelectorAll(".counter-cell.active").forEach(c => {
+            const lbl = c.dataset.officer;
+            const type = c.dataset.type;
+            if (!lbl || type === "main") return;
+            if (!labelMap[lbl]) labelMap[lbl] = { type, currentLabel: lbl };
+        });
+
+        const entries = Object.values(labelMap);
+        if (entries.length === 0) { alert("No OT or SOS officers on grid to edit."); return; }
+
+        // Sort: SOS first, then OT, each numerically
+        entries.sort((a, b) => {
+            const aBase = a.currentLabel.split(" | ")[0];
+            const bBase = b.currentLabel.split(" | ")[0];
+            const aIsOT = aBase.startsWith("OT"), bIsOT = bBase.startsWith("OT");
+            const aIsSOS = aBase.startsWith("SOS"), bIsSOS = bBase.startsWith("SOS");
+            if (aIsSOS && !bIsSOS) return -1;
+            if (!aIsSOS && bIsSOS) return 1;
+            return parseInt(aBase.replace(/\D/g, "")) || 0 - parseInt(bBase.replace(/\D/g, "")) || 0;
+        });
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+
+        const rows = entries.map(e => {
+            const base = e.currentLabel.split(" | ")[0];
+            const existing = e.currentLabel.includes(" | ") ? e.currentLabel.split(" | ").slice(1).join(" | ") : "";
+            const badge = e.type === "ot" ? "🟣" : "🔵";
+            return `
+                <tr data-old="${e.currentLabel}">
+                    <td style="padding:5px 8px;font-size:13px;white-space:nowrap;">${badge} ${base}</td>
+                    <td style="padding:5px 4px;">
+                        <input type="text" value="${existing}"
+                            placeholder="Name..."
+                            style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:13px;"/>
+                    </td>
+                </tr>`;
+        }).join("");
+
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:10px;padding:22px;min-width:320px;max-width:420px;width:92%;box-shadow:0 6px 24px rgba(0,0,0,.35);font-family:inherit;display:flex;flex-direction:column;max-height:90vh;">
+                <h3 style="margin:0 0 14px;font-size:15px;color:#333;">Edit Officer Names</h3>
+                <div style="overflow-y:auto;flex:1;margin-bottom:14px;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:1px solid #eee;">
+                                <th style="text-align:left;padding:4px 8px;font-size:11px;color:#888;">Officer</th>
+                                <th style="text-align:left;padding:4px 8px;font-size:11px;color:#888;">Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button id="_editNamesCancel" style="padding:7px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:13px;">Cancel</button>
+                    <button id="_editNamesSave"   style="padding:7px 16px;border-radius:6px;border:none;background:#1976d2;color:#fff;cursor:pointer;font-weight:600;font-size:13px;">Save</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const close = () => document.body.removeChild(overlay);
+        overlay.querySelector("#_editNamesCancel").addEventListener("click", close);
+        overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+
+        overlay.querySelector("#_editNamesSave").addEventListener("click", () => {
+            saveState();
+            // Build a map of old label → new label
+            const renameMap = {};
+            overlay.querySelectorAll("tbody tr").forEach(row => {
+                const oldLabel = row.dataset.old;
+                const base = oldLabel.split(" | ")[0];
+                const name = row.querySelector("input").value.trim();
+                const newLabel = name ? `${base} | ${name}` : base;
+                if (newLabel !== oldLabel) renameMap[oldLabel] = newLabel;
+            });
+
+            if (Object.keys(renameMap).length === 0) { close(); return; }
+
+            // Apply renames to all matching cells
+            document.querySelectorAll(".counter-cell.active").forEach(cell => {
+                const renamed = renameMap[cell.dataset.officer];
+                if (renamed) cell.dataset.officer = renamed;
+            });
+
+            updateAll();
+            close();
+        });
+    });
+
+}); // end DOMContentLoaded
 
 /* ================== HELPERS ================== */
 function getEmptyCellsBackFirst(zoneName, timeIndex) {
