@@ -327,10 +327,23 @@ function updateMainRoster() {
         const records = officerMap[officer].sort((a, b) => a.time - b.time);
         if (!records.length) return;
 
+        // RA/RO badges for display
+        const raro = typeof raroRegistry !== "undefined" ? getRaro(officer) : null;
+        const raBadge = raro?.ra
+            ? `<span style="font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:4px;
+                background:#e3f2fd;color:#1565c0;border:1px solid #90caf9">RA ${formatTime(raro.ra)}</span>`
+            : "";
+        const roBadge = raro?.ro
+            ? `<span style="font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:4px;
+                background:#fce4ec;color:#b71c1c;border:1px solid #f48fb1">RO ${formatTime(raro.ro)}</span>`
+            : "";
+        const raroBadge = raBadge + roBadge;
+
         let start = records[0].time;
         let prev = records[0].time;
         let currentZone = records[0].zone;
         let currentCounter = records[0].counter;
+        let firstRow = true;
 
         for (let i = 1; i <= records.length; i++) {
             const isBreak =
@@ -342,12 +355,13 @@ function updateMainRoster() {
             if (isBreak) {
                 const row = document.createElement("tr");
                 row.innerHTML = `
-                    <td>${officer}</td>
+                    <td>${officer}${firstRow ? raroBadge : ""}</td>
                     <td>${currentZone} ${currentCounter}</td>
                     <td>${formatTime(times[start])}</td>
                     <td>${formatTime(times[prev + 1] || times[prev])}</td>
                 `;
                 tbody.appendChild(row);
+                firstRow = false;
 
                 if (i < records.length) {
                     start = records[i].time;
@@ -633,14 +647,32 @@ document.addEventListener("DOMContentLoaded", function () {
     let manpowerType = "main";
 
     const sosFields = document.getElementById("sosFields");
-    const otFields = document.getElementById("otFields");
-    const addBtn = document.getElementById("addOfficerBtn");
+    const otFields  = document.getElementById("otFields");
+    const raFields  = document.getElementById("raFields");
+    const roFields  = document.getElementById("roFields");
+    const addBtn    = document.getElementById("addOfficerBtn");
     const removeBtn = document.getElementById("removeOfficerBtn");
-    const undoBtn = document.getElementById("undoBtn");
+    const undoBtn   = document.getElementById("undoBtn");
 
     if (!addBtn || !removeBtn || !undoBtn) {
         console.error("Manpower buttons not found in HTML.");
         return;
+    }
+
+    // Populate officer dropdowns for RA/RO with main officers currently on grid
+    function populateRARODropdowns() {
+        const officers = [...new Set(
+            [...document.querySelectorAll('.counter-cell.active[data-type="main"]')]
+                .map(c => c.dataset.officer).filter(Boolean)
+        )].sort((a, b) => (parseInt(a)||0) - (parseInt(b)||0));
+
+        ["raOfficer", "roOfficer"].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const prev = sel.value;
+            sel.innerHTML = officers.map(o => `<option value="${o}">${o}</option>`).join("");
+            if (officers.includes(prev)) sel.value = prev;
+        });
     }
 
     /* -------------------- Select Manpower Type -------------------- */
@@ -651,6 +683,17 @@ document.addEventListener("DOMContentLoaded", function () {
             manpowerType = btn.dataset.type;
             sosFields.style.display = manpowerType === "sos" ? "block" : "none";
             otFields.style.display  = manpowerType === "ot"  ? "block" : "none";
+            raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
+            roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
+            // Hide officer count input for RA/RO — not needed
+            const countRow = document.getElementById("officerCount")?.closest("label")?.parentElement;
+            document.querySelector("label[for='officerCount'], #officerCount")?.closest(".mp-controls");
+            document.getElementById("officerCount").style.display =
+                (manpowerType === "ra" || manpowerType === "ro") ? "none" : "";
+            document.querySelector("label[for='officerCount']") &&
+                (document.querySelector("label[for='officerCount']").style.display =
+                    (manpowerType === "ra" || manpowerType === "ro") ? "none" : "");
+            if (manpowerType === "ra" || manpowerType === "ro") populateRARODropdowns();
             updateTrainOwcVisibility();
         });
     });
@@ -1623,9 +1666,94 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!checkCapacityBeforeAdd("main", count)) return;
             applyMainTemplate(count);
         }
+
+        if (manpowerType === "ra") {
+            const officerLabel = document.getElementById("raOfficer").value;
+            const raTimeRaw    = document.getElementById("raTime").value; // "HH:MM"
+            if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
+            applyRA(officerLabel, raTimeRaw.replace(":", ""));
+        }
+
+        if (manpowerType === "ro") {
+            const officerLabel = document.getElementById("roOfficer").value;
+            const roTimeRaw    = document.getElementById("roTime").value; // "HH:MM"
+            if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
+            applyRO(officerLabel, roTimeRaw.replace(":", ""));
+        }
     });
 
-    // Train / OWC — independent add button
+    /* ==================== RA / RO ==================== */
+
+    // raroRegistry: officer label → { ra: HHMM|null, ro: HHMM|null, roRelease: HHMM|null }
+    const raroRegistry = {};
+
+    function getRaro(officer) {
+        return raroRegistry[officer] || { ra: null, ro: null, roRelease: null };
+    }
+
+    function addMinsToHHMM(hhmm, mins) {
+        const h = parseInt(hhmm.slice(0, 2)), m = parseInt(hhmm.slice(2));
+        const total = h * 60 + m + mins;
+        return String(Math.floor(total / 60)).padStart(2, "0") + String(total % 60).padStart(2, "0");
+    }
+
+    // RA: clear all active cells for this officer BEFORE raTime
+    function applyRA(officerLabel, raTime) {
+        const times = generateTimeSlots();
+        const raIndex = times.findIndex(t => t === raTime);
+        if (raIndex === -1) { alert("RA time is outside the shift grid."); return; }
+
+        let affected = 0;
+        document.querySelectorAll(`.counter-cell.active[data-type="main"]`).forEach(cell => {
+            if (cell.dataset.officer !== officerLabel) return;
+            if (parseInt(cell.dataset.time) < raIndex) {
+                cell.classList.remove("active");
+                cell.style.background = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
+                affected++;
+            }
+        });
+
+        if (affected === 0) {
+            alert(`No cells found before ${formatTime(raTime)} for officer ${officerLabel}.`);
+            return;
+        }
+
+        raroRegistry[officerLabel] = { ...getRaro(officerLabel), ra: raTime };
+        updateAll();
+    }
+
+    // RO: clear all active cells for this officer FROM (roTime − 30min) onwards
+    function applyRO(officerLabel, roTime) {
+        const times = generateTimeSlots();
+        const releaseTime = addMinsToHHMM(roTime, -30);
+        const releaseIndex = times.findIndex(t => t === releaseTime);
+        if (releaseIndex === -1) { alert("RO release time is outside the shift grid."); return; }
+
+        let affected = 0;
+        document.querySelectorAll(`.counter-cell.active[data-type="main"]`).forEach(cell => {
+            if (cell.dataset.officer !== officerLabel) return;
+            if (parseInt(cell.dataset.time) >= releaseIndex) {
+                cell.classList.remove("active");
+                cell.style.background = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
+                affected++;
+            }
+        });
+
+        if (affected === 0) {
+            alert(`No cells found from ${formatTime(releaseTime)} onwards for officer ${officerLabel}.`);
+            return;
+        }
+
+        raroRegistry[officerLabel] = { ...getRaro(officerLabel), ro: roTime, roRelease: releaseTime };
+        updateAll();
+    }
+
+    /* ==================== End RA / RO ==================== */
+
     document.getElementById("addTrainOwcBtn")?.addEventListener("click", () => {
         const count = parseInt(document.getElementById("trainOwcCount")?.value || "0");
         if (!count || count <= 0) return;
