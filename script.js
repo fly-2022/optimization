@@ -1104,52 +1104,39 @@ document.addEventListener("DOMContentLoaded", function () {
         {
             const n = nonBikeZones.length;
             const base = Math.floor(chainCount / n);
+            const remainder = chainCount % n; // first `remainder` zones get base+1
 
-            // First pass: give each zone max(base, minNeeded), capped by free counters
-            let allocated = 0;
+            // Start with equal base allocation for every zone
+            nonBikeZones.forEach(z => { zoneQuota[z.name] = base; });
+
+            // Distribute the remainder (+1 each) to zones that need it most:
+            // Priority: zones with highest minNeeded (below 50%), then most free counters
+            const sortedForRemainder = [...nonBikeZones].sort((a, b) => {
+                const aNeeded = Math.max(0, Math.ceil(a.counters.length / 2) - zoneMinMain[a.name]);
+                const bNeeded = Math.max(0, Math.ceil(b.counters.length / 2) - zoneMinMain[b.name]);
+                if (bNeeded !== aNeeded) return bNeeded - aNeeded; // most-needed first
+                return fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length; // most free counters
+            });
+            sortedForRemainder.slice(0, remainder).forEach(z => { zoneQuota[z.name]++; });
+
+            // Clamp each zone by its actual available free counters
             nonBikeZones.forEach(z => {
-                const minRequired = Math.ceil(z.counters.length / 2);
-                const minNeeded = Math.max(0, minRequired - zoneMinMain[z.name]);
                 const totalFree = fullyFreeDesc(z.name).length + partialBackDesc(z.name).length;
-                zoneQuota[z.name] = Math.min(Math.max(base, minNeeded), totalFree);
-                allocated += zoneQuota[z.name];
+                if (zoneQuota[z.name] > totalFree) zoneQuota[z.name] = totalFree;
             });
 
-            // Always trim total down to chainCount — never allocate more than requested.
-            // Trim from zones with most quota first, but never below base (fair share).
-            if (allocated > chainCount) {
-                let excess = allocated - chainCount;
-                [...nonBikeZones]
-                    .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
-                    .forEach(z => {
-                        if (excess <= 0) return;
-                        const canTrim = Math.max(0, zoneQuota[z.name] - base);
-                        const trim = Math.min(excess, canTrim);
-                        zoneQuota[z.name] -= trim;
-                        excess -= trim;
-                    });
-                // If still over (base itself is too high), trim further regardless
-                if (excess > 0) {
-                    [...nonBikeZones]
-                        .sort((a, b) => zoneQuota[b.name] - zoneQuota[a.name])
-                        .forEach(z => {
-                            if (excess <= 0) return;
-                            const trim = Math.min(excess, zoneQuota[z.name]);
-                            zoneQuota[z.name] -= trim;
-                            excess -= trim;
-                        });
-                }
-            }
-
-            // Second pass: distribute any remaining quota to zones with most free capacity
-            let remaining = chainCount - Object.values(zoneQuota).reduce((s, v) => s + v, 0);
-            if (remaining > 0) {
+            // If clamping reduced total below chainCount, redistribute the deficit
+            // to zones that still have capacity
+            let allocated = Object.values(zoneQuota).reduce((s, v) => s + v, 0);
+            let deficit = chainCount - allocated;
+            if (deficit > 0) {
                 [...nonBikeZones]
                     .sort((a, b) => fullyFreeDesc(b.name).length - fullyFreeDesc(a.name).length)
                     .forEach(z => {
-                        if (remaining <= 0) return;
-                        const extra = Math.min(remaining, fullyFreeDesc(z.name).length - zoneQuota[z.name]);
-                        if (extra > 0) { zoneQuota[z.name] += extra; remaining -= extra; }
+                        if (deficit <= 0) return;
+                        const cap = fullyFreeDesc(z.name).length + partialBackDesc(z.name).length;
+                        const extra = Math.min(deficit, cap - zoneQuota[z.name]);
+                        if (extra > 0) { zoneQuota[z.name] += extra; deficit -= extra; }
                     });
             }
         }
