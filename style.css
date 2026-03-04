@@ -3,14 +3,12 @@ body {
     padding: 20px;
     background: #f7f9fc;
 }
-
 .controls {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 15px;
 }
-
 .segmented {
     position: relative;
     display: flex;
@@ -18,7 +16,6 @@ body {
     border-radius: 8px;
     overflow: hidden;
 }
-
 .segment-btn {
     flex: 1;
     padding: 8px 16px;
@@ -32,11 +29,9 @@ body {
     z-index: 2;
     transition: color 0.2s ease;
 }
-
 .segment-btn.active {
     color: white;
 }
-
 .segment-highlight {
     position: absolute;
     top: 0;
@@ -48,95 +43,78 @@ body {
     background: #4CAF50;
     transform: translateX(0%);
 }
-
 #modeHighlight {
     background: #4CAF50;
     transform: translateX(0%);
 }
-
 #shiftHighlight {
     background: #b0bec5;
     transform: translateX(0%);
 }
-
 .color-group {
     display: flex;
     border: 1px solid #ccc;
     border-radius: 6px;
     overflow: hidden;
 }
-
 .color-btn {
     width: 28px;
     height: 28px;
     border: none;
     cursor: pointer;
 }
-
 .color-btn.selected {
     outline: 2px none black;
 }
-
 #clearGridBtn {
     padding: 8px 16px;
 }
-
 .table-container {
     overflow: auto;
     border: 1px solid #ccc;
     background: white;
 }
-
 table {
     border-collapse: collapse;
     font-size: 11px;
     white-space: nowrap;
 }
-
 th,
 td {
     border: 1px solid #ccc;
     padding: 4px;
     text-align: center;
 }
-
 .zone-header {
     background: #eee;
     font-weight: bold;
     text-align: left;
     padding-left: 6px;
 }
-
 .time-header th {
     background: #f0f0f0;
     font-size: 10px;
 }
-
 td.counter-cell.active {
     border: 2px solid black;
 }
-
 .subtotal-row td {
     background: #e8f5e9;
     font-weight: bold;
 }
-
 .grandtotal-row td {
     background: #fff3e0;
     font-weight: bold;
 }
-
 #manningSummary {
     background: white;
     padding: 10px;
     border: 1px solid #ccc;
     white-space: pre;
 }
-
 .summary-controls {
     margin: 10px 0;
 }
-
 #copySummaryBtn {
     padding: 8px 14px;
     border: none;
@@ -145,27 +123,20 @@ td.counter-cell.active {
     border-radius: 6px;
     cursor: pointer;
 }
-
 #copySummaryBtn.copied {
     background: #4CAF50;
 }
-
-
-/* ================= MANPOWER SECTION ================= */
-
 .manpower-section {
     background: white;
     padding: 12px;
     border: 1px solid #ccc;
     margin-bottom: 15px;
 }
-
 .manpower-type {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
 }
-
 .mp-type {
     padding: 6px 12px;
     border: 1px solid #ccc;
@@ -173,19 +144,16 @@ td.counter-cell.active {
     cursor: pointer;
     border-radius: 6px;
 }
-
 .mp-type.active {
     background: #2196F3;
     color: white;
 }
-
 .mp-controls {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
 }
-
 #addOfficerBtn {
     padding: 6px 14px;
     background: #4CAF50;
@@ -194,7 +162,6 @@ td.counter-cell.active {
     border-radius: 6px;
     cursor: pointer;
 }
-
 #removeOfficerBtn {
     padding: 6px 14px;
     background: #f44336;
@@ -203,10 +170,17 @@ td.counter-cell.active {
     border-radius: 6px;
     cursor: pointer;
 }
-
 #undoBtn {
     padding: 6px 14px;
     background: #9c27b0;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+#editNamesBtn {
+    padding: 6px 14px;
+    background: #00897b;
     border: none;
     color: white;
     border-radius: 6px;
