@@ -1017,35 +1017,7 @@ document.addEventListener("DOMContentLoaded", function () {
             ).length / z.counters.length;
         }
 
-        // Counters fully free for the entire OT window — primary chain pool.
-        function fullyFreeDesc(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return [];
-            return z.counters.filter(c => blockFree(zoneName, c, startIndex, effectiveEnd))
-                .sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
-        }
-
-        // Counters partially occupied but with a free window large enough for at least
-        // one full chain front block. These join the chain pool alongside fully-free counters.
-        // Sorted desc (back-counters first), same as fullyFreeDesc.
-        function partialChainDesc(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return [];
-            return z.counters.filter(counter => {
-                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false; // already in fullyFreeDesc
-                const wins = getFreeWindows(zoneName, counter);
-                return wins.some(w => (w.to - w.from) >= minChainBlockSlots);
-            }).sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
-        }
-
-        // Combined pool: fully-free first, then large-partial, for chain allocation
-        function chainPoolDesc(zoneName) {
-            return [...fullyFreeDesc(zoneName), ...partialChainDesc(zoneName)
-                .filter(c => !partialSoloFilled.has(zoneName + ":" + c))];
-        }
-
-        // ── partial counter helpers ──────────────────────────────────────────
-        // Find free sub-windows for a counter within [startIndex, effectiveEnd)
+        // ── helper: free sub-windows for a counter within OT window ──────────
         function getFreeWindows(zoneName, counter) {
             const windows = [];
             let wStart = null;
@@ -1061,16 +1033,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return windows;
         }
 
-        // X-back window = BKE[2] to effectiveEnd (for 3-chain), BKE[1] for 2-chain
-        const xBackFrom = numBreaks >= 3 ? BKE[2] : (numBreaks >= 2 ? BKE[1] : BKE[0]);
-
-        // Minimum slot count to qualify as a chain-usable block.
-        // A front block runs from startIndex to BK[0] — anything shorter than that
-        // can't fit into any chain role and should be filled as a solo partial.
+        // X-back window start index and minimum chain-block size — computed once here
+        const xBackFrom         = numBreaks >= 3 ? BKE[2] : (numBreaks >= 2 ? BKE[1] : BKE[0]);
         const minChainBlockSlots = numBreaks > 0 ? (BK[0] - startIndex) : (effectiveEnd - startIndex);
 
-        // Partial gap fills: only fill windows that are TOO SHORT to be used in a chain.
-        // Larger free windows on partially-occupied counters go to partialBackDesc instead.
+        // Partial gap fills: fill free sub-windows that are too short for a chain block.
+        // Larger windows stay available for the chain pool.
         let partialFillCount = 0;
         const partialSoloFilled = new Set();
 
@@ -1082,12 +1050,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 wins.forEach(w => {
                     if (partialFillCount >= count) return;
                     const len = w.to - w.from;
-                    if (len < 2) return; // too short (< 30 min), skip entirely
-                    // Only solo-fill if the window is smaller than a chain front block
-                    // AND doesn't align with the X-back window (handled by partialBackDesc)
+                    if (len < 2) return; // < 30 min, ignore
                     const fitsChain = len >= minChainBlockSlots;
                     const isXBack   = w.from <= xBackFrom && w.to >= effectiveEnd;
-                    if (fitsChain || isXBack) return; // leave for chain / partialBackDesc
+                    if (fitsChain || isXBack) return; // leave for chain
                     const label = "OT" + (otGlobalCounter++) + otSuffix();
                     fillBlock(z.name, counter, w.from, w.to, label);
                     partialFillCount++;
@@ -1096,18 +1062,50 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
 
-        // Partial back-block counters: free only during X-back window (BKE[2]→end)
-        // Prefer these for the chain's X-back-block over opening a new full counter.
+        // Counters fully free for the entire OT window — primary chain pool.
+        function fullyFreeDesc(zoneName) {
+            const z = zones[currentMode].find(z => z.name === zoneName);
+            if (!z) return [];
+            return z.counters.filter(c => blockFree(zoneName, c, startIndex, effectiveEnd))
+                .sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
+        }
+
+        // Partially-occupied counters with a free window >= one full chain front block.
+        // These join the chain pool alongside fully-free counters.
+        function partialChainDesc(zoneName) {
+            const z = zones[currentMode].find(z => z.name === zoneName);
+            if (!z) return [];
+            return z.counters.filter(counter => {
+                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false;
+                if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
+                const wins = getFreeWindows(zoneName, counter);
+                return wins.some(w => (w.to - w.from) >= minChainBlockSlots);
+            }).sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
+        }
+
+        // Combined pool for chain allocation: fully-free first, then large partials.
+        function chainPoolDesc(zoneName) {
+            return [...fullyFreeDesc(zoneName), ...partialChainDesc(zoneName)];
+        }
+
+        // DEBUG — remove after testing
+        nonBikeZones.forEach(z => {
+            console.log(`[OT DEBUG] ${z.name}: fullyFree=${fullyFreeDesc(z.name).length} [${fullyFreeDesc(z.name)}]`);
+            console.log(`[OT DEBUG] ${z.name}: partialChain=${partialChainDesc(z.name).length} [${partialChainDesc(z.name)}]`);
+            console.log(`[OT DEBUG] ${z.name}: chainPool=${chainPoolDesc(z.name).length} [${chainPoolDesc(z.name)}]`);
+        });
+        console.log(`[OT DEBUG] partialFillCount=${partialFillCount}, chainCount will be=${Math.max(0, count - partialFillCount)}`);
+
+        // Partial back-block counters: free only during X-back window (xBackFrom→end).
         function partialBackDesc(zoneName) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
             return z.counters.filter(counter => {
-                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false; // fully free, in main pool
-                if (partialSoloFilled.has(zoneName + ":" + counter)) return false; // already filled as partial solo
+                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false;
+                if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
+                if (partialChainDesc(zoneName).includes(counter)) return false; // in chain pool already
                 return blockFree(zoneName, counter, xBackFrom, effectiveEnd);
-            }).sort((a, b) =>
-                (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
-            );
+            }).sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
         }
 
         // ── zone quotas with 50% floor guarantee ────────────────────────────
