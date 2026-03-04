@@ -1193,8 +1193,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const timesUsed = {};
         nonBikeZones.forEach(z => { timesUsed[z.name] = 0; });
-        // Track Y/Z role assignment per zone to stagger breaks
-        const yzRoleCount = {}; // zone → how many times it was Y (even) vs Z (odd)
+        // Rotate Y/Z role and BK offset per group to stagger break times across zones
+        const lastYZRole = {};  // zone → 'Y' or 'Z'
+        const yzRoleCount = {};
         nonBikeZones.forEach(z => { yzRoleCount[z.name] = 0; });
         let groupCount = 0;
 
@@ -1239,15 +1240,28 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
                 const xCounter = available[xZone.name].slice().sort(sortAsc)[0];   // LOWEST in pool
 
-                const yzZones  = top3.filter(z => z !== xZone);
-                // Alternate which yzZone gets Y-role (breaks at BK[1]) vs Z-role (breaks at BK[2])
-                // by checking how many times each has previously been Y — pick the one with fewer Y turns
-                const [yZone, zZone] = yzRoleCount[yzZones[0].name] <= yzRoleCount[yzZones[1].name]
-                    ? [yzZones[0], yzZones[1]]
-                    : [yzZones[1], yzZones[0]];
+                const yzZones = top3.filter(z => z !== xZone);
+                // Alternate Y/Z: give Y to whichever zone was Z last time (or fewer Y turns)
+                const z0wasY = lastYZRole[yzZones[0].name] === 'Y';
+                const z1wasY = lastYZRole[yzZones[1].name] === 'Y';
+                let yZone, zZone;
+                if (z0wasY && !z1wasY)      { yZone = yzZones[1]; zZone = yzZones[0]; }
+                else if (z1wasY && !z0wasY) { yZone = yzZones[0]; zZone = yzZones[1]; }
+                else if (yzRoleCount[yzZones[0].name] <= yzRoleCount[yzZones[1].name])
+                                             { yZone = yzZones[0]; zZone = yzZones[1]; }
+                else                         { yZone = yzZones[1]; zZone = yzZones[0]; }
+                lastYZRole[yZone.name] = 'Y';
+                lastYZRole[zZone.name] = 'Z';
                 yzRoleCount[yZone.name]++;
-                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];  // HIGHEST
-                const zCounter = available[zZone.name].slice().sort(sortDesc)[0];  // HIGHEST
+
+                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];
+                const zCounter = available[zZone.name].slice().sort(sortDesc)[0];
+
+                // Rotate break slots per group so the same zone doesn't always
+                // get the same break time when it appears in multiple groups.
+                const rot  = groupCount % 3;
+                const rBK  = [BK[rot % 3],  BK[(rot+1) % 3],  BK[(rot+2) % 3]];
+                const rBKE = [BKE[rot % 3], BKE[(rot+1) % 3], BKE[(rot+2) % 3]];
                 groupCount++;
 
                 if (!xCounter || !yCounter || !zCounter) { i -= 3; otGlobalCounter -= 3; break; }
@@ -1260,18 +1274,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 timesUsed[zZone.name]++;
 
                 // X-back: prefer a partially-free counter (e.g. AC15 free 1945-2030)
-                // over using xCounter itself — keeps xCounter from needing to span whole window
-                // If a partial back counter exists in xZone, use it for the C back-block
                 const partialBackC = availablePartialBack[xZone.name]?.[0] || null;
                 const xBackCounter = partialBackC || xCounter;
                 if (partialBackC) usePartialBack(xZone.name, partialBackC);
 
-                fillBlock(xZone.name, xCounter,    startIndex, BK[0],    labelA);
-                fillBlock(yZone.name, yCounter,    BKE[0], effectiveEnd, labelA);
-                fillBlock(yZone.name, yCounter,    startIndex, BK[1],    labelB);
-                fillBlock(zZone.name, zCounter,    BKE[1], effectiveEnd, labelB);
-                fillBlock(zZone.name, zCounter,    startIndex, BK[2],    labelC);
-                fillBlock(xZone.name, xBackCounter, BKE[2], effectiveEnd, labelC);
+                // Officer A: X front → Y back  (A breaks at rBK[0])
+                // Officer B: Y front → Z back  (B breaks at rBK[1])
+                // Officer C: Z front → X back  (C breaks at rBK[2])
+                fillBlock(xZone.name, xCounter,     startIndex,  rBK[0],      labelA);
+                fillBlock(yZone.name, yCounter,     rBKE[0],     effectiveEnd, labelA);
+                fillBlock(yZone.name, yCounter,     startIndex,  rBK[1],      labelB);
+                fillBlock(zZone.name, zCounter,     rBKE[1],     effectiveEnd, labelB);
+                fillBlock(zZone.name, zCounter,     startIndex,  rBK[2],      labelC);
+                fillBlock(xZone.name, xBackCounter, rBKE[2],     effectiveEnd, labelC);
 
             } else if (useChain2) {
                 // ── 2-person chain (A,B) ────────────────────────────────────
