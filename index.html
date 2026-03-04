@@ -74,6 +74,8 @@
         <button class="mp-type active" data-type="main">Main</button>
         <button class="mp-type" data-type="sos">SOS</button>
         <button class="mp-type" data-type="ot">OT</button>
+        <button class="mp-type" data-type="ra">RA</button>
+        <button class="mp-type" data-type="ro">RO</button>
       </div>
 
       <div class="mp-controls">
@@ -112,6 +114,22 @@
           </select>
           <label>Name <span class="optional">(optional)</span></label>
           <input type="text" id="otOfficerName" placeholder="e.g. Jane" />
+        </div>
+
+        <!-- RA Fields -->
+        <div id="raFields" style="display:none">
+          <label>Officer</label>
+          <select id="raOfficer"></select>
+          <label>Report After (HH:MM)</label>
+          <input type="time" id="raTime" />
+        </div>
+
+        <!-- RO Fields -->
+        <div id="roFields" style="display:none">
+          <label>Officer</label>
+          <select id="roOfficer"></select>
+          <label>Report Off (HH:MM)</label>
+          <input type="time" id="roTime" />
         </div>
 
         <!-- ACTION BUTTONS -->
