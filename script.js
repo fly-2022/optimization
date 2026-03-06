@@ -1167,18 +1167,26 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // ── Step 6: Pre-plan group assignments ───────────────────────────────
-        // Build a flat interleaved zone sequence so every zone gets exactly its quota.
-        // Interleave by cycling through zones sorted by remaining quota (desc).
-        // This guarantees zone balance regardless of chain-3 / chain-2 / solo splits.
+        // Build an interleaved zone sequence ensuring no zone repeats within
+        // any window of 3 consecutive slots (= one chain-3 group).
+        // This prevents the same zone from appearing as both front and back
+        // in a single chain, which would create a gap on the same counter.
         function buildZoneSequence(quotaMap) {
             const remaining = {};
             nonBikeZones.forEach(z => { remaining[z.name] = quotaMap[z.name] || 0; });
             const seq = [];
             while (seq.length < chainCount) {
-                // Pick zone with most remaining quota (ties: alphabetical for consistency)
-                const candidates = nonBikeZones
-                    .filter(z => remaining[z.name] > 0)
+                // Zones not used in the last 2 positions (= not in same chain-3 group)
+                const recent = new Set(seq.slice(-2));
+                // Prefer zones not recently used, sorted by remaining quota desc, then name
+                let candidates = nonBikeZones
+                    .filter(z => remaining[z.name] > 0 && !recent.has(z))
                     .sort((a, b) => remaining[b.name] - remaining[a.name] || a.name.localeCompare(b.name));
+                // Fallback: if all eligible zones were recently used, allow repeats
+                if (!candidates.length)
+                    candidates = nonBikeZones
+                        .filter(z => remaining[z.name] > 0)
+                        .sort((a, b) => remaining[b.name] - remaining[a.name] || a.name.localeCompare(b.name));
                 if (!candidates.length) break;
                 seq.push(candidates[0]);
                 remaining[candidates[0].name]--;
