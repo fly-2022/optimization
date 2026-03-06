@@ -206,3 +206,18 @@ td.counter-cell.active {
     color: white;
     border-color: #b71c1c;
 }
+#copyMainRosterBtn,
+#copySOSRosterBtn,
+#copyOTRosterBtn {
+    padding: 8px 14px;
+    border: none;
+    background: #2196F3;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+#copyMainRosterBtn.copied,
+#copySOSRosterBtn.copied,
+#copyOTRosterBtn.copied {
+    background: #4CAF50;
+}
