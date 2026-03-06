@@ -173,6 +173,10 @@ function applyOOSStyling() {
         }
     });
 
+    // Build a reverse lookup: "toZone||toCounter" → "fromZone:fromCounter"
+    const swapDest = new Map();
+    swapHistory.forEach((dest, src) => swapDest.set(dest, src));
+
     document.querySelectorAll("#rosterTable tr").forEach(row => {
         if (row.classList.contains("zone-header") ||
             row.classList.contains("time-header") ||
@@ -185,24 +189,41 @@ function applyOOSStyling() {
 
         const zone = dataCell.dataset.zone;
         const counter = dataCell.dataset.counter;
-        const isOOS = oosCounters.has(oosKey(zone, counter));
-        const destKey = `${zone}:${counter}`;
-        const isSwapSrc = swapHistory.has(destKey);
-        const isSwapDest = [...swapHistory.values()].includes(destKey);
+        const srcKey = `${zone}:${counter}`;          // key used in swapHistory
+        const destKey = `${zone}||${counter}`;          // value stored in swapHistory
 
-        // Strip all badges
+        const isOOS = oosCounters.has(oosKey(zone, counter));
+        const isSwapSrc = swapHistory.has(srcKey);
+        const isSwapDest = swapDest.has(destKey);
+
+        // Strip all previous badges cleanly
         labelCell.textContent = labelCell.textContent
-            .replace(/ ⚠/g, "").replace(/ ⇄/g, "").replace(/ ←/g, "");
+            .replace(/ ⚠/g, "").replace(/ ⇄.*/g, "").replace(/ ←.*/g, "");
+        labelCell.removeAttribute("title");
 
         if (isOOS) {
             labelCell.style.cssText = "background:#e53935;color:white;font-weight:bold;";
             labelCell.textContent += " ⚠";
         } else if (isSwapSrc) {
-            labelCell.style.cssText = "background:#fff3e0;color:#e65100;font-weight:bold;";
-            labelCell.textContent += " ⇄";
+            // Show where this counter's officers went
+            const destRaw = swapHistory.get(srcKey);
+            const sepIdx = destRaw.indexOf("||");
+            const toZone = destRaw.slice(0, sepIdx);
+            const toCounter = destRaw.slice(sepIdx + 2);
+            const label = toZone === zone ? toCounter : `${toCounter} (${toZone})`;
+            labelCell.style.cssText = "background:#fff3e0;color:#e65100;font-weight:bold;cursor:help;";
+            labelCell.textContent += ` ⇄ ${label}`;
+            labelCell.title = `Officers swapped to ${toCounter} in ${toZone}. Right-click to swap back.`;
         } else if (isSwapDest) {
-            labelCell.style.cssText = "background:#e8f5e9;color:#2e7d32;font-weight:bold;";
-            labelCell.textContent += " ←";
+            // Show where this counter received officers from
+            const srcRaw = swapDest.get(destKey); // "fromZone:fromCounter"
+            const lastColon = srcRaw.lastIndexOf(":");
+            const fromZone = srcRaw.slice(0, lastColon);
+            const fromCounter = srcRaw.slice(lastColon + 1);
+            const label = fromZone === zone ? fromCounter : `${fromCounter} (${fromZone})`;
+            labelCell.style.cssText = "background:#e8f5e9;color:#2e7d32;font-weight:bold;cursor:help;";
+            labelCell.textContent += ` ← ${label}`;
+            labelCell.title = `Received officers from ${fromCounter} in ${fromZone}.`;
         } else {
             labelCell.style.cssText = "";
         }
