@@ -998,160 +998,156 @@ document.addEventListener("DOMContentLoaded", function () {
         let endIndex = times.findIndex(t => t === otEnd);
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
 
-        const releaseSlots = 30 / 15;
-        let effectiveEnd;
-        if (endIndex === -1) {
-            // otEnd is beyond the grid (e.g. night 0600-1100 where grid ends 0945)
-            // Use the last slot of the grid — no release deduction since shift already ends
-            effectiveEnd = times.length - 1;
-        } else {
-            effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
-        }
-        const breakSlots = 45 / 15;
+        const releaseSlots = 2; // 30 min = 2 × 15-min slots
+        const effectiveEnd = endIndex === -1
+            ? times.length - 1
+            : Math.max(startIndex, endIndex - releaseSlots);
+
+        const breakSlots = 3; // 45 min = 3 × 15-min slots
 
         function addMins(timeStr, mins) {
             const h = parseInt(timeStr.slice(0, 2)), m = parseInt(timeStr.slice(2));
             const tot = h * 60 + m + mins;
             return String(Math.floor(tot / 60)).padStart(2, "0") + String(tot % 60).padStart(2, "0");
         }
-        // Determine how many chain breaks fit in the window.
-        // Each group needs: startIndex → BK[n] (front) + BKE[n] → effectiveEnd (back).
-        // Only count a break as usable if there's at least 1 slot of back block after it.
+
+        // Break-point indices: BK[n] = where officer breaks, BKE[n] = where they resume
         const BK = [90, 135, 180].map(m => {
             const idx = times.findIndex(t => t === addMins(otStart, m));
             return idx === -1 ? effectiveEnd : idx;
         });
         const BKE = BK.map(b => b + breakSlots);
-        // Number of usable breaks: how many BKE[n] <= effectiveEnd
-        const numBreaks = BKE.filter(b => b <= effectiveEnd).length;  // 0, 1, 2, or 3
+        const numBreaks = BKE.filter(b => b <= effectiveEnd).length;
+
         const gapWinStart = numBreaks > 0 ? BK[0] : startIndex;
         const gapWinEnd = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
 
+        // Minimum slots for a usable chain front-block
+        const minChainSlots = numBreaks > 0 ? (BK[0] - startIndex) : (effectiveEnd - startIndex);
+        // X-back window starts at BKE[2] (or BKE[1]/[0] for shorter windows)
+        const xBackFrom = numBreaks >= 3 ? BKE[2] : numBreaks >= 2 ? BKE[1] : BKE[0];
+
+        // ── DOM helpers ──────────────────────────────────────────────────────
+        function cell(zone, counter, t) {
+            return document.querySelector(
+                `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
+            );
+        }
         function blockFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
-                );
-                if (!cell || cell.classList.contains("active")) return false;
+                const c = cell(zone, counter, t);
+                if (!c || c.classList.contains("active")) return false;
             }
             return true;
         }
-
         function fillBlock(zone, counter, from, to, label) {
             for (let t = from; t < to; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${zone}"][data-time="${t}"][data-counter="${counter}"]`
-                );
-                if (!cell || cell.classList.contains("active")) continue;
-                cell.classList.add("active");
-                cell.style.background = currentColor;
-                cell.dataset.officer = label;
-                cell.dataset.type = "ot";
+                const c = cell(zone, counter, t);
+                if (!c || c.classList.contains("active")) continue;
+                c.classList.add("active");
+                c.style.background = currentColor;
+                c.dataset.officer = label;
+                c.dataset.type = "ot";
             }
+        }
+        function getFreeWindows(zone, counter) {
+            const wins = []; let ws = null;
+            for (let t = startIndex; t < effectiveEnd; t++) {
+                const free = (() => { const c = cell(zone, counter, t); return c && !c.classList.contains("active"); })();
+                if (free && ws === null) ws = t;
+                if (!free && ws !== null) { wins.push({ from: ws, to: t }); ws = null; }
+            }
+            if (ws !== null) wins.push({ from: ws, to: effectiveEnd });
+            return wins;
         }
 
         const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
 
-        function manning(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z || !z.counters.length) return 1;
-            return document.querySelectorAll(
-                `.counter-cell.active[data-zone="${zoneName}"][data-time="${startIndex}"]`
-            ).length / z.counters.length;
-        }
-
-        // ── helper: free sub-windows for a counter within OT window ──────────
-        function getFreeWindows(zoneName, counter) {
-            const windows = [];
-            let wStart = null;
-            for (let t = startIndex; t < effectiveEnd; t++) {
-                const cell = document.querySelector(
-                    `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${counter}"]`
-                );
-                const occupied = !cell || cell.classList.contains("active");
-                if (!occupied && wStart === null) wStart = t;
-                if (occupied && wStart !== null) { windows.push({ from: wStart, to: t }); wStart = null; }
-            }
-            if (wStart !== null) windows.push({ from: wStart, to: effectiveEnd });
-            return windows;
-        }
-
-        // X-back window start index and minimum chain-block size — computed once here
-        const xBackFrom = numBreaks >= 3 ? BKE[2] : (numBreaks >= 2 ? BKE[1] : BKE[0]);
-        const minChainBlockSlots = numBreaks > 0 ? (BK[0] - startIndex) : (effectiveEnd - startIndex);
-
-        // Partial gap fills: fill free sub-windows that are too short for a chain block.
-        // Larger windows stay available for the chain pool.
+        // ── Step 1: Solo-fill genuine small gaps (windows too short for chain) ─
+        // These consume an OT slot each but can't participate in chain rotation.
         let partialFillCount = 0;
         const partialSoloFilled = new Set();
 
         nonBikeZones.forEach(z => {
             z.counters.forEach(counter => {
                 if (partialFillCount >= count) return;
-                if (blockFree(z.name, counter, startIndex, effectiveEnd)) return; // fully free → main pool
-                const wins = getFreeWindows(z.name, counter);
-                wins.forEach(w => {
+                if (blockFree(z.name, counter, startIndex, effectiveEnd)) return; // fully free → chain pool
+                getFreeWindows(z.name, counter).forEach(w => {
                     if (partialFillCount >= count) return;
                     const len = w.to - w.from;
-                    if (len < 2) return; // < 30 min, ignore
-                    const fitsChain = len >= minChainBlockSlots;
-                    const isXBack = w.from <= xBackFrom && w.to >= effectiveEnd;
-                    if (fitsChain || isXBack) return; // leave for chain
-                    const label = "OT" + (otGlobalCounter++) + otSuffix();
-                    fillBlock(z.name, counter, w.from, w.to, label);
+                    if (len < 2) return; // < 30 min — too short, skip
+                    // If window fits a chain block OR aligns with X-back, keep for chain
+                    if (len >= minChainSlots) return;
+                    if (w.from <= xBackFrom && w.to >= effectiveEnd) return;
+                    fillBlock(z.name, counter, w.from, w.to, "OT" + (otGlobalCounter++) + otSuffix());
                     partialFillCount++;
                     partialSoloFilled.add(z.name + ":" + counter);
                 });
             });
         });
 
-        // Counters fully free for the entire OT window — primary chain pool.
-        function fullyFreeDesc(zoneName) {
+        // ── Step 2: Build per-zone counter pools ─────────────────────────────
+        // fullyFree: counter is vacant for entire OT window → ideal for chain
+        // partialXBack: counter free only during X-back window → use as X-back substitute
+        // partialChain: large free window → can participate in chain (fillBlock skips occupied slots)
+        function fullyFreeList(zoneName) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
-            return z.counters.filter(c => blockFree(zoneName, c, startIndex, effectiveEnd))
+            return z.counters
+                .filter(c => blockFree(zoneName, c, startIndex, effectiveEnd))
                 .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
         }
-
-        // Partially-occupied counters with a free window >= one full chain front block.
-        // These join the chain pool alongside fully-free counters.
-        function partialChainDesc(zoneName) {
+        function partialXBackList(zoneName) {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
-            return z.counters.filter(counter => {
-                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false;
-                if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
-                const wins = getFreeWindows(zoneName, counter);
-                return wins.some(w => (w.to - w.from) >= minChainBlockSlots);
+            return z.counters.filter(c => {
+                if (blockFree(zoneName, c, startIndex, effectiveEnd)) return false;
+                if (partialSoloFilled.has(zoneName + ":" + c)) return false;
+                return blockFree(zoneName, c, xBackFrom, effectiveEnd);
             }).sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
         }
 
-        // Combined pool for chain allocation: fully-free first, then large partials.
-        function chainPoolDesc(zoneName) {
-            return [...fullyFreeDesc(zoneName), ...partialChainDesc(zoneName)];
+        // ── Step 3: Quota — strict equal split, round-robin remainder ────────
+        const chainCount = Math.max(0, count - partialFillCount);
+        const n = nonBikeZones.length;
+        const base = Math.floor(chainCount / n);
+        const rem = chainCount % n;
+
+        // Zone-level cap: how many fully-free counters exist
+        const poolCap = {};
+        nonBikeZones.forEach(z => { poolCap[z.name] = fullyFreeList(z.name).length; });
+
+        // Assign base quota, then distribute remainder to zones with most capacity
+        const zoneQuota = {};
+        nonBikeZones.forEach(z => { zoneQuota[z.name] = Math.min(base, poolCap[z.name]); });
+
+        // Remainder: sort zones by (capacity desc, name asc) for deterministic round-robin
+        const remOrder = [...nonBikeZones]
+            .sort((a, b) => poolCap[b.name] - poolCap[a.name] || a.name.localeCompare(b.name));
+        let remLeft = rem;
+        for (const z of remOrder) {
+            if (remLeft <= 0) break;
+            if (zoneQuota[z.name] < poolCap[z.name]) { zoneQuota[z.name]++; remLeft--; }
+        }
+        // If any zone was clamped below base (not enough free counters), redistribute
+        let deficit = chainCount - Object.values(zoneQuota).reduce((s, v) => s + v, 0);
+        if (deficit > 0) {
+            for (const z of remOrder) {
+                if (deficit <= 0) break;
+                const extra = Math.min(deficit, poolCap[z.name] - zoneQuota[z.name]);
+                if (extra > 0) { zoneQuota[z.name] += extra; deficit -= extra; }
+            }
         }
 
-        // DEBUG — remove after testing
+        // ── Step 4: Build counter pools (fully-free only, capped by quota) ───
+        const pool = {};
         nonBikeZones.forEach(z => {
-            console.log(`[OT DEBUG] ${z.name}: fullyFree=${fullyFreeDesc(z.name).length} [${fullyFreeDesc(z.name)}]`);
-            console.log(`[OT DEBUG] ${z.name}: partialChain=${partialChainDesc(z.name).length} [${partialChainDesc(z.name)}]`);
-            console.log(`[OT DEBUG] ${z.name}: chainPool=${chainPoolDesc(z.name).length} [${chainPoolDesc(z.name)}]`);
+            pool[z.name] = fullyFreeList(z.name).slice(0, zoneQuota[z.name]);
         });
-        console.log(`[OT DEBUG] partialFillCount=${partialFillCount}, chainCount will be=${Math.max(0, count - partialFillCount)}`);
+        const xBackPool = {};
+        nonBikeZones.forEach(z => { xBackPool[z.name] = [...partialXBackList(z.name)]; });
 
-        // Partial back-block counters: free only during X-back window (xBackFrom→end).
-        function partialBackDesc(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
-            if (!z) return [];
-            return z.counters.filter(counter => {
-                if (blockFree(zoneName, counter, startIndex, effectiveEnd)) return false;
-                if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
-                if (partialChainDesc(zoneName).includes(counter)) return false; // in chain pool already
-                return blockFree(zoneName, counter, xBackFrom, effectiveEnd);
-            }).sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
-        }
-
-        // ── zone quotas with 50% floor guarantee ────────────────────────────
+        // ── Step 5: Compute zoneMinMain for gap budget (50% floor) ───────────
         const zoneMinMain = {};
         nonBikeZones.forEach(z => {
             const minRequired = Math.ceil(z.counters.length / 2);
@@ -1164,176 +1160,98 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             zoneMinMain[z.name] = minM;
         });
-
-        const chainCount = Math.max(0, count - partialFillCount);
-
-        const zoneQuota = {};
-        {
-            const n = nonBikeZones.length;
-            const base = Math.floor(chainCount / n);
-            const remainder = chainCount % n; // first `remainder` zones get base+1
-
-            // Start with equal base allocation for every zone
-            nonBikeZones.forEach(z => { zoneQuota[z.name] = base; });
-
-            // Distribute the remainder (+1 each) to zones that need it most:
-            // Priority: zones with highest minNeeded (below 50%), then most free counters
-            const sortedForRemainder = [...nonBikeZones].sort((a, b) => {
-                const aNeeded = Math.max(0, Math.ceil(a.counters.length / 2) - zoneMinMain[a.name]);
-                const bNeeded = Math.max(0, Math.ceil(b.counters.length / 2) - zoneMinMain[b.name]);
-                if (bNeeded !== aNeeded) return bNeeded - aNeeded; // most-needed first
-                return chainPoolDesc(b.name).length - chainPoolDesc(a.name).length; // most free counters
-            });
-            sortedForRemainder.slice(0, remainder).forEach(z => { zoneQuota[z.name]++; });
-
-            // Clamp each zone by its actual available chain counters
-            nonBikeZones.forEach(z => {
-                const totalFree = chainPoolDesc(z.name).length;
-                if (zoneQuota[z.name] > totalFree) zoneQuota[z.name] = totalFree;
-            });
-
-            // If clamping reduced total below chainCount, redistribute the deficit
-            // to zones that still have capacity
-            let allocated = Object.values(zoneQuota).reduce((s, v) => s + v, 0);
-            let deficit = chainCount - allocated;
-            if (deficit > 0) {
-                [...nonBikeZones]
-                    .sort((a, b) => chainPoolDesc(b.name).length - chainPoolDesc(a.name).length)
-                    .forEach(z => {
-                        if (deficit <= 0) return;
-                        const cap = chainPoolDesc(z.name).length;
-                        const extra = Math.min(deficit, cap - zoneQuota[z.name]);
-                        if (extra > 0) { zoneQuota[z.name] += extra; deficit -= extra; }
-                    });
-            }
-        }
-
-        // ── pre-select pool per zone ──────────────────────────────────────────
-        const zonePool = {};
-        nonBikeZones.forEach(z => {
-            zonePool[z.name] = chainPoolDesc(z.name).slice(0, zoneQuota[z.name]);
-        });
-
-        // Track available partial back-block counters per zone (consumed during chain loop)
-        const availablePartialBack = {};
-        nonBikeZones.forEach(z => {
-            availablePartialBack[z.name] = partialBackDesc(z.name);
-        });
-
-        // ── max gaps per zone ─────────────────────────────────────────────────
-        // max_gaps = minMainDuringGap + quota - minRequired
-        // A zone with maxGaps=0 must have ALL its OT as continuous (no chain gap).
-        const maxGaps = {}, gapsUsed = {};
+        const maxGaps = {};
         nonBikeZones.forEach(z => {
             const minRequired = Math.ceil(z.counters.length / 2);
             maxGaps[z.name] = Math.max(0, zoneMinMain[z.name] + zoneQuota[z.name] - minRequired);
-            gapsUsed[z.name] = 0;
         });
 
-        // ── available pool (consumed as counters are assigned) ────────────────
+        // ── Step 6: Pre-plan group assignments ───────────────────────────────
+        // Build a flat interleaved zone sequence so every zone gets exactly its quota.
+        // Interleave by cycling through zones sorted by remaining quota (desc).
+        // This guarantees zone balance regardless of chain-3 / chain-2 / solo splits.
+        function buildZoneSequence(quotaMap) {
+            const remaining = {};
+            nonBikeZones.forEach(z => { remaining[z.name] = quotaMap[z.name] || 0; });
+            const seq = [];
+            while (seq.length < chainCount) {
+                // Pick zone with most remaining quota (ties: alphabetical for consistency)
+                const candidates = nonBikeZones
+                    .filter(z => remaining[z.name] > 0)
+                    .sort((a, b) => remaining[b.name] - remaining[a.name] || a.name.localeCompare(b.name));
+                if (!candidates.length) break;
+                seq.push(candidates[0]);
+                remaining[candidates[0].name]--;
+            }
+            return seq;
+        }
+        const zoneSeq = buildZoneSequence(zoneQuota);
+
+        // ── Step 7: Consume pools in sequence order ───────────────────────────
         const available = {};
-        nonBikeZones.forEach(z => { available[z.name] = [...zonePool[z.name]]; });
+        nonBikeZones.forEach(z => { available[z.name] = [...pool[z.name]]; });
 
-        function useCounter(zoneName, counter) {
-            available[zoneName] = available[zoneName].filter(c => c !== counter);
+        function takeCounter(zoneName) {
+            // Prefer fully-free (already in available[]); fallback shouldn't be needed
+            const c = available[zoneName].shift();
+            return c || null;
         }
-        function usePartialBack(zoneName, counter) {
-            availablePartialBack[zoneName] = (availablePartialBack[zoneName] || []).filter(c => c !== counter);
-        }
 
-        // ── main loop ─────────────────────────────────────────────────────────
-        const sortAsc = (a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0);
-        const sortDesc = (a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0);
+        // Gap budget per zone
+        const gapsUsed = {};
+        nonBikeZones.forEach(z => { gapsUsed[z.name] = 0; });
 
-        const timesUsed = {};
-        nonBikeZones.forEach(z => { timesUsed[z.name] = 0; });
-        // Rotate Y/Z role and BK offset per group to stagger break times across zones
-        const lastYZRole = {};  // zone → 'Y' or 'Z'
-        const yzRoleCount = {};
-        nonBikeZones.forEach(z => { yzRoleCount[z.name] = 0; });
+        // ── Step 8: Execute groups from pre-planned sequence ──────────────────
+        let seqIdx = 0;
         let groupCount = 0;
 
-        let i = 0;
-        while (i < chainCount) {
-            const zonesLeft = nonBikeZones.filter(z => available[z.name].length > 0)
-                .sort((a, b) => {
-                    const diff = timesUsed[a.name] - timesUsed[b.name];
-                    if (diff !== 0) return diff;
-                    const aLo = parseInt((available[a.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    const bLo = parseInt((available[b.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    return bLo - aLo; // higher lowest-counter first
-                });
-            if (zonesLeft.length === 0) break;
+        while (seqIdx < zoneSeq.length) {
+            const remaining = zoneSeq.length - seqIdx;
+            const anyGap = zoneSeq.slice(seqIdx).some(z => gapsUsed[z.name] < maxGaps[z.name]);
 
-            const anyGapBudget = zonesLeft.some(z => gapsUsed[z.name] < maxGaps[z.name]);
-            const useChain3 = anyGapBudget && chainCount - i >= 3 && numBreaks >= 3 && zonesLeft.length >= 3;
-            const useChain2 = anyGapBudget && !useChain3 && chainCount - i >= 2 && numBreaks >= 2 && zonesLeft.length >= 2;
             const labelA = "OT" + (otGlobalCounter++) + otSuffix();
 
-            if (useChain3) {
-                // ── 3-person chain (A,B,C) ──────────────────────────────────
+            if (anyGap && remaining >= 3 && numBreaks >= 3) {
+                // ── Chain-3 ───────────────────────────────────────────────────
                 const labelB = "OT" + (otGlobalCounter++) + otSuffix();
                 const labelC = "OT" + (otGlobalCounter++) + otSuffix();
-                i += 3;
 
-                // Sort by manning ascending (least-manned first), take top 3
-                // but rotate so all zones eventually get picked
-                const top3 = zonesLeft.slice(0, 3);
+                // Take next 3 zones from sequence
+                const [zA, zB, zC] = [zoneSeq[seqIdx], zoneSeq[seqIdx + 1], zoneSeq[seqIdx + 2]];
+                seqIdx += 3;
 
-                // X zone: pick the eligible zone that has used the FEWEST gaps so far
-                // → distributes breaks evenly across all zones instead of one zone
-                //   monopolising the X role. Tiebreak: highest lowest-counter (least impact).
-                const eligibleX = top3.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
-                const candidatesX = eligibleX.length > 0 ? eligibleX : top3;
-                const xZone = candidatesX.reduce((best, z) => {
-                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    if (gapsUsed[z.name] !== gapsUsed[best.name])
-                        return gapsUsed[z.name] < gapsUsed[best.name] ? z : best; // fewest gaps first
-                    return loN > bLoN ? z : best; // tiebreak: highest lowest-counter
-                });
-                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];   // LOWEST in pool
+                // X-role = zone with fewest gaps used (gets the gap / break)
+                // Then Y and Z alternate to stagger break times
+                const triple = [zA, zB, zC];
+                triple.sort((a, b) => gapsUsed[a.name] - gapsUsed[b.name]);
+                const xZone = triple[0];
+                const yzPair = triple.slice(1);
+                // Alternate Y/Z by groupCount parity for break stagger
+                const [yZone, zZone] = groupCount % 2 === 0
+                    ? [yzPair[0], yzPair[1]]
+                    : [yzPair[1], yzPair[0]];
 
-                const yzZones = top3.filter(z => z !== xZone);
-                // Alternate Y/Z: give Y to whichever zone was Z last time (or fewer Y turns)
-                const z0wasY = lastYZRole[yzZones[0].name] === 'Y';
-                const z1wasY = lastYZRole[yzZones[1].name] === 'Y';
-                let yZone, zZone;
-                if (z0wasY && !z1wasY) { yZone = yzZones[1]; zZone = yzZones[0]; }
-                else if (z1wasY && !z0wasY) { yZone = yzZones[0]; zZone = yzZones[1]; }
-                else if (yzRoleCount[yzZones[0].name] <= yzRoleCount[yzZones[1].name]) { yZone = yzZones[0]; zZone = yzZones[1]; }
-                else { yZone = yzZones[1]; zZone = yzZones[0]; }
-                lastYZRole[yZone.name] = 'Y';
-                lastYZRole[zZone.name] = 'Z';
-                yzRoleCount[yZone.name]++;
+                const xCounter = takeCounter(xZone.name);
+                const yCounter = takeCounter(yZone.name);
+                const zCounter = takeCounter(zZone.name);
+                if (!xCounter || !yCounter || !zCounter) {
+                    otGlobalCounter -= 3; seqIdx -= 3; break;
+                }
 
-                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];
-                const zCounter = available[zZone.name].slice().sort(sortDesc)[0];
+                gapsUsed[xZone.name]++;
 
-                // Rotate break slots per group so the same zone doesn't always
-                // get the same break time when it appears in multiple groups.
+                // X-back: use partial X-back counter if available (gap fill)
+                const xBackC = xBackPool[xZone.name].length > 0
+                    ? xBackPool[xZone.name].shift() : null;
+                const xBackCounter = xBackC || xCounter;
+
+                // Rotate BK offsets per group for even break distribution
                 const rot = groupCount % 3;
                 const rBK = [BK[rot % 3], BK[(rot + 1) % 3], BK[(rot + 2) % 3]];
                 const rBKE = [BKE[rot % 3], BKE[(rot + 1) % 3], BKE[(rot + 2) % 3]];
                 groupCount++;
 
-                if (!xCounter || !yCounter || !zCounter) { i -= 3; otGlobalCounter -= 3; break; }
-                useCounter(xZone.name, xCounter);
-                useCounter(yZone.name, yCounter);
-                useCounter(zZone.name, zCounter);
-                gapsUsed[xZone.name]++;
-                timesUsed[xZone.name]++;
-                timesUsed[yZone.name]++;
-                timesUsed[zZone.name]++;
-
-                // X-back: prefer a partially-free counter (e.g. AC15 free 1945-2030)
-                const partialBackC = availablePartialBack[xZone.name]?.[0] || null;
-                const xBackCounter = partialBackC || xCounter;
-                if (partialBackC) usePartialBack(xZone.name, partialBackC);
-
-                // Officer A: X front → Y back  (A breaks at rBK[0])
-                // Officer B: Y front → Z back  (B breaks at rBK[1])
-                // Officer C: Z front → X back  (C breaks at rBK[2])
+                // A: X-front + Y-back   B: Y-front + Z-back   C: Z-front + X-back
                 fillBlock(xZone.name, xCounter, startIndex, rBK[0], labelA);
                 fillBlock(yZone.name, yCounter, rBKE[0], effectiveEnd, labelA);
                 fillBlock(yZone.name, yCounter, startIndex, rBK[1], labelB);
@@ -1341,32 +1259,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(zZone.name, zCounter, startIndex, rBK[2], labelC);
                 fillBlock(xZone.name, xBackCounter, rBKE[2], effectiveEnd, labelC);
 
-            } else if (useChain2) {
-                // ── 2-person chain (A,B) ────────────────────────────────────
+            } else if (anyGap && remaining >= 2 && numBreaks >= 2) {
+                // ── Chain-2 ───────────────────────────────────────────────────
                 const labelB = "OT" + (otGlobalCounter++) + otSuffix();
-                i += 2;
-                const top2 = zonesLeft.slice(0, 2);
+                const [zA, zB] = [zoneSeq[seqIdx], zoneSeq[seqIdx + 1]];
+                seqIdx += 2;
 
-                const eligibleX2 = top2.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
-                const candidatesX2 = eligibleX2.length > 0 ? eligibleX2 : top2;
-                const xZone = candidatesX2.reduce((best, z) => {
-                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
-                    if (gapsUsed[z.name] !== gapsUsed[best.name])
-                        return gapsUsed[z.name] < gapsUsed[best.name] ? z : best;
-                    return loN > bLoN ? z : best;
-                });
-                const xCounter = available[xZone.name].slice().sort(sortAsc)[0];
+                const xZone = gapsUsed[zA.name] <= gapsUsed[zB.name] ? zA : zB;
+                const yZone = xZone === zA ? zB : zA;
 
-                const yZone = top2.find(z => z !== xZone) || top2[0];
-                const yCounter = available[yZone.name].slice().sort(sortDesc)[0];
+                const xCounter = takeCounter(xZone.name);
+                const yCounter = takeCounter(yZone.name);
+                if (!xCounter || !yCounter) { otGlobalCounter -= 2; seqIdx -= 2; break; }
 
-                if (!xCounter || !yCounter) { i -= 2; otGlobalCounter -= 2; break; }
-                useCounter(xZone.name, xCounter);
-                useCounter(yZone.name, yCounter);
                 gapsUsed[xZone.name]++;
-                timesUsed[xZone.name]++;
-                timesUsed[yZone.name]++;
 
                 fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
@@ -1374,22 +1280,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 fillBlock(xZone.name, xCounter, BKE[1], effectiveEnd, labelB);
 
             } else {
-                // ── solo fill — single officer on one counter ──────────────────
-                const z = zonesLeft[0];
-                const c = available[z.name].slice().sort(sortDesc)[0]; // back counter first
+                // ── Solo ──────────────────────────────────────────────────────
+                const z = zoneSeq[seqIdx++];
+                const c = takeCounter(z.name);
                 if (!c) break;
-                useCounter(z.name, c);
-                timesUsed[z.name]++;
-                i++;
 
                 if (numBreaks >= 1 && gapsUsed[z.name] < maxGaps[z.name]) {
-                    // Give this officer a break: front block → gap → back block
-                    // Use the first break window available
-                    fillBlock(z.name, c, startIndex, BK[0], labelA); // front
-                    fillBlock(z.name, c, BKE[0], effectiveEnd, labelA); // back
+                    fillBlock(z.name, c, startIndex, BK[0], labelA);
+                    fillBlock(z.name, c, BKE[0], effectiveEnd, labelA);
                     gapsUsed[z.name]++;
                 } else {
-                    // No break budget or no breaks fit — straight through
                     fillBlock(z.name, c, startIndex, effectiveEnd, labelA);
                 }
             }
