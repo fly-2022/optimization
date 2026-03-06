@@ -97,7 +97,6 @@ function generateTimeSlots() {
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
     table.innerHTML = "";
-    tableEventsAttached = false;
     const times = generateTimeSlots();
 
     zones[currentMode].forEach(zone => {
@@ -907,7 +906,7 @@ function setMode(mode) {
     dragMode = "add";
     oosCounters.clear();
     renderTableOnce();
-    attachTableEvents();
+    restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
 }
@@ -948,7 +947,7 @@ function setShift(shift) {
     dragMode = "add";
     oosCounters.clear();
     renderTableOnce();
-    attachTableEvents();
+    restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
 }
