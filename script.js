@@ -271,9 +271,8 @@ function markOOS(zoneName, counter) {
     const hasOfficers = activeCells.length > 0;
     const labels = [...new Set(activeCells.map(c => c.dataset.officer).filter(Boolean))];
 
-    // Only offer same-zone free counters for OOS relocation (simpler UX)
-    const freeCandidates = getFreeCandidates(zoneName, counter)
-        .filter(c => c.zone === zoneName);
+    // Offer all free counters across zones for OOS relocation
+    const freeCandidates = getFreeCandidates(zoneName, counter);
 
     function doMarkOOS(toZone, toCounter) {
         oosCounters.add(key);
@@ -334,8 +333,15 @@ function markOOS(zoneName, counter) {
     box.style.cssText = `background:#fff;border-radius:10px;padding:24px 26px;max-width:380px;width:90%;
         box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:Arial;`;
     const officerList = labels.map(l => `<strong>${l}</strong>`).join(", ");
-    const candidateOptions = freeCandidates
-        .map(c => `<option value="${c.zone}||${c.counter}">${c.counter}</option>`).join("");
+    const byZone = {};
+    freeCandidates.forEach(({ zone, counter: c }) => {
+        if (!byZone[zone]) byZone[zone] = [];
+        byZone[zone].push(c);
+    });
+    const candidateOptions = Object.entries(byZone).map(([zone, ctrs]) =>
+        `<optgroup label="${zone}">${ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
+        }</optgroup>`
+    ).join("");
 
     box.innerHTML = `
         <div style="font-size:22px;margin-bottom:10px">⚠️</div>
