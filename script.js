@@ -158,8 +158,10 @@ function renderTableOnce() {
 
 function oosKey(zone, counter) { return `${zone}:${counter}`; }
 
+// swapHistory: "zone:fromCounter" → "zone:toCounter"
+const swapHistory = new Map();
+
 function applyOOSStyling() {
-    // Style counter cells
     document.querySelectorAll("#rosterTable .counter-cell").forEach(cell => {
         const key = oosKey(cell.dataset.zone, cell.dataset.counter);
         if (oosCounters.has(key)) {
@@ -171,7 +173,6 @@ function applyOOSStyling() {
         }
     });
 
-    // Style counter label cells only — skip zone-header, time-header, subtotal rows
     document.querySelectorAll("#rosterTable tr").forEach(row => {
         if (row.classList.contains("zone-header") ||
             row.classList.contains("time-header") ||
@@ -182,47 +183,69 @@ function applyOOSStyling() {
         const dataCell = row.querySelector(".counter-cell");
         if (!labelCell || !dataCell) return;
 
-        const key = oosKey(dataCell.dataset.zone, dataCell.dataset.counter);
-        if (oosCounters.has(key)) {
-            labelCell.style.background = "#e53935";
-            labelCell.style.color = "white";
-            labelCell.style.fontWeight = "bold";
-            if (!labelCell.textContent.includes("⚠")) labelCell.textContent += " ⚠";
+        const zone = dataCell.dataset.zone;
+        const counter = dataCell.dataset.counter;
+        const isOOS = oosCounters.has(oosKey(zone, counter));
+        const destKey = `${zone}:${counter}`;
+        const isSwapSrc = swapHistory.has(destKey);
+        const isSwapDest = [...swapHistory.values()].includes(destKey);
+
+        // Strip all badges
+        labelCell.textContent = labelCell.textContent
+            .replace(/ ⚠/g, "").replace(/ ⇄/g, "").replace(/ ←/g, "");
+
+        if (isOOS) {
+            labelCell.style.cssText = "background:#e53935;color:white;font-weight:bold;";
+            labelCell.textContent += " ⚠";
+        } else if (isSwapSrc) {
+            labelCell.style.cssText = "background:#fff3e0;color:#e65100;font-weight:bold;";
+            labelCell.textContent += " ⇄";
+        } else if (isSwapDest) {
+            labelCell.style.cssText = "background:#e8f5e9;color:#2e7d32;font-weight:bold;";
+            labelCell.textContent += " ←";
         } else {
-            if (labelCell.textContent.includes(" ⚠"))
-                labelCell.textContent = labelCell.textContent.replace(" ⚠", "");
-            labelCell.style.background = "";
-            labelCell.style.color = "";
-            labelCell.style.fontWeight = "";
+            labelCell.style.cssText = "";
         }
     });
 }
 
+// Free candidates sorted by highest counter number first (back counters)
+function getFreeCandidates(zoneName, excludeCounter, fromIdx, toIdx) {
+    const zone = zones[currentMode].find(z => z.name === zoneName);
+    if (!zone) return [];
+    const times = generateTimeSlots();
+    const start = (fromIdx !== undefined) ? fromIdx : 0;
+    const end = (toIdx !== undefined) ? toIdx : times.length;
+    return zone.counters
+        .filter(c => {
+            if (c === excludeCounter) return false;
+            if (oosCounters.has(oosKey(zoneName, c))) return false;
+            // Must be free for the entire requested window
+            for (let i = start; i < end; i++) {
+                const cell = document.querySelector(
+                    `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${c}"]`);
+                if (cell && cell.classList.contains("active")) return false;
+            }
+            return true;
+        })
+        .sort((a, b) =>
+            (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
+        );
+}
+
 function markOOS(zoneName, counter) {
     const key = oosKey(zoneName, counter);
-
-    // Collect officers currently on this counter
     const activeCells = [...document.querySelectorAll(
         `.counter-cell.active[data-zone="${zoneName}"][data-counter="${counter}"]`
     )];
     const hasOfficers = activeCells.length > 0;
-
-    // Find unique officer labels on this counter
     const labels = [...new Set(activeCells.map(c => c.dataset.officer).filter(Boolean))];
+    const freeCandidates = getFreeCandidates(zoneName, counter);
 
-    // Find free counters in same zone for relocating
-    const zone = zones[currentMode].find(z => z.name === zoneName);
-    const freeCandidates = zone ? zone.counters.filter(c => {
-        if (c === counter) return false;
-        if (oosCounters.has(oosKey(zoneName, c))) return false;
-        return !document.querySelector(`.counter-cell.active[data-zone="${zoneName}"][data-counter="${c}"]`);
-    }) : [];
-
-    function doMarkOOS(relocate) {
+    function doMarkOOS(relocateTo) {
         oosCounters.add(key);
 
-        if (relocate && freeCandidates.length > 0) {
-            // Collect all slot data per officer before clearing
+        if (relocateTo) {
             const officerSlots = new Map();
             activeCells.forEach(cell => {
                 const lbl = cell.dataset.officer;
@@ -233,175 +256,179 @@ function markOOS(zoneName, counter) {
                     type: cell.dataset.type
                 });
             });
-
-            // Clear counter
+            // Clear OOS counter
             document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-counter="${counter}"]`)
                 .forEach(cell => {
                     cell.classList.remove("active");
                     cell.dataset.officer = "";
                     cell.dataset.type = "";
                 });
-
-            // Relocate each officer to first suitable free counter
-            let freeIdx = 0;
+            // Move officers to target
             officerSlots.forEach((slots, label) => {
-                const minT = Math.min(...slots.map(s => s.t));
-                const maxT = Math.max(...slots.map(s => s.t));
-
-                // Find a free counter covering the full span
-                const target = freeCandidates.find(c => {
-                    for (let t = minT; t <= maxT; t++) {
-                        const cell = document.querySelector(
-                            `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${c}"]`
-                        );
-                        if (!cell || cell.classList.contains("active")) return false;
-                    }
-                    return true;
+                const ok = !slots.some(({ t }) => {
+                    const c = document.querySelector(
+                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${relocateTo}"]`
+                    );
+                    return !c || c.classList.contains("active");
                 });
-
-                if (target) {
+                if (ok) {
                     slots.forEach(({ t, color, type }) => {
-                        const cell = document.querySelector(
-                            `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${target}"]`
+                        const c = document.querySelector(
+                            `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${relocateTo}"]`
                         );
-                        if (!cell) return;
-                        cell.classList.add("active");
-                        cell.style.background = color;
-                        cell.dataset.officer = label;
-                        cell.dataset.type = type;
+                        if (!c) return;
+                        c.classList.add("active");
+                        c.style.background = color;
+                        c.dataset.officer = label;
+                        c.dataset.type = type;
                     });
                 }
-                // If no target found, officer is removed — visible as subtotal drop
             });
+            swapHistory.set(`${zoneName}:${counter}`, `${zoneName}:${relocateTo}`);
         }
 
         applyOOSStyling();
         updateAll();
     }
 
-    if (!hasOfficers) {
-        // No officers — mark immediately, no dialog needed
-        doMarkOOS(false);
-        return;
-    }
+    if (!hasOfficers) { doMarkOOS(null); return; }
 
-    // Show warning dialog
+    // Build dialog
     const overlay = document.createElement("div");
     overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;
         display:flex;align-items:center;justify-content:center;`;
-
     const box = document.createElement("div");
-    box.style.cssText = `background:#fff;border-radius:10px;padding:24px 26px;max-width:360px;width:90%;
+    box.style.cssText = `background:#fff;border-radius:10px;padding:24px 26px;max-width:380px;width:90%;
         box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:Arial;`;
-
     const officerList = labels.map(l => `<strong>${l}</strong>`).join(", ");
-    const relocateAvail = freeCandidates.length > 0;
+    const candidateOptions = freeCandidates.map(c => `<option value="${c}">${c}</option>`).join("");
 
     box.innerHTML = `
         <div style="font-size:22px;margin-bottom:10px">⚠️</div>
         <h3 style="margin:0 0 10px;font-size:15px">Mark ${counter} Out of Service?</h3>
-        <p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.5">
-            ${labels.length} officer(s) currently assigned here:<br>${officerList}
-        </p>
-        ${relocateAvail ? `
-        <p style="margin:0 0 16px;font-size:13px;color:#555">
-            Move them to <strong>${freeCandidates[0]}</strong> (next free counter)?
-        </p>
+        <p style="margin:0 0 14px;font-size:13px;color:#555;line-height:1.5">
+            ${labels.length} officer(s) assigned here: ${officerList}</p>
+        ${freeCandidates.length ? `
+        <label style="font-size:12px;color:#777;display:block;margin-bottom:4px">
+            Relocate to (nearest free back counter first):</label>
+        <select id="_oosMoveTarget" style="width:100%;padding:7px;border:1px solid #ccc;
+            border-radius:6px;font-size:13px;margin-bottom:14px">${candidateOptions}</select>
         <div style="display:flex;flex-direction:column;gap:8px">
-            <button id="_oosMove" style="padding:9px;border:none;background:#4CAF50;color:#fff;border-radius:6px;cursor:pointer;font-size:13px">
-                ✅ Mark OOS &amp; Move Officers to ${freeCandidates[0]}
-            </button>
-            <button id="_oosKeep" style="padding:9px;border:none;background:#FF9800;color:#fff;border-radius:6px;cursor:pointer;font-size:13px">
-                ⚠️ Mark OOS Only (leave officers in place)
-            </button>
-            <button id="_oosCancel" style="padding:9px;border:1px solid #ccc;background:#f5f5f5;border-radius:6px;cursor:pointer;font-size:13px">
-                Cancel
-            </button>
+            <button id="_oosMove" style="padding:9px;border:none;background:#4CAF50;color:#fff;
+                border-radius:6px;cursor:pointer;font-size:13px">✅ Mark OOS &amp; Move Officers</button>
+            <button id="_oosKeep" style="padding:9px;border:none;background:#FF9800;color:#fff;
+                border-radius:6px;cursor:pointer;font-size:13px">⚠️ Mark OOS Only (reassign manually)</button>
+            <button id="_oosCancel" style="padding:9px;border:1px solid #ccc;background:#f5f5f5;
+                border-radius:6px;cursor:pointer;font-size:13px">Cancel</button>
         </div>` : `
-        <p style="margin:0 0 16px;font-size:13px;color:#c62828">
-            No free counters available in this zone to relocate to.
-        </p>
+        <p style="margin:0 0 14px;font-size:13px;color:#c62828">No free counters available.</p>
         <div style="display:flex;flex-direction:column;gap:8px">
-            <button id="_oosKeep" style="padding:9px;border:none;background:#FF9800;color:#fff;border-radius:6px;cursor:pointer;font-size:13px">
-                ⚠️ Mark OOS (officers remain — reassign manually)
-            </button>
-            <button id="_oosCancel" style="padding:9px;border:1px solid #ccc;background:#f5f5f5;border-radius:6px;cursor:pointer;font-size:13px">
-                Cancel
-            </button>
+            <button id="_oosKeep" style="padding:9px;border:none;background:#FF9800;color:#fff;
+                border-radius:6px;cursor:pointer;font-size:13px">⚠️ Mark OOS (reassign manually)</button>
+            <button id="_oosCancel" style="padding:9px;border:1px solid #ccc;background:#f5f5f5;
+                border-radius:6px;cursor:pointer;font-size:13px">Cancel</button>
         </div>`}`;
 
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-
-    if (relocateAvail) {
+    if (freeCandidates.length) {
         document.getElementById("_oosMove").onclick = () => {
-            overlay.remove();
-            doMarkOOS(true);
+            const target = document.getElementById("_oosMoveTarget").value;
+            overlay.remove(); doMarkOOS(target);
         };
     }
-    document.getElementById("_oosKeep").onclick = () => {
-        overlay.remove();
-        doMarkOOS(false);
-    };
+    document.getElementById("_oosKeep").onclick = () => { overlay.remove(); doMarkOOS(null); };
     document.getElementById("_oosCancel").onclick = () => overlay.remove();
     overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
 }
 
 function clearOOS(zoneName, counter) {
     oosCounters.delete(oosKey(zoneName, counter));
-    // Restore cell styling
     document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-counter="${counter}"]`)
         .forEach(cell => {
-            if (!cell.classList.contains("active")) {
-                cell.style.background = "";
-            }
+            if (!cell.classList.contains("active")) cell.style.background = "";
             cell.style.pointerEvents = "";
         });
     applyOOSStyling();
     updateAll();
 }
 
-function swapCounters(zoneName, fromCounter, toCounter) {
-    // Validate toCounter is fully free
-    const allCells = document.querySelectorAll(`.counter-cell[data-zone="${zoneName}"][data-counter="${toCounter}"]`);
-    for (const cell of allCells) {
-        if (cell.classList.contains("active")) {
-            alert(`Counter ${toCounter} is not fully free. Cannot swap.`);
-            return;
+function swapCounters(zoneName, fromCounter, toCounter, fromIdx, toIdx) {
+    if (oosCounters.has(oosKey(zoneName, toCounter))) {
+        alert(`Counter ${toCounter} is Out of Service. Cannot swap into it.`); return;
+    }
+    const times = generateTimeSlots();
+    const start = (fromIdx !== undefined) ? fromIdx : 0;
+    const end = (toIdx !== undefined) ? toIdx : times.length;
+
+    // Check target is free for the requested window
+    for (let i = start; i < end; i++) {
+        const cell = document.querySelector(
+            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+        if (cell && cell.classList.contains("active")) {
+            alert(`Counter ${toCounter} is occupied in the selected time window. Cannot swap.`); return;
         }
     }
-    if (oosCounters.has(oosKey(zoneName, toCounter))) {
-        alert(`Counter ${toCounter} is Out of Service. Cannot swap into it.`);
-        return;
-    }
 
-    const times = generateTimeSlots();
-    times.forEach((t, i) => {
+    for (let i = start; i < end; i++) {
         const fromCell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`
-        );
+            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`);
         const toCell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`
-        );
-        if (!fromCell || !toCell) return;
-
+            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+        if (!fromCell || !toCell) continue;
         if (fromCell.classList.contains("active")) {
             toCell.classList.add("active");
             toCell.style.background = fromCell.style.background;
             toCell.dataset.officer = fromCell.dataset.officer;
             toCell.dataset.type = fromCell.dataset.type;
-
             fromCell.classList.remove("active");
             fromCell.style.background = "";
             fromCell.dataset.officer = "";
             fromCell.dataset.type = "";
         }
-    });
-
+    }
+    swapHistory.set(`${zoneName}:${fromCounter}`, `${zoneName}:${toCounter}`);
+    applyOOSStyling();
     updateAll();
 }
 
-// ── Context menu for counter rows ─────────────────────────────────────────────
+function swapBack(zoneName, fromCounter) {
+    const histKey = `${zoneName}:${fromCounter}`;
+    const destFull = swapHistory.get(histKey);
+    if (!destFull) return;
+    const toCounter = destFull.split(":").slice(1).join(":");
+
+    if (document.querySelector(`.counter-cell.active[data-zone="${zoneName}"][data-counter="${fromCounter}"]`)) {
+        alert(`${fromCounter} is not empty — cannot swap back yet.`); return;
+    }
+    if (oosCounters.has(oosKey(zoneName, fromCounter))) {
+        alert(`${fromCounter} is still marked Out of Service. Clear OOS first.`); return;
+    }
+
+    const times = generateTimeSlots();
+    times.forEach((t, i) => {
+        const srcCell = document.querySelector(
+            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+        const dstCell = document.querySelector(
+            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`);
+        if (!srcCell || !dstCell) return;
+        if (srcCell.classList.contains("active")) {
+            dstCell.classList.add("active");
+            dstCell.style.background = srcCell.style.background;
+            dstCell.dataset.officer = srcCell.dataset.officer;
+            dstCell.dataset.type = srcCell.dataset.type;
+            srcCell.classList.remove("active");
+            srcCell.style.background = "";
+            srcCell.dataset.officer = "";
+            srcCell.dataset.type = "";
+        }
+    });
+
+    swapHistory.delete(histKey);
+    applyOOSStyling();
+    updateAll();
+}
+
 function buildCounterContextMenu(zoneName, counter) {
     const existing = document.getElementById("_counterCtxMenu");
     if (existing) existing.remove();
@@ -409,21 +436,45 @@ function buildCounterContextMenu(zoneName, counter) {
     const menu = document.createElement("div");
     menu.id = "_counterCtxMenu";
     menu.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;
-        border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.18);padding:4px 0;min-width:180px;font-size:13px;`;
+        border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.18);padding:4px 0;min-width:200px;font-size:13px;`;
 
     const isOOS = oosCounters.has(oosKey(zoneName, counter));
+    const histKey = `${zoneName}:${counter}`;
+    const isSwapSrc = swapHistory.has(histKey);
+    const destLabel = isSwapSrc ? swapHistory.get(histKey).split(":").slice(1).join(":") : null;
 
-    const items = isOOS
-        ? [{ label: "✅ Clear Out of Service", action: () => clearOOS(zoneName, counter) }]
-        : [
-            { label: "⚠️ Mark Out of Service", action: () => { if (_saveStateGlobal) _saveStateGlobal(); markOOS(zoneName, counter); } },
-            { label: "🔄 Swap Counter →", action: () => showSwapDialog(zoneName, counter) },
-        ];
+    const items = [];
+    if (isOOS) {
+        items.push({ label: "✅ Clear Out of Service", action: () => clearOOS(zoneName, counter) });
+    } else {
+        items.push({
+            label: "⚠️ Mark Out of Service", action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                markOOS(zoneName, counter);
+            }
+        });
+    }
+
+    if (isSwapSrc && destLabel) {
+        items.push({
+            label: `↩️ Swap Back from ${destLabel}`, action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                swapBack(zoneName, counter);
+            }
+        });
+    } else {
+        items.push({
+            label: "🔄 Swap Counter →", action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                showSwapDialog(zoneName, counter);
+            }
+        });
+    }
 
     items.forEach(({ label, action }) => {
         const item = document.createElement("div");
         item.textContent = label;
-        item.style.cssText = "padding:8px 14px;cursor:pointer;";
+        item.style.cssText = "padding:8px 14px;cursor:pointer;white-space:nowrap;";
         item.onmouseenter = () => item.style.background = "#f0f4ff";
         item.onmouseleave = () => item.style.background = "";
         item.onclick = () => { menu.remove(); action(); };
@@ -438,15 +489,15 @@ function showSwapDialog(zoneName, fromCounter) {
     const existing = document.getElementById("_swapDialog");
     if (existing) existing.remove();
 
-    const zone = zones[currentMode].find(z => z.name === zoneName);
-    if (!zone) return;
+    const times = generateTimeSlots();
 
-    // Find fully-free counters (not OOS, not current)
-    const freeCandidates = zone.counters.filter(c => {
-        if (c === fromCounter) return false;
-        if (oosCounters.has(oosKey(zoneName, c))) return false;
-        return !document.querySelector(`.counter-cell.active[data-zone="${zoneName}"][data-counter="${c}"]`);
-    });
+    // Default time range = first to last occupied slot on fromCounter
+    const activeTimes = [...document.querySelectorAll(
+        `.counter-cell.active[data-zone="${zoneName}"][data-counter="${fromCounter}"]`
+    )].map(c => parseInt(c.dataset.time)).sort((a, b) => a - b);
+
+    const defaultFrom = activeTimes.length ? activeTimes[0] : 0;
+    const defaultTo = activeTimes.length ? activeTimes[activeTimes.length - 1] + 1 : times.length;
 
     const overlay = document.createElement("div");
     overlay.id = "_swapDialog";
@@ -454,31 +505,100 @@ function showSwapDialog(zoneName, fromCounter) {
         display:flex;align-items:center;justify-content:center;`;
 
     const box = document.createElement("div");
-    box.style.cssText = `background:#fff;border-radius:10px;padding:24px;min-width:320px;
+    box.style.cssText = `background:#fff;border-radius:10px;padding:24px;min-width:340px;max-width:400px;
         box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:Arial;`;
 
+    // Build time <select> options
+    const timeOptions = times.map((t, i) =>
+        `<option value="${i}">${t}</option>`
+    ).join("");
+
     box.innerHTML = `
-        <h3 style="margin:0 0 14px;font-size:15px">Swap Counter</h3>
-        <p style="margin:0 0 10px;font-size:13px;color:#555">
-            Move all officers from <strong>${fromCounter}</strong> to:</p>
-        <select id="_swapTarget" style="width:100%;padding:7px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-bottom:14px">
-            ${freeCandidates.length
-            ? freeCandidates.map(c => `<option value="${c}">${c} (free)</option>`).join("")
-            : `<option disabled>No free counters available</option>`}
+        <h3 style="margin:0 0 16px;font-size:15px">🔄 Swap Counter</h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#555">
+            Moving officers from <strong>${fromCounter}</strong></p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+                <label style="font-size:12px;color:#777;display:block;margin-bottom:4px">From time</label>
+                <select id="_swapFrom" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+                    ${timeOptions}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px;color:#777;display:block;margin-bottom:4px">To time</label>
+                <select id="_swapTo" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+                    ${timeOptions}
+                </select>
+            </div>
+        </div>
+
+        <label style="font-size:12px;color:#777;display:block;margin-bottom:4px">Swap to counter</label>
+        <select id="_swapTarget" style="width:100%;padding:7px;border:1px solid #ccc;border-radius:6px;font-size:13px;margin-bottom:6px">
+            <option disabled value="">— select target counter —</option>
         </select>
+        <p id="_swapNote" style="margin:0 0 16px;font-size:11px;color:#999;min-height:14px"></p>
+
         <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button id="_swapCancel" style="padding:7px 14px;border:1px solid #ccc;background:#f5f5f5;border-radius:6px;cursor:pointer">Cancel</button>
-            <button id="_swapConfirm" style="padding:7px 14px;border:none;background:#2196F3;color:#fff;border-radius:6px;cursor:pointer"
-                ${!freeCandidates.length ? "disabled" : ""}>Swap</button>
+            <button id="_swapCancel" style="padding:7px 16px;border:1px solid #ccc;
+                background:#f5f5f5;border-radius:6px;cursor:pointer;font-size:13px">Cancel</button>
+            <button id="_swapConfirm" style="padding:7px 16px;border:none;background:#2196F3;
+                color:#fff;border-radius:6px;cursor:pointer;font-size:13px" disabled>Swap</button>
         </div>`;
 
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
+    const selFrom = document.getElementById("_swapFrom");
+    const selTo = document.getElementById("_swapTo");
+    const selTarget = document.getElementById("_swapTarget");
+    const btnConfirm = document.getElementById("_swapConfirm");
+    const noteEl = document.getElementById("_swapNote");
+
+    // Set defaults
+    selFrom.value = String(defaultFrom);
+    selTo.value = String(defaultTo);
+
+    function refreshCandidates() {
+        const fi = parseInt(selFrom.value);
+        const ti = parseInt(selTo.value);
+
+        // Validate range
+        if (fi >= ti) {
+            noteEl.textContent = "⚠ 'From' must be before 'To'";
+            noteEl.style.color = "#c62828";
+            selTarget.innerHTML = `<option disabled value="">— invalid range —</option>`;
+            btnConfirm.disabled = true;
+            return;
+        }
+
+        const candidates = getFreeCandidates(zoneName, fromCounter, fi, ti);
+        if (candidates.length === 0) {
+            noteEl.textContent = "No counters free for this window";
+            noteEl.style.color = "#c62828";
+            selTarget.innerHTML = `<option disabled value="">— none available —</option>`;
+            btnConfirm.disabled = true;
+        } else {
+            noteEl.textContent = `${candidates.length} counter(s) available`;
+            noteEl.style.color = "#2e7d32";
+            const prev = selTarget.value;
+            selTarget.innerHTML = candidates
+                .map(c => `<option value="${c}">${c}</option>`).join("");
+            if (candidates.includes(prev)) selTarget.value = prev;
+            btnConfirm.disabled = false;
+        }
+    }
+
+    selFrom.onchange = refreshCandidates;
+    selTo.onchange = refreshCandidates;
+    refreshCandidates();
+
     document.getElementById("_swapCancel").onclick = () => overlay.remove();
-    document.getElementById("_swapConfirm").onclick = () => {
-        const target = document.getElementById("_swapTarget").value;
-        if (target) { if (_saveStateGlobal) _saveStateGlobal(); swapCounters(zoneName, fromCounter, target); }
+    btnConfirm.onclick = () => {
+        const target = selTarget.value;
+        const fi = parseInt(selFrom.value);
+        const ti = parseInt(selTo.value);
+        if (target && fi < ti) swapCounters(zoneName, fromCounter, target, fi, ti);
         overlay.remove();
     };
     overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
