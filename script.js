@@ -1587,14 +1587,14 @@ document.addEventListener("DOMContentLoaded", function () {
             z.counters.forEach(counter => {
                 // Skip OOS counters
                 if (oosCounters.has(oosKey(zoneName, counter))) return;
-                (() => {
-                    for (let t = startIndex; t < effectiveEnd; t++) {
-                        const c = getCell(zoneName, counter, t);
-                        if (c && !c.classList.contains("active")) return false;
-                    }
-                    return true;
-                })();
-                if (fullyOccupied) return; // no room at all
+
+                // Skip fully occupied counters (no free slots at all)
+                let anyFree = false;
+                for (let t = startIndex; t < effectiveEnd; t++) {
+                    const c = getCell(zoneName, counter, t);
+                    if (c && !c.classList.contains("active")) { anyFree = true; break; }
+                }
+                if (!anyFree) return;
 
                 if (blockFree(zoneName, counter, startIndex, effectiveEnd)) {
                     fullyFree.push({ counter, from: startIndex, to: effectiveEnd, isPartial: false });
