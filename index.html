@@ -43,24 +43,58 @@
     <div class="controls">
       <div class="segmented mode-group">
         <div class="segment-highlight" id="modeHighlight"></div>
-        <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
-        <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
+        <button id="arrivalBtn" class="segment-btn" data-index="0">
+          Arrival
+        </button>
+        <button id="departureBtn" class="segment-btn" data-index="1">
+          Departure
+        </button>
       </div>
 
       <div class="segmented shift-group">
         <div class="segment-highlight" id="shiftHighlight"></div>
-        <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
+        <button id="morningBtn" class="segment-btn" data-index="0">
+          Morning
+        </button>
         <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
       </div>
 
       <div class="color-group">
-        <button class="color-btn selected" data-color="#4CAF50" style="background:#4caf50"></button>
-        <button class="color-btn" data-color="#FF9800"  style="background:#ff9800"></button>
-        <button class="color-btn" data-color="#FFFF00"  style="background:#ffff00"></button>
-        <button class="color-btn" data-color="#FFB6C1"  style="background:#ffb6c1"></button>
-        <button class="color-btn" data-color="#800080"  style="background:#800080"></button>
-        <button class="color-btn" data-color="#2196F3"  style="background:#2196f3"></button>
-        <button class="color-btn" data-color="#FF0000"  style="background:#ff0000"></button>
+        <button
+          class="color-btn selected"
+          data-color="#4CAF50"
+          style="background: #4caf50"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FF9800"
+          style="background: #ff9800"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FFFF00"
+          style="background: #ffff00"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FFB6C1"
+          style="background: #ffb6c1"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#800080"
+          style="background: #800080"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#2196F3"
+          style="background: #2196f3"
+        ></button>
+        <button
+          class="color-btn"
+          data-color="#FF0000"
+          style="background: #ff0000"
+        ></button>
       </div>
 
       <button id="clearGridBtn">Clear Grid</button>
@@ -79,23 +113,32 @@
       </div>
 
       <div class="mp-controls">
-
         <label>Number of Officers:</label>
         <input type="number" id="officerCount" min="1" value="1" />
 
         <!-- Train / OWC — only relevant for night shift, shown/hidden by JS -->
-        <div id="trainOwcFields" style="display:none">
-          <hr style="border:none;border-top:1px solid #e0e0e0;margin:8px 0;" />
+        <div id="trainOwcFields" style="display: none">
+          <hr
+            style="border: none; border-top: 1px solid #e0e0e0; margin: 8px 0"
+          />
           <label id="trainOwcLabel">Train Officers:</label>
           <input type="number" id="trainOwcCount" min="1" value="1" />
           <button id="addTrainOwcBtn">Add</button>
-          <small id="trainOwcHint" style="color:#888;font-size:11px;display:block;margin-top:3px;">
+          <small
+            id="trainOwcHint"
+            style="
+              color: #888;
+              font-size: 11px;
+              display: block;
+              margin-top: 3px;
+            "
+          >
             Remove individually via Remove Officer
           </small>
         </div>
 
         <!-- SOS Timing -->
-        <div id="sosFields" style="display:none">
+        <div id="sosFields" style="display: none">
           <label>Start (HH:MM)</label>
           <input type="time" id="sosStart" />
           <label>End (HH:MM)</label>
@@ -105,7 +148,7 @@
         </div>
 
         <!-- OT Slot -->
-        <div id="otFields" style="display:none">
+        <div id="otFields" style="display: none">
           <label>OT Slot</label>
           <select id="otSlot">
             <option value="0600-1100">0600 – 1100</option>
@@ -117,7 +160,7 @@
         </div>
 
         <!-- RA Fields -->
-        <div id="raFields" style="display:none">
+        <div id="raFields" style="display: none">
           <label>Officer</label>
           <select id="raOfficer"></select>
           <label>Report After (HH:MM)</label>
@@ -125,7 +168,7 @@
         </div>
 
         <!-- RO Fields -->
-        <div id="roFields" style="display:none">
+        <div id="roFields" style="display: none">
           <label>Officer</label>
           <select id="roOfficer"></select>
           <label>Report Off (HH:MM)</label>
@@ -139,7 +182,6 @@
           <button id="editNamesBtn">Edit Names</button>
           <button id="undoBtn">Undo</button>
         </div>
-
       </div>
     </div>
     <!-- ================= MANPOWER INPUT END ================= -->
@@ -201,6 +243,5 @@
       </thead>
       <tbody></tbody>
     </table>
-
   </body>
 </html>

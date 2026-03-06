@@ -197,10 +197,10 @@ function saveCellStates() {
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
         cellStates[key][id] = {
-            active:  cell.classList.contains("active"),
-            color:   cell.style.background,
+            active: cell.classList.contains("active"),
+            color: cell.style.background,
             officer: cell.dataset.officer || "",
-            type:    cell.dataset.type    || ""
+            type: cell.dataset.type || ""
         };
     });
 }
@@ -213,13 +213,13 @@ function restoreCellStates() {
         if (state[id] && state[id].active) {
             cell.classList.add("active");
             cell.style.background = state[id].color;
-            cell.dataset.officer  = state[id].officer || "";
-            cell.dataset.type     = state[id].type    || "";
+            cell.dataset.officer = state[id].officer || "";
+            cell.dataset.type = state[id].type || "";
         } else {
             cell.classList.remove("active");
             cell.style.background = "";
-            cell.dataset.officer  = "";
-            cell.dataset.type     = "";
+            cell.dataset.officer = "";
+            cell.dataset.type = "";
         }
     });
     updateAll();
@@ -486,7 +486,7 @@ function _renderSOSRoster(tbody, startTime, endTime) {
     tbody.innerHTML = "";
     const times = generateTimeSlots();
     const startIndex = times.findIndex(t => t === startTime);
-    const endIndex   = times.findIndex(t => t === endTime);
+    const endIndex = times.findIndex(t => t === endTime);
     if (startIndex === -1 || endIndex === -1) return;
 
     const officerMap = {};
@@ -571,7 +571,7 @@ function setMode(mode) {
 }
 
 function updateTrainOwcVisibility() {
-    const el    = document.getElementById("trainOwcFields");
+    const el = document.getElementById("trainOwcFields");
     const label = document.getElementById("trainOwcLabel");
     if (!el) return;
     const show = currentShift === "night" && document.querySelector(".mp-type.active")?.dataset.type === "main";
@@ -647,12 +647,12 @@ document.addEventListener("DOMContentLoaded", function () {
     let manpowerType = "main";
 
     const sosFields = document.getElementById("sosFields");
-    const otFields  = document.getElementById("otFields");
-    const raFields  = document.getElementById("raFields");
-    const roFields  = document.getElementById("roFields");
-    const addBtn    = document.getElementById("addOfficerBtn");
+    const otFields = document.getElementById("otFields");
+    const raFields = document.getElementById("raFields");
+    const roFields = document.getElementById("roFields");
+    const addBtn = document.getElementById("addOfficerBtn");
     const removeBtn = document.getElementById("removeOfficerBtn");
-    const undoBtn   = document.getElementById("undoBtn");
+    const undoBtn = document.getElementById("undoBtn");
 
     if (!addBtn || !removeBtn || !undoBtn) {
         console.error("Manpower buttons not found in HTML.");
@@ -664,7 +664,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const officers = [...new Set(
             [...document.querySelectorAll('.counter-cell.active[data-type="main"]')]
                 .map(c => c.dataset.officer).filter(Boolean)
-        )].sort((a, b) => (parseInt(a)||0) - (parseInt(b)||0));
+        )].sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
 
         ["raOfficer", "roOfficer"].forEach(id => {
             const sel = document.getElementById(id);
@@ -682,9 +682,9 @@ document.addEventListener("DOMContentLoaded", function () {
             btn.classList.add("active");
             manpowerType = btn.dataset.type;
             sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-            otFields.style.display  = manpowerType === "ot"  ? "block" : "none";
-            raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
-            roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
+            otFields.style.display = manpowerType === "ot" ? "block" : "none";
+            raFields.style.display = manpowerType === "ra" ? "block" : "none";
+            roFields.style.display = manpowerType === "ro" ? "block" : "none";
             // Hide officer count input for RA/RO — not needed
             const countRow = document.getElementById("officerCount")?.closest("label")?.parentElement;
             document.querySelector("label[for='officerCount'], #officerCount")?.closest(".mp-controls");
@@ -715,13 +715,13 @@ document.addEventListener("DOMContentLoaded", function () {
         const state = [];
         document.querySelectorAll(".counter-cell").forEach(cell => {
             state.push({
-                zone:    cell.dataset.zone,
+                zone: cell.dataset.zone,
                 counter: cell.dataset.counter,
-                time:    cell.dataset.time,
-                active:  cell.classList.contains("active"),
-                color:   cell.style.background,
+                time: cell.dataset.time,
+                active: cell.classList.contains("active"),
+                color: cell.style.background,
                 officer: cell.dataset.officer || "",
-                type:    cell.dataset.type    || ""
+                type: cell.dataset.type || ""
             });
         });
         historyStack.push(state);
@@ -732,20 +732,20 @@ document.addEventListener("DOMContentLoaded", function () {
     function restoreState(state) {
         document.querySelectorAll(".counter-cell").forEach(cell => {
             const found = state.find(s =>
-                s.zone    === cell.dataset.zone &&
+                s.zone === cell.dataset.zone &&
                 s.counter === cell.dataset.counter &&
-                s.time    === cell.dataset.time
+                s.time === cell.dataset.time
             );
             if (found && found.active) {
                 cell.classList.add("active");
                 cell.style.background = found.color;
-                cell.dataset.officer  = found.officer;
-                cell.dataset.type     = found.type;
+                cell.dataset.officer = found.officer;
+                cell.dataset.type = found.type;
             } else {
                 cell.classList.remove("active");
                 cell.style.background = "";
-                cell.dataset.officer  = "";
-                cell.dataset.type     = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
             }
         });
         updateAll();
@@ -939,10 +939,10 @@ document.addEventListener("DOMContentLoaded", function () {
             officerRows.forEach(row => {
                 const counter = row.Counter;
                 const start = normalizeExcelTime(row.Start);
-                const end   = normalizeExcelTime(row.End);
+                const end = normalizeExcelTime(row.End);
 
                 let startIndex = times.findIndex(t => t === start);
-                let endIndex   = times.findIndex(t => t === end);
+                let endIndex = times.findIndex(t => t === end);
 
                 if (endIndex === -1 && end === "1000") endIndex = times.length;
                 if (startIndex === -1 || endIndex === -1) return;
@@ -951,9 +951,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)].forEach(cell => {
                         if (cell.parentElement.firstChild.innerText === counter) {
                             cell.classList.add("active");
-                            cell.style.background   = TRAIN_OWC_COLOR;
-                            cell.dataset.officer    = label;
-                            cell.dataset.type       = "main"; // same roster table as main
+                            cell.style.background = TRAIN_OWC_COLOR;
+                            cell.dataset.officer = label;
+                            cell.dataset.type = "main"; // same roster table as main
                         }
                     });
                 }
@@ -995,7 +995,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const times = generateTimeSlots();
 
         let startIndex = times.findIndex(t => t === otStart);
-        let endIndex   = times.findIndex(t => t === otEnd);
+        let endIndex = times.findIndex(t => t === otEnd);
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
 
         const releaseSlots = 30 / 15;
@@ -1007,7 +1007,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
             effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
         }
-        const breakSlots   = 45 / 15;
+        const breakSlots = 45 / 15;
 
         function addMins(timeStr, mins) {
             const h = parseInt(timeStr.slice(0, 2)), m = parseInt(timeStr.slice(2));
@@ -1017,7 +1017,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Determine how many chain breaks fit in the window.
         // Each group needs: startIndex → BK[n] (front) + BKE[n] → effectiveEnd (back).
         // Only count a break as usable if there's at least 1 slot of back block after it.
-        const BK  = [90, 135, 180].map(m => {
+        const BK = [90, 135, 180].map(m => {
             const idx = times.findIndex(t => t === addMins(otStart, m));
             return idx === -1 ? effectiveEnd : idx;
         });
@@ -1025,7 +1025,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Number of usable breaks: how many BKE[n] <= effectiveEnd
         const numBreaks = BKE.filter(b => b <= effectiveEnd).length;  // 0, 1, 2, or 3
         const gapWinStart = numBreaks > 0 ? BK[0] : startIndex;
-        const gapWinEnd   = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
+        const gapWinEnd = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
 
         function blockFree(zone, counter, from, to) {
             for (let t = from; t < to; t++) {
@@ -1077,7 +1077,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // X-back window start index and minimum chain-block size — computed once here
-        const xBackFrom         = numBreaks >= 3 ? BKE[2] : (numBreaks >= 2 ? BKE[1] : BKE[0]);
+        const xBackFrom = numBreaks >= 3 ? BKE[2] : (numBreaks >= 2 ? BKE[1] : BKE[0]);
         const minChainBlockSlots = numBreaks > 0 ? (BK[0] - startIndex) : (effectiveEnd - startIndex);
 
         // Partial gap fills: fill free sub-windows that are too short for a chain block.
@@ -1095,7 +1095,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     const len = w.to - w.from;
                     if (len < 2) return; // < 30 min, ignore
                     const fitsChain = len >= minChainBlockSlots;
-                    const isXBack   = w.from <= xBackFrom && w.to >= effectiveEnd;
+                    const isXBack = w.from <= xBackFrom && w.to >= effectiveEnd;
                     if (fitsChain || isXBack) return; // leave for chain
                     const label = "OT" + (otGlobalCounter++) + otSuffix();
                     fillBlock(z.name, counter, w.from, w.to, label);
@@ -1110,7 +1110,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const z = zones[currentMode].find(z => z.name === zoneName);
             if (!z) return [];
             return z.counters.filter(c => blockFree(zoneName, c, startIndex, effectiveEnd))
-                .sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
+                .sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
         }
 
         // Partially-occupied counters with a free window >= one full chain front block.
@@ -1123,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
                 const wins = getFreeWindows(zoneName, counter);
                 return wins.some(w => (w.to - w.from) >= minChainBlockSlots);
-            }).sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
+            }).sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
         }
 
         // Combined pool for chain allocation: fully-free first, then large partials.
@@ -1148,7 +1148,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (partialSoloFilled.has(zoneName + ":" + counter)) return false;
                 if (partialChainDesc(zoneName).includes(counter)) return false; // in chain pool already
                 return blockFree(zoneName, counter, xBackFrom, effectiveEnd);
-            }).sort((a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0));
+            }).sort((a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0));
         }
 
         // ── zone quotas with 50% floor guarantee ────────────────────────────
@@ -1226,7 +1226,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const maxGaps = {}, gapsUsed = {};
         nonBikeZones.forEach(z => {
             const minRequired = Math.ceil(z.counters.length / 2);
-            maxGaps[z.name]  = Math.max(0, zoneMinMain[z.name] + zoneQuota[z.name] - minRequired);
+            maxGaps[z.name] = Math.max(0, zoneMinMain[z.name] + zoneQuota[z.name] - minRequired);
             gapsUsed[z.name] = 0;
         });
 
@@ -1242,8 +1242,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // ── main loop ─────────────────────────────────────────────────────────
-        const sortAsc  = (a, b) => (parseInt(a.replace(/\D/g,""))||0) - (parseInt(b.replace(/\D/g,""))||0);
-        const sortDesc = (a, b) => (parseInt(b.replace(/\D/g,""))||0) - (parseInt(a.replace(/\D/g,""))||0);
+        const sortAsc = (a, b) => (parseInt(a.replace(/\D/g, "")) || 0) - (parseInt(b.replace(/\D/g, "")) || 0);
+        const sortDesc = (a, b) => (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0);
 
         const timesUsed = {};
         nonBikeZones.forEach(z => { timesUsed[z.name] = 0; });
@@ -1259,8 +1259,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 .sort((a, b) => {
                     const diff = timesUsed[a.name] - timesUsed[b.name];
                     if (diff !== 0) return diff;
-                    const aLo = parseInt((available[a.name].slice().sort(sortAsc)[0]||'').replace(/\D/g,''))||0;
-                    const bLo = parseInt((available[b.name].slice().sort(sortAsc)[0]||'').replace(/\D/g,''))||0;
+                    const aLo = parseInt((available[a.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLo = parseInt((available[b.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
                     return bLo - aLo; // higher lowest-counter first
                 });
             if (zonesLeft.length === 0) break;
@@ -1286,9 +1286,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 const eligibleX = top3.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
                 const candidatesX = eligibleX.length > 0 ? eligibleX : top3;
                 const xZone = candidatesX.reduce((best, z) => {
-                    const loN  = parseInt((available[z.name].slice().sort(sortAsc)[0]    ||'').replace(/\D/g,''))||0;
-                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] ||'').replace(/\D/g,''))||0;
-                    if (gapsUsed[z.name]    !== gapsUsed[best.name])
+                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    if (gapsUsed[z.name] !== gapsUsed[best.name])
                         return gapsUsed[z.name] < gapsUsed[best.name] ? z : best; // fewest gaps first
                     return loN > bLoN ? z : best; // tiebreak: highest lowest-counter
                 });
@@ -1299,11 +1299,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 const z0wasY = lastYZRole[yzZones[0].name] === 'Y';
                 const z1wasY = lastYZRole[yzZones[1].name] === 'Y';
                 let yZone, zZone;
-                if (z0wasY && !z1wasY)      { yZone = yzZones[1]; zZone = yzZones[0]; }
+                if (z0wasY && !z1wasY) { yZone = yzZones[1]; zZone = yzZones[0]; }
                 else if (z1wasY && !z0wasY) { yZone = yzZones[0]; zZone = yzZones[1]; }
-                else if (yzRoleCount[yzZones[0].name] <= yzRoleCount[yzZones[1].name])
-                                             { yZone = yzZones[0]; zZone = yzZones[1]; }
-                else                         { yZone = yzZones[1]; zZone = yzZones[0]; }
+                else if (yzRoleCount[yzZones[0].name] <= yzRoleCount[yzZones[1].name]) { yZone = yzZones[0]; zZone = yzZones[1]; }
+                else { yZone = yzZones[1]; zZone = yzZones[0]; }
                 lastYZRole[yZone.name] = 'Y';
                 lastYZRole[zZone.name] = 'Z';
                 yzRoleCount[yZone.name]++;
@@ -1313,9 +1312,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 // Rotate break slots per group so the same zone doesn't always
                 // get the same break time when it appears in multiple groups.
-                const rot  = groupCount % 3;
-                const rBK  = [BK[rot % 3],  BK[(rot+1) % 3],  BK[(rot+2) % 3]];
-                const rBKE = [BKE[rot % 3], BKE[(rot+1) % 3], BKE[(rot+2) % 3]];
+                const rot = groupCount % 3;
+                const rBK = [BK[rot % 3], BK[(rot + 1) % 3], BK[(rot + 2) % 3]];
+                const rBKE = [BKE[rot % 3], BKE[(rot + 1) % 3], BKE[(rot + 2) % 3]];
                 groupCount++;
 
                 if (!xCounter || !yCounter || !zCounter) { i -= 3; otGlobalCounter -= 3; break; }
@@ -1335,12 +1334,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Officer A: X front → Y back  (A breaks at rBK[0])
                 // Officer B: Y front → Z back  (B breaks at rBK[1])
                 // Officer C: Z front → X back  (C breaks at rBK[2])
-                fillBlock(xZone.name, xCounter,     startIndex,  rBK[0],      labelA);
-                fillBlock(yZone.name, yCounter,     rBKE[0],     effectiveEnd, labelA);
-                fillBlock(yZone.name, yCounter,     startIndex,  rBK[1],      labelB);
-                fillBlock(zZone.name, zCounter,     rBKE[1],     effectiveEnd, labelB);
-                fillBlock(zZone.name, zCounter,     startIndex,  rBK[2],      labelC);
-                fillBlock(xZone.name, xBackCounter, rBKE[2],     effectiveEnd, labelC);
+                fillBlock(xZone.name, xCounter, startIndex, rBK[0], labelA);
+                fillBlock(yZone.name, yCounter, rBKE[0], effectiveEnd, labelA);
+                fillBlock(yZone.name, yCounter, startIndex, rBK[1], labelB);
+                fillBlock(zZone.name, zCounter, rBKE[1], effectiveEnd, labelB);
+                fillBlock(zZone.name, zCounter, startIndex, rBK[2], labelC);
+                fillBlock(xZone.name, xBackCounter, rBKE[2], effectiveEnd, labelC);
 
             } else if (useChain2) {
                 // ── 2-person chain (A,B) ────────────────────────────────────
@@ -1351,15 +1350,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 const eligibleX2 = top2.filter(z => gapsUsed[z.name] < maxGaps[z.name]);
                 const candidatesX2 = eligibleX2.length > 0 ? eligibleX2 : top2;
                 const xZone = candidatesX2.reduce((best, z) => {
-                    const loN  = parseInt((available[z.name].slice().sort(sortAsc)[0]    ||'').replace(/\D/g,''))||0;
-                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] ||'').replace(/\D/g,''))||0;
+                    const loN = parseInt((available[z.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
+                    const bLoN = parseInt((available[best.name].slice().sort(sortAsc)[0] || '').replace(/\D/g, '')) || 0;
                     if (gapsUsed[z.name] !== gapsUsed[best.name])
                         return gapsUsed[z.name] < gapsUsed[best.name] ? z : best;
                     return loN > bLoN ? z : best;
                 });
                 const xCounter = available[xZone.name].slice().sort(sortAsc)[0];
 
-                const yZone    = top2.find(z => z !== xZone) || top2[0];
+                const yZone = top2.find(z => z !== xZone) || top2[0];
                 const yCounter = available[yZone.name].slice().sort(sortDesc)[0];
 
                 if (!xCounter || !yCounter) { i -= 2; otGlobalCounter -= 2; break; }
@@ -1369,9 +1368,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 timesUsed[xZone.name]++;
                 timesUsed[yZone.name]++;
 
-                fillBlock(xZone.name, xCounter, startIndex, BK[0],    labelA);
+                fillBlock(xZone.name, xCounter, startIndex, BK[0], labelA);
                 fillBlock(yZone.name, yCounter, BKE[0], effectiveEnd, labelA);
-                fillBlock(yZone.name, yCounter, startIndex, BK[1],    labelB);
+                fillBlock(yZone.name, yCounter, startIndex, BK[1], labelB);
                 fillBlock(xZone.name, xCounter, BKE[1], effectiveEnd, labelB);
 
             } else {
@@ -1386,7 +1385,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (numBreaks >= 1 && gapsUsed[z.name] < maxGaps[z.name]) {
                     // Give this officer a break: front block → gap → back block
                     // Use the first break window available
-                    fillBlock(z.name, c, startIndex, BK[0],    labelA); // front
+                    fillBlock(z.name, c, startIndex, BK[0], labelA); // front
                     fillBlock(z.name, c, BKE[0], effectiveEnd, labelA); // back
                     gapsUsed[z.name]++;
                 } else {
@@ -1600,8 +1599,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         el.textContent = message;
         el.style.background = isError ? "#ffebee" : "#fff8e1";
-        el.style.color       = isError ? "#c62828" : "#e65100";
-        el.style.border      = isError ? "1px solid #ef9a9a" : "1px solid #ffcc80";
+        el.style.color = isError ? "#c62828" : "#e65100";
+        el.style.border = isError ? "1px solid #ef9a9a" : "1px solid #ffcc80";
         clearTimeout(el._hideTimer);
         el._hideTimer = setTimeout(() => { if (el.parentNode) el.textContent = ""; el.style.border = "none"; }, 5000);
     }
@@ -1639,7 +1638,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (manpowerType === "sos") {
             const start = document.getElementById("sosStart").value.replace(":", "");
-            const end   = document.getElementById("sosEnd").value.replace(":", "");
+            const end = document.getElementById("sosEnd").value.replace(":", "");
 
             const times = generateTimeSlots();
             if (times.findIndex(t => t === start) === -1 || times.findIndex(t => t === end) === -1) {
@@ -1669,14 +1668,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (manpowerType === "ra") {
             const officerLabel = document.getElementById("raOfficer").value;
-            const raTimeRaw    = document.getElementById("raTime").value; // "HH:MM"
+            const raTimeRaw = document.getElementById("raTime").value; // "HH:MM"
             if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
             applyRA(officerLabel, raTimeRaw.replace(":", ""));
         }
 
         if (manpowerType === "ro") {
             const officerLabel = document.getElementById("roOfficer").value;
-            const roTimeRaw    = document.getElementById("roTime").value; // "HH:MM"
+            const roTimeRaw = document.getElementById("roTime").value; // "HH:MM"
             if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
             applyRO(officerLabel, roTimeRaw.replace(":", ""));
         }
@@ -1779,7 +1778,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const bIsNum = !isNaN(bNum) && String(bNum) === b.split(" ")[0];
             if (aIsNum && bIsNum) return aNum - bNum;
             if (aIsNum) return -1;
-            if (bIsNum) return  1;
+            if (bIsNum) return 1;
             return a.localeCompare(b);
         });
 
@@ -1806,12 +1805,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <select id="_removeSelect" multiple size="10"
                     style="width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:6px;font-size:13px;padding:4px;line-height:1.6;">
                     ${labels.map(l => {
-                        const type = labelMap[l];
-                        const badge = type === "main"
-                            ? (l.toUpperCase().startsWith("TRAIN") ? "🚂" : l.toUpperCase().startsWith("OWC") ? "🎓" : "🟠")
-                            : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
-                        return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
-                    }).join("")}
+            const type = labelMap[l];
+            const badge = type === "main"
+                ? (l.toUpperCase().startsWith("TRAIN") ? "🚂" : l.toUpperCase().startsWith("OWC") ? "🎓" : "🟠")
+                : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
+            return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
+        }).join("")}
                 </select>
                 <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
                     <button id="_removeCancel"
@@ -1851,8 +1850,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (targets.includes(cell.dataset.officer)) {
                     cell.classList.remove("active");
                     cell.style.background = "";
-                    cell.dataset.officer  = "";
-                    cell.dataset.type     = "";
+                    cell.dataset.officer = "";
+                    cell.dataset.type = "";
                 }
             });
             updateAll();
@@ -1871,7 +1870,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Collect all OT and SOS officers (main identified by number, not name)
         const labelMap = {}; // base label → { type, currentLabel }
         document.querySelectorAll(".counter-cell.active").forEach(c => {
-            const lbl  = c.dataset.officer;
+            const lbl = c.dataset.officer;
             const type = c.dataset.type;
             if (!lbl || type === "main") return;
             if (!labelMap[lbl]) labelMap[lbl] = { type, currentLabel: lbl };
@@ -1884,18 +1883,18 @@ document.addEventListener("DOMContentLoaded", function () {
         entries.sort((a, b) => {
             const aBase = a.currentLabel.split(" | ")[0];
             const bBase = b.currentLabel.split(" | ")[0];
-            const aIsOT  = aBase.startsWith("OT"),  bIsOT  = bBase.startsWith("OT");
+            const aIsOT = aBase.startsWith("OT"), bIsOT = bBase.startsWith("OT");
             const aIsSOS = aBase.startsWith("SOS"), bIsSOS = bBase.startsWith("SOS");
             if (aIsSOS && !bIsSOS) return -1;
             if (!aIsSOS && bIsSOS) return 1;
-            return parseInt(aBase.replace(/\D/g,""))||0 - parseInt(bBase.replace(/\D/g,""))||0;
+            return parseInt(aBase.replace(/\D/g, "")) || 0 - parseInt(bBase.replace(/\D/g, "")) || 0;
         });
 
         const overlay = document.createElement("div");
         overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
 
         const rows = entries.map(e => {
-            const base  = e.currentLabel.split(" | ")[0];
+            const base = e.currentLabel.split(" | ")[0];
             const existing = e.currentLabel.includes(" | ") ? e.currentLabel.split(" | ").slice(1).join(" | ") : "";
             const badge = e.type === "ot" ? "🟣" : "🔵";
             return `
@@ -1942,8 +1941,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const renameMap = {};
             overlay.querySelectorAll("tbody tr").forEach(row => {
                 const oldLabel = row.dataset.old;
-                const base     = oldLabel.split(" | ")[0];
-                const name     = row.querySelector("input").value.trim();
+                const base = oldLabel.split(" | ")[0];
+                const name = row.querySelector("input").value.trim();
                 const newLabel = name ? `${base} | ${name}` : base;
                 if (newLabel !== oldLabel) renameMap[oldLabel] = newLabel;
             });
