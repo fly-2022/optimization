@@ -270,12 +270,15 @@ function markOOS(zoneName, counter) {
     )];
     const hasOfficers = activeCells.length > 0;
     const labels = [...new Set(activeCells.map(c => c.dataset.officer).filter(Boolean))];
-    const freeCandidates = getFreeCandidates(zoneName, counter);
 
-    function doMarkOOS(relocateTo) {
+    // Only offer same-zone free counters for OOS relocation (simpler UX)
+    const freeCandidates = getFreeCandidates(zoneName, counter)
+        .filter(c => c.zone === zoneName);
+
+    function doMarkOOS(toZone, toCounter) {
         oosCounters.add(key);
 
-        if (relocateTo) {
+        if (toZone && toCounter) {
             const officerSlots = new Map();
             activeCells.forEach(cell => {
                 const lbl = cell.dataset.officer;
@@ -297,14 +300,14 @@ function markOOS(zoneName, counter) {
             officerSlots.forEach((slots, label) => {
                 const ok = !slots.some(({ t }) => {
                     const c = document.querySelector(
-                        `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${relocateTo}"]`
+                        `.counter-cell[data-zone="${toZone}"][data-time="${t}"][data-counter="${toCounter}"]`
                     );
                     return !c || c.classList.contains("active");
                 });
                 if (ok) {
                     slots.forEach(({ t, color, type }) => {
                         const c = document.querySelector(
-                            `.counter-cell[data-zone="${zoneName}"][data-time="${t}"][data-counter="${relocateTo}"]`
+                            `.counter-cell[data-zone="${toZone}"][data-time="${t}"][data-counter="${toCounter}"]`
                         );
                         if (!c) return;
                         c.classList.add("active");
@@ -314,14 +317,14 @@ function markOOS(zoneName, counter) {
                     });
                 }
             });
-            swapHistory.set(`${zoneName}:${counter}`, `${zoneName}:${relocateTo}`);
+            swapHistory.set(`${zoneName}:${counter}`, `${toZone}||${toCounter}`);
         }
 
         applyOOSStyling();
         updateAll();
     }
 
-    if (!hasOfficers) { doMarkOOS(null); return; }
+    if (!hasOfficers) { doMarkOOS(null, null); return; }
 
     // Build dialog
     const overlay = document.createElement("div");
@@ -331,7 +334,8 @@ function markOOS(zoneName, counter) {
     box.style.cssText = `background:#fff;border-radius:10px;padding:24px 26px;max-width:380px;width:90%;
         box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:Arial;`;
     const officerList = labels.map(l => `<strong>${l}</strong>`).join(", ");
-    const candidateOptions = freeCandidates.map(c => `<option value="${c}">${c}</option>`).join("");
+    const candidateOptions = freeCandidates
+        .map(c => `<option value="${c.zone}||${c.counter}">${c.counter}</option>`).join("");
 
     box.innerHTML = `
         <div style="font-size:22px;margin-bottom:10px">⚠️</div>
@@ -363,11 +367,15 @@ function markOOS(zoneName, counter) {
     document.body.appendChild(overlay);
     if (freeCandidates.length) {
         document.getElementById("_oosMove").onclick = () => {
-            const target = document.getElementById("_oosMoveTarget").value;
-            overlay.remove(); doMarkOOS(target);
+            const val = document.getElementById("_oosMoveTarget").value;
+            const sepIdx = val.indexOf("||");
+            const tz = val.slice(0, sepIdx);
+            const tc = val.slice(sepIdx + 2);
+            overlay.remove();
+            doMarkOOS(tz, tc);
         };
     }
-    document.getElementById("_oosKeep").onclick = () => { overlay.remove(); doMarkOOS(null); };
+    document.getElementById("_oosKeep").onclick = () => { overlay.remove(); doMarkOOS(null, null); };
     document.getElementById("_oosCancel").onclick = () => overlay.remove();
     overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
 }
