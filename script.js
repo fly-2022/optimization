@@ -432,21 +432,19 @@ function swapBack(zoneName, fromCounter) {
     const toZone = destFull.slice(0, sepIdx);
     const toCounter = destFull.slice(sepIdx + 2);
 
-    if (document.querySelector(`.counter-cell.active[data-zone="${zoneName}"][data-counter="${fromCounter}"]`)) {
-        alert(`${fromCounter} is not empty — cannot swap back yet.`); return;
-    }
     if (oosCounters.has(oosKey(zoneName, fromCounter))) {
         alert(`${fromCounter} is still marked Out of Service. Clear OOS first.`); return;
     }
 
     const times = generateTimeSlots();
+    let moved = 0;
     times.forEach((t, i) => {
         const srcCell = document.querySelector(
             `.counter-cell[data-zone="${toZone}"][data-time="${i}"][data-counter="${toCounter}"]`);
         const dstCell = document.querySelector(
             `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`);
         if (!srcCell || !dstCell) return;
-        if (srcCell.classList.contains("active")) {
+        if (srcCell.classList.contains("active") && !dstCell.classList.contains("active")) {
             dstCell.classList.add("active");
             dstCell.style.background = srcCell.style.background;
             dstCell.dataset.officer = srcCell.dataset.officer;
@@ -455,6 +453,7 @@ function swapBack(zoneName, fromCounter) {
             srcCell.style.background = "";
             srcCell.dataset.officer = "";
             srcCell.dataset.type = "";
+            moved++;
         }
     });
 
