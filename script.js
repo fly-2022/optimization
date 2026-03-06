@@ -211,26 +211,35 @@ function applyOOSStyling() {
 
 // Free candidates sorted by highest counter number first (back counters)
 function getFreeCandidates(zoneName, excludeCounter, fromIdx, toIdx) {
-    const zone = zones[currentMode].find(z => z.name === zoneName);
-    if (!zone) return [];
     const times = generateTimeSlots();
     const start = (fromIdx !== undefined) ? fromIdx : 0;
     const end = (toIdx !== undefined) ? toIdx : times.length;
-    return zone.counters
-        .filter(c => {
-            if (c === excludeCounter) return false;
-            if (oosCounters.has(oosKey(zoneName, c))) return false;
+
+    // Search ALL zones (including BIKES) across the current mode
+    const results = [];
+    zones[currentMode].forEach(zone => {
+        zone.counters.forEach(c => {
+            if (zone.name === zoneName && c === excludeCounter) return;
+            if (oosCounters.has(oosKey(zone.name, c))) return;
             // Must be free for the entire requested window
             for (let i = start; i < end; i++) {
                 const cell = document.querySelector(
-                    `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${c}"]`);
-                if (cell && cell.classList.contains("active")) return false;
+                    `.counter-cell[data-zone="${zone.name}"][data-time="${i}"][data-counter="${c}"]`);
+                if (cell && cell.classList.contains("active")) return;
             }
-            return true;
-        })
-        .sort((a, b) =>
-            (parseInt(b.replace(/\D/g, "")) || 0) - (parseInt(a.replace(/\D/g, "")) || 0)
-        );
+            results.push({ zone: zone.name, counter: c });
+        });
+    });
+
+    // Sort: same zone first, then by counter number desc
+    results.sort((a, b) => {
+        if (a.zone === zoneName && b.zone !== zoneName) return -1;
+        if (b.zone === zoneName && a.zone !== zoneName) return 1;
+        if (a.zone !== b.zone) return a.zone.localeCompare(b.zone);
+        return (parseInt(b.counter.replace(/\D/g, "")) || 0) - (parseInt(a.counter.replace(/\D/g, "")) || 0);
+    });
+
+    return results; // array of { zone, counter }
 }
 
 function markOOS(zoneName, counter) {
@@ -353,8 +362,8 @@ function clearOOS(zoneName, counter) {
     updateAll();
 }
 
-function swapCounters(zoneName, fromCounter, toCounter, fromIdx, toIdx) {
-    if (oosCounters.has(oosKey(zoneName, toCounter))) {
+function swapCounters(fromZone, fromCounter, toZone, toCounter, fromIdx, toIdx) {
+    if (oosCounters.has(oosKey(toZone, toCounter))) {
         alert(`Counter ${toCounter} is Out of Service. Cannot swap into it.`); return;
     }
     const times = generateTimeSlots();
@@ -364,7 +373,7 @@ function swapCounters(zoneName, fromCounter, toCounter, fromIdx, toIdx) {
     // Check target is free for the requested window
     for (let i = start; i < end; i++) {
         const cell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+            `.counter-cell[data-zone="${toZone}"][data-time="${i}"][data-counter="${toCounter}"]`);
         if (cell && cell.classList.contains("active")) {
             alert(`Counter ${toCounter} is occupied in the selected time window. Cannot swap.`); return;
         }
@@ -372,9 +381,9 @@ function swapCounters(zoneName, fromCounter, toCounter, fromIdx, toIdx) {
 
     for (let i = start; i < end; i++) {
         const fromCell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`);
+            `.counter-cell[data-zone="${fromZone}"][data-time="${i}"][data-counter="${fromCounter}"]`);
         const toCell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+            `.counter-cell[data-zone="${toZone}"][data-time="${i}"][data-counter="${toCounter}"]`);
         if (!fromCell || !toCell) continue;
         if (fromCell.classList.contains("active")) {
             toCell.classList.add("active");
@@ -387,7 +396,7 @@ function swapCounters(zoneName, fromCounter, toCounter, fromIdx, toIdx) {
             fromCell.dataset.type = "";
         }
     }
-    swapHistory.set(`${zoneName}:${fromCounter}`, `${zoneName}:${toCounter}`);
+    swapHistory.set(`${fromZone}:${fromCounter}`, `${toZone}||${toCounter}`);
     applyOOSStyling();
     updateAll();
 }
@@ -396,7 +405,11 @@ function swapBack(zoneName, fromCounter) {
     const histKey = `${zoneName}:${fromCounter}`;
     const destFull = swapHistory.get(histKey);
     if (!destFull) return;
-    const toCounter = destFull.split(":").slice(1).join(":");
+
+    // destFull format: "toZone||toCounter"
+    const sepIdx = destFull.indexOf("||");
+    const toZone = destFull.slice(0, sepIdx);
+    const toCounter = destFull.slice(sepIdx + 2);
 
     if (document.querySelector(`.counter-cell.active[data-zone="${zoneName}"][data-counter="${fromCounter}"]`)) {
         alert(`${fromCounter} is not empty — cannot swap back yet.`); return;
@@ -408,7 +421,7 @@ function swapBack(zoneName, fromCounter) {
     const times = generateTimeSlots();
     times.forEach((t, i) => {
         const srcCell = document.querySelector(
-            `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${toCounter}"]`);
+            `.counter-cell[data-zone="${toZone}"][data-time="${i}"][data-counter="${toCounter}"]`);
         const dstCell = document.querySelector(
             `.counter-cell[data-zone="${zoneName}"][data-time="${i}"][data-counter="${fromCounter}"]`);
         if (!srcCell || !dstCell) return;
@@ -441,7 +454,10 @@ function buildCounterContextMenu(zoneName, counter) {
     const isOOS = oosCounters.has(oosKey(zoneName, counter));
     const histKey = `${zoneName}:${counter}`;
     const isSwapSrc = swapHistory.has(histKey);
-    const destLabel = isSwapSrc ? swapHistory.get(histKey).split(":").slice(1).join(":") : null;
+    const destRaw = isSwapSrc ? swapHistory.get(histKey) : null;
+    const destLabel = destRaw
+        ? (() => { const s = destRaw.indexOf("||"); const z = destRaw.slice(0, s); const c = destRaw.slice(s + 2); return z === zoneName ? c : `${c} (${z})`; })()
+        : null;
 
     const items = [];
     if (isOOS) {
@@ -505,18 +521,15 @@ function showSwapDialog(zoneName, fromCounter) {
         display:flex;align-items:center;justify-content:center;`;
 
     const box = document.createElement("div");
-    box.style.cssText = `background:#fff;border-radius:10px;padding:24px;min-width:340px;max-width:400px;
+    box.style.cssText = `background:#fff;border-radius:10px;padding:24px;min-width:340px;max-width:420px;
         box-shadow:0 8px 32px rgba(0,0,0,.25);font-family:Arial;`;
 
-    // Build time <select> options
-    const timeOptions = times.map((t, i) =>
-        `<option value="${i}">${t}</option>`
-    ).join("");
+    const timeOptions = times.map((t, i) => `<option value="${i}">${t}</option>`).join("");
 
     box.innerHTML = `
         <h3 style="margin:0 0 16px;font-size:15px">🔄 Swap Counter</h3>
         <p style="margin:0 0 12px;font-size:13px;color:#555">
-            Moving officers from <strong>${fromCounter}</strong></p>
+            Moving officers from <strong>${fromCounter}</strong> (${zoneName})</p>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
             <div>
@@ -555,7 +568,6 @@ function showSwapDialog(zoneName, fromCounter) {
     const btnConfirm = document.getElementById("_swapConfirm");
     const noteEl = document.getElementById("_swapNote");
 
-    // Set defaults
     selFrom.value = String(defaultFrom);
     selTo.value = String(defaultTo);
 
@@ -563,7 +575,6 @@ function showSwapDialog(zoneName, fromCounter) {
         const fi = parseInt(selFrom.value);
         const ti = parseInt(selTo.value);
 
-        // Validate range
         if (fi >= ti) {
             noteEl.textContent = "⚠ 'From' must be before 'To'";
             noteEl.style.color = "#c62828";
@@ -581,10 +592,22 @@ function showSwapDialog(zoneName, fromCounter) {
         } else {
             noteEl.textContent = `${candidates.length} counter(s) available`;
             noteEl.style.color = "#2e7d32";
-            const prev = selTarget.value;
-            selTarget.innerHTML = candidates
-                .map(c => `<option value="${c}">${c}</option>`).join("");
-            if (candidates.includes(prev)) selTarget.value = prev;
+
+            // Group by zone using <optgroup>
+            const prevVal = selTarget.value;
+            const byZone = {};
+            candidates.forEach(({ zone, counter }) => {
+                if (!byZone[zone]) byZone[zone] = [];
+                byZone[zone].push(counter);
+            });
+
+            selTarget.innerHTML = Object.entries(byZone).map(([zone, ctrs]) =>
+                `<optgroup label="${zone}">${ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
+                }</optgroup>`
+            ).join("");
+
+            // Restore previous selection if still valid
+            if ([...selTarget.options].some(o => o.value === prevVal)) selTarget.value = prevVal;
             btnConfirm.disabled = false;
         }
     }
@@ -595,10 +618,13 @@ function showSwapDialog(zoneName, fromCounter) {
 
     document.getElementById("_swapCancel").onclick = () => overlay.remove();
     btnConfirm.onclick = () => {
-        const target = selTarget.value;
+        const val = selTarget.value;
         const fi = parseInt(selFrom.value);
         const ti = parseInt(selTo.value);
-        if (target && fi < ti) swapCounters(zoneName, fromCounter, target, fi, ti);
+        if (val && fi < ti) {
+            const [toZone, toCounter] = val.split("||");
+            swapCounters(zoneName, fromCounter, toZone, toCounter, fi, ti);
+        }
         overlay.remove();
     };
     overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
