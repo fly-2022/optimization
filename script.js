@@ -83,7 +83,7 @@ function generateTimeSlots() {
         end = (24 + 10) * 60;
     }
 
-    for (let time = start; time <= end; time += 15) {
+    for (let time = start; time < end; time += 15) {
         let minutes = time % (24 * 60);
         let hh = Math.floor(minutes / 60);
         let mm = minutes % 60;
@@ -1542,14 +1542,23 @@ document.addEventListener("DOMContentLoaded", function () {
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
 
+        const shiftEndTime  = currentShift === "morning" ? "2200" : "1000";
+        const breakCapTime  = currentShift === "morning" ? "2100" : "0900"; // breaks must end by this
+
         let startIndex = times.findIndex(t => t === otStart);
-        let endIndex   = times.findIndex(t => t === otEnd);
+        let endIndex   = otEnd === shiftEndTime
+            ? times.length
+            : times.findIndex(t => t === otEnd);
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
 
         const releaseSlots = 2; // 30 min
-        const effectiveEnd = endIndex === -1
-            ? times.length - 1
-            : Math.max(startIndex, endIndex - releaseSlots);
+        const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
+
+        // Index beyond which breaks must not end (2100 for morning, 0900 for night)
+        const breakCap = (() => {
+            const idx = times.findIndex(t => t === breakCapTime);
+            return idx === -1 ? effectiveEnd : idx;
+        })();
 
         function addMins(timeStr, mins) {
             const h = parseInt(timeStr.slice(0, 2)), m = parseInt(timeStr.slice(2));
@@ -1563,8 +1572,9 @@ document.addEventListener("DOMContentLoaded", function () {
             const idx = times.findIndex(t => t === addMins(otStart, m));
             return idx === -1 ? effectiveEnd : idx;
         });
-        const BKE = BK.map(b => b + breakSlots);
-        const numBreaks = BKE.filter(b => b <= effectiveEnd).length;
+        // Cap BKE so breaks always end by breakCap (2100)
+        const BKE = BK.map(b => Math.min(b + breakSlots, breakCap));
+        const numBreaks = BKE.filter((b, i) => b <= effectiveEnd && b <= breakCap && BK[i] < breakCap).length;
 
         // ── DOM helpers ──────────────────────────────────────────────────────
         function getCell(zone, counter, t) {
@@ -1755,9 +1765,10 @@ document.addEventListener("DOMContentLoaded", function () {
     /* ================== SOS ALLOCATION ================== */
     function allocateSOSOfficers(count, sosStart, sosEnd) {
         const times = generateTimeSlots();
+        const shiftEndTime = currentShift === "morning" ? "2200" : "1000";
 
         let startIndex = times.findIndex(t => t === sosStart);
-        let endIndex = times.findIndex(t => t === sosEnd);
+        let endIndex   = sosEnd === shiftEndTime ? times.length : times.findIndex(t => t === sosEnd);
 
         if (startIndex === -1 || endIndex === -1) {
             alert("Invalid SOS timing.");
@@ -1999,7 +2010,13 @@ document.addEventListener("DOMContentLoaded", function () {
             const end   = document.getElementById("sosEnd").value.replace(":", "");
 
             const times = generateTimeSlots();
-            if (times.findIndex(t => t === start) === -1 || times.findIndex(t => t === end) === -1) {
+            const shiftEndTime = currentShift === "morning" ? "2200" : "1000";
+
+            // Allow the shift-end boundary time even though it has no rendered column
+            const startIdx = times.findIndex(t => t === start);
+            const endIdx   = end === shiftEndTime ? times.length : times.findIndex(t => t === end);
+
+            if (startIdx === -1 || endIdx === -1) {
                 alert("SOS time range outside current shift grid.");
                 return;
             }
