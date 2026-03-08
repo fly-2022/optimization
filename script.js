@@ -83,7 +83,7 @@ function generateTimeSlots() {
         end = (24 + 10) * 60;
     }
 
-    for (let time = start; time < end; time += 15) {
+    for (let time = start; time <= end; time += 15) {
         let minutes = time % (24 * 60);
         let hh = Math.floor(minutes / 60);
         let mm = minutes % 60;
@@ -2367,4 +2367,5 @@ function copyTable(tableId, btnId) {
             btn.classList.remove("copied");
         }, 2000);
     });
+
 }
