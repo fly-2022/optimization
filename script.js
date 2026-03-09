@@ -874,12 +874,16 @@ function updateMainRoster() {
     const times = generateTimeSlots();
     const officerMap = {};
 
-    document.querySelectorAll('.counter-cell.active[data-type="main"]').forEach(cell => {
-        const officer = cell.dataset.officer;
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        const type = cell.dataset.type || "";
+        // Only show main officers and manually painted cells (no type)
+        if (type && type !== "main") return;
+        let officer = cell.dataset.officer;
+        // Manually painted cells have no officer — label them by counter
+        if (!officer) officer = `[${cell.dataset.counter}]`;
         const time = parseInt(cell.dataset.time);
         const zone = cell.dataset.zone;
         const counter = cell.dataset.counter;
-        if (!officer) return;
         if (!officerMap[officer]) officerMap[officer] = [];
         officerMap[officer].push({ time, zone, counter });
     });
