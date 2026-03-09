@@ -4,6 +4,7 @@ let excelWorkbook = null;
 let excelData = {};
 let currentMode = "arrival";
 let currentShift = "morning";
+let currentLane = "car";
 let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
@@ -21,12 +22,15 @@ function resetDragState() {
     dragMode = "add";
 }
 
-const cellStates = {
-    "arrival_morning": {},
-    "arrival_night": {},
-    "departure_morning": {},
-    "departure_night": {}
-};
+// cellStates keyed by "lane_mode_shift"
+const cellStates = {};
+["car", "bus", "train", "cargo", "owc"].forEach(lane =>
+    ["arrival", "departure"].forEach(mode =>
+        ["morning", "night"].forEach(shift => {
+            cellStates[`${lane}_${mode}_${shift}`] = {};
+        })
+    )
+);
 
 const table = document.getElementById("rosterTable");
 const summary = document.getElementById("summary");
@@ -39,28 +43,62 @@ const departureBtn = document.getElementById("departureBtn");
 const morningBtn = document.getElementById("morningBtn");
 const nightBtn = document.getElementById("nightBtn");
 
+
 const zones = {
-    arrival: [
+    // ── CAR ──────────────────────────────────────────────────────────────────
+    car_arrival: [
         { name: "Zone 1", counters: range("AC", 1, 10) },
         { name: "Zone 2", counters: range("AC", 11, 20) },
         { name: "Zone 3", counters: range("AC", 21, 30) },
         { name: "Zone 4", counters: range("AC", 31, 40) },
         { name: "BIKES", counters: ["AM41", "AM43"] }
     ],
-    departure: [
+    car_departure: [
         { name: "Zone 1", counters: range("DC", 1, 8) },
         { name: "Zone 2", counters: range("DC", 9, 18) },
         { name: "Zone 3", counters: range("DC", 19, 28) },
         { name: "Zone 4", counters: range("DC", 29, 36) },
         { name: "BIKES", counters: ["DM37A", "DM37C"] }
+    ],
+
+    // ── BUS ───────────────────────────────────────────────────────────────────
+    // Clusters zone: each cluster (A-D) is one counter
+    // Bus Lanes zone: each lane (1-5) is one counter
+    bus_arrival: [
+        { name: "Arrival Clusters", counters: ["Arrival Cluster A", "Arrival Cluster B", "Arrival Cluster C", "Arrival Cluster D"] },
+        { name: "Arrival Bus Lanes", counters: ["ABL 1", "ABL 2", "ABL 3", "ABL 4", "ABL 5"] }
+    ],
+    bus_departure: [
+        { name: "Departure Clusters", counters: ["Departure Cluster A", "Departure Cluster B", "Departure Cluster C", "Departure Cluster D"] },
+        { name: "Departure Bus Lanes", counters: ["DBL 1", "DBL 2", "DBL 3", "DBL 4", "DBL 5"] }
+    ],
+
+    // ── TRAIN ─────────────────────────────────────────────────────────────────
+    // All counters in one zone
+    train_arrival: [
+        { name: "Train", counters: ["KIOSK 4", "KIOSK 6", "EIACS", "TR6", "TR7", "TR8", "TR9", "TR10"] }
+    ],
+    train_departure: [
+        { name: "Train", counters: ["KIOSK 4", "KIOSK 6", "EIACS", "TR6", "TR7", "TR8", "TR9", "TR10"] }
+    ],
+
+    // ── CARGO ─────────────────────────────────────────────────────────────────
+    // Single zone, AL/DL lanes and Cargo counters mixed together
+    cargo_arrival: [
+        { name: "Cargo", counters: ["AL1", "AL2", "AL3", "AL4", "AL5", "AL6", "A-Cargo 1", "A-Cargo 2", "A-Cargo 3", "A-Cargo 4", "A-Cargo 5", "A-Cargo 6"] }
+    ],
+    cargo_departure: [
+        { name: "Cargo", counters: ["DL1", "DL2", "DL3", "DL4", "DL5", "DL6", "D-Cargo 1", "D-Cargo 2", "D-Cargo 3", "D-Cargo 4", "D-Cargo 5", "D-Cargo 6"] }
+    ],
+
+    // ── OWC ───────────────────────────────────────────────────────────────────
+    owc_arrival: [
+        { name: "OWC", counters: range("AL", 7, 10) }
+    ],
+    owc_departure: [
+        { name: "OWC", counters: range("DL", 7, 10) }
     ]
 };
-
-function range(prefix, start, end) {
-    let arr = [];
-    for (let i = start; i <= end; i++) arr.push(prefix + i);
-    return arr;
-}
 
 /* ---------------- COLOR PICKER ----------------- */
 document.querySelectorAll(".color-btn").forEach(btn => {
@@ -99,7 +137,7 @@ function renderTableOnce() {
     table.innerHTML = "";
     const times = generateTimeSlots();
 
-    zones[currentMode].forEach(zone => {
+    zones[currentLane + "_" + currentMode].forEach(zone => {
         let zoneRow = document.createElement("tr");
         let zoneCell = document.createElement("td");
         zoneCell.colSpan = times.length + 1;
@@ -238,7 +276,7 @@ function getFreeCandidates(zoneName, excludeCounter, fromIdx, toIdx) {
 
     // Search ALL zones (including BIKES) across the current mode
     const results = [];
-    zones[currentMode].forEach(zone => {
+    zones[currentLane + "_" + currentMode].forEach(zone => {
         zone.counters.forEach(c => {
             if (zone.name === zoneName && c === excludeCounter) return;
             if (oosCounters.has(oosKey(zone.name, c))) return;
@@ -706,7 +744,7 @@ function attachTableEvents() {
 /* ==================== Save / Restore Cell States ==================== */
 function saveCellStates() {
     if (!document.querySelector(".counter-cell")) return; // grid not built yet
-    const key = `${currentMode}_${currentShift}`;
+    const key = `${currentLane}_${currentMode}_${currentShift}`;
     cellStates[key] = {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
@@ -720,7 +758,7 @@ function saveCellStates() {
 }
 
 function restoreCellStates() {
-    const key = `${currentMode}_${currentShift}`;
+    const key = `${currentLane}_${currentMode}_${currentShift}`;
     const state = cellStates[key] || {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
@@ -781,7 +819,7 @@ function updateManningSummary() {
         let totalCars = 0;
         let zoneBreakdown = [];
 
-        zones[currentMode].forEach(zone => {
+        zones[currentLane + "_" + currentMode].forEach(zone => {
             if (zone.name === "BIKES") return;
             let cells = [...document.querySelectorAll(`.counter-cell[data-zone="${zone.name}"][data-time="${i}"]`)];
             let count = cells.filter(c => c.classList.contains("active")).length;
@@ -1056,12 +1094,28 @@ function _renderSOSRoster(tbody, startTime, endTime) {
 }
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
-const renderedTables = {
-    "arrival_morning": false,
-    "arrival_night": false,
-    "departure_morning": false,
-    "departure_night": false
-};
+const renderedTables = {};
+["car", "bus", "train", "cargo", "owc"].forEach(lane =>
+    ["arrival", "departure"].forEach(mode =>
+        ["morning", "night"].forEach(shift => {
+            renderedTables[`${lane}_${mode}_${shift}`] = false;
+        })
+    )
+);
+
+function setLane(lane) {
+    resetDragState();
+    saveCellStates();
+    currentLane = lane;
+    document.querySelectorAll(".lane-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.lane === lane);
+    });
+    oosCounters.clear();
+    renderTableOnce();
+    restoreCellStates();
+    attachCounterContextMenus();
+    updateTrainOwcVisibility();
+}
 
 function setMode(mode) {
     resetDragState();
@@ -1137,6 +1191,10 @@ departureBtn.onclick = () => setMode("departure");
 morningBtn.onclick = () => setShift("morning");
 nightBtn.onclick = () => setShift("night");
 
+document.querySelectorAll(".lane-btn").forEach(btn => {
+    btn.onclick = () => setLane(btn.dataset.lane);
+});
+
 function attachCounterContextMenus() {
     if (!document.querySelector("#rosterTable tr")) return; // grid not ready
     document.querySelectorAll("#rosterTable tr").forEach(row => {
@@ -1165,6 +1223,7 @@ function attachCounterContextMenus() {
 }
 
 /* ---------------- INIT ---------------- */
+setLane("car");
 setMode("arrival");
 setShift("morning");
 
@@ -1310,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
         const sheetData = excelData[sheetName];
 
         if (!sheetData) {
@@ -1379,7 +1438,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     const specialLabel = officer + officerSuffix(); // correct label per officer
 
                     let assigned = false;
-                    const candidateZones = zones[currentMode].filter(z => z.name !== "BIKES");
+                    const candidateZones = zones[currentLane + "_" + currentMode].filter(z => z.name !== "BIKES");
                     const zoneOccupancy = candidateZones.map(zone => {
                         let occupiedCount = 0;
                         for (let t = startIndex; t < endIndex; t++) {
@@ -1438,7 +1497,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!excelWorkbook) { alert("Excel template not loaded."); return; }
         if (currentShift !== "night") { alert("Train/OWC officers only apply to night shift."); return; }
 
-        const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
         const sheetData = excelData[sheetName];
         if (!sheetData) { alert("No sheet found for " + sheetName); return; }
 
@@ -1616,13 +1675,13 @@ document.addEventListener("DOMContentLoaded", function () {
             return wins;
         }
 
-        const nonBikeZones = zones[currentMode].filter(z => z.name !== "BIKES");
+        const nonBikeZones = zones[currentLane + "_" + currentMode].filter(z => z.name !== "BIKES");
 
         // ── Build fill queue per zone ────────────────────────────────────────
         // Each entry: { zone, counter, from, to, isPartial }
         // Priority: partial gaps (largest first) → fully-free (highest counter first)
         function buildFillQueue(zoneName) {
-            const z = zones[currentMode].find(z => z.name === zoneName);
+            const z = zones[currentLane + "_" + currentMode].find(z => z.name === zoneName);
             if (!z) return [];
 
             const partials = [];
@@ -1808,7 +1867,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let assigned = false;
         const zoneStats = [];
 
-        zones[currentMode].forEach(zone => {
+        zones[currentLane + "_" + currentMode].forEach(zone => {
             if (zone.name === "BIKES") return;
             let activeCount = 0;
             zone.counters.forEach(counter => {
@@ -1829,7 +1888,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         for (let z = 0; z < zoneStats.length; z++) {
             const zoneName = zoneStats[z].zone;
-            const zone = zones[currentMode].find(z => z.name === zoneName);
+            const zone = zones[currentLane + "_" + currentMode].find(z => z.name === zoneName);
 
             for (let c = zone.counters.length - 1; c >= 0; c--) {
                 const counter = zone.counters[c];
@@ -1886,11 +1945,11 @@ document.addEventListener("DOMContentLoaded", function () {
     // `windowStart` / `windowEnd` are HHMM strings used for OT/SOS checks.
     function getCapacity(type, windowStart, windowEnd) {
         const times = generateTimeSlots();
-        const allZones = zones[currentMode].filter(z => z.name !== "BIKES");
+        const allZones = zones[currentLane + "_" + currentMode].filter(z => z.name !== "BIKES");
 
         if (type === "main") {
             // Cap = highest officer number in the template sheet
-            const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const max = sheetData.reduce((m, row) => {
                 const n = parseInt(row.Officer);
@@ -1907,7 +1966,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (type === "trainowc") {
-            const sheetName = `${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const prefix = currentMode === "arrival" ? "TRAIN" : "OWC";
             const allLabels = [...new Set(
