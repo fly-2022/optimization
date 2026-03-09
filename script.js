@@ -1307,8 +1307,8 @@ document.addEventListener("DOMContentLoaded", function () {
         raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
         roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
 
-        // RA/RO sub-row only visible when Main is selected
-        if (raroRow) raroRow.style.display = isMain ? "flex" : "none";
+        // RA/RO sub-row always visible when Main or RA/RO is active
+        if (raroRow) raroRow.style.display = (isMain || isRaRo) ? "flex" : "none";
 
         // Hide count input for RA/RO
         document.getElementById("officerCount").style.display = isRaRo ? "none" : "";
@@ -1316,7 +1316,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (countLabel) countLabel.style.display = isRaRo ? "none" : "";
 
         // Swap Add Officers ↔ Confirm button
-        addBtn.style.display         = isRaRo ? "none" : "";
+        addBtn.style.display = isRaRo ? "none" : "";
         if (confirmRaRoBtn) confirmRaRoBtn.style.display = isRaRo ? "" : "none";
 
         if (isRaRo) populateRARODropdowns();
