@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Roster Dashboard</title>
-    
-    
-  
-  
-
-  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roster Dashboard</title>
+  <style>
+.officer-identity { display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:8px;padding:10px 12px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px; }
+.officer-identity label { font-size:12px;color:#555;white-space:nowrap; }
+.officer-identity input { padding:5px 8px;border:1px solid #ccc;border-radius:5px;font-size:13px;width:140px; }
+.optional { font-size:10px;color:#aaa;font-style:italic; }
+  </style>
   <style>
 body {
     font-family: Arial;
@@ -252,21 +250,6 @@ td.counter-cell.active {
     color: white;
     border-color: #b71c1c;
 }
-#raroRow {
-    display: none;
-    gap: 8px;
-    margin-top: -4px;
-    margin-bottom: 8px;
-}
-#confirmRaRoBtn {
-    padding: 6px 14px;
-    background: #f57c00;
-    border: none;
-    color: white;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-}
 #copyMainRosterBtn,
 #copySOSRosterBtn,
 #copyOTRosterBtn {
@@ -282,188 +265,138 @@ td.counter-cell.active {
 #copyOTRosterBtn.copied {
     background: #4CAF50;
 }
-
   </style>
 </head>
 <body>
-<h2>Roster Optimisation Dashboard</h2>
+  <h2>Roster Optimisation Dashboard</h2>
 
-    <div class="controls">
-      <div class="segmented lane-group" style="width:auto;">
-        <button class="lane-btn active" data-lane="car">🚗 Car</button>
-        <button class="lane-btn" data-lane="bus">🚌 Bus</button>
-        <button class="lane-btn" data-lane="train">🚆 Train</button>
-        <button class="lane-btn" data-lane="cargo">📦 Cargo</button>
-        <button class="lane-btn" data-lane="owc">🎓 OWC</button>
-      </div>
+  <div class="controls">
+    <div class="segmented lane-group">
+      <button class="lane-btn active" data-lane="car">🚗 Car</button>
+      <button class="lane-btn" data-lane="bus">🚌 Bus</button>
+      <button class="lane-btn" data-lane="train">🚆 Train</button>
+      <button class="lane-btn" data-lane="cargo">📦 Cargo</button>
+      <button class="lane-btn" data-lane="owc">🎓 OWC</button>
+    </div>
+    <div class="segmented mode-group">
+      <div class="segment-highlight" id="modeHighlight"></div>
+      <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
+      <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
+    </div>
+    <div class="segmented shift-group">
+      <div class="segment-highlight" id="shiftHighlight"></div>
+      <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
+      <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
+    </div>
+    <div class="color-group">
+      <button class="color-btn selected" data-color="#4CAF50" style="background:#4caf50"></button>
+      <button class="color-btn" data-color="#FF9800" style="background:#ff9800"></button>
+      <button class="color-btn" data-color="#FFFF00" style="background:#ffff00"></button>
+      <button class="color-btn" data-color="#FFB6C1" style="background:#ffb6c1"></button>
+      <button class="color-btn" data-color="#800080" style="background:#800080"></button>
+      <button class="color-btn" data-color="#2196F3" style="background:#2196f3"></button>
+      <button class="color-btn" data-color="#FF0000" style="background:#ff0000"></button>
+    </div>
+    <button id="clearGridBtn">Clear Grid</button>
+  </div>
 
-      <div class="segmented mode-group">
-        <div class="segment-highlight" id="modeHighlight"></div>
-        <button id="arrivalBtn" class="segment-btn" data-index="0">Arrival</button>
-        <button id="departureBtn" class="segment-btn" data-index="1">Departure</button>
-      </div>
-
-      <div class="segmented shift-group">
-        <div class="segment-highlight" id="shiftHighlight"></div>
-        <button id="morningBtn" class="segment-btn" data-index="0">Morning</button>
-        <button id="nightBtn" class="segment-btn" data-index="1">Night</button>
-      </div>
-
-      <div class="color-group">
-        <button class="color-btn selected" data-color="#4CAF50" style="background:#4caf50"></button>
-        <button class="color-btn" data-color="#FF9800"  style="background:#ff9800"></button>
-        <button class="color-btn" data-color="#FFFF00"  style="background:#ffff00"></button>
-        <button class="color-btn" data-color="#FFB6C1"  style="background:#ffb6c1"></button>
-        <button class="color-btn" data-color="#800080"  style="background:#800080"></button>
-        <button class="color-btn" data-color="#2196F3"  style="background:#2196f3"></button>
-        <button class="color-btn" data-color="#FF0000"  style="background:#ff0000"></button>
-      </div>
-
-      <button id="clearGridBtn">Clear Grid</button>
+  <div class="manpower-section">
+    <h3>Add Officers</h3>
+    <div class="manpower-type">
+      <button class="mp-type active" data-type="main">Main</button>
+      <button class="mp-type" data-type="sos">SOS</button>
+      <button class="mp-type" data-type="ot">OT</button>
     </div>
 
-    <!-- ================= MANPOWER INPUT ================= -->
-    <div class="manpower-section">
-      <h3>Add Officers</h3>
-
-
-      <div class="manpower-type">
-        <button class="mp-type active" data-type="main">Main</button>
-        <button class="mp-type" data-type="sos">SOS</button>
-        <button class="mp-type" data-type="ot">OT</button>
-      </div>
-
-      <!-- RA/RO sub-row — only shown when Main is active -->
-      <div id="raroRow" style="display:none;margin-bottom:8px;gap:8px;">
-        <button class="mp-type" data-type="ra">RA</button>
-        <button class="mp-type" data-type="ro">RO</button>
-      </div>
-
-      <div class="mp-controls">
-
-        <label>Number of Officers:</label>
-        <input type="number" id="officerCount" min="1" value="1" />
-
-        <!-- Train / OWC — only relevant for night shift, shown/hidden by JS -->
-        <div id="trainOwcFields" style="display:none">
-          <hr style="border:none;border-top:1px solid #e0e0e0;margin:8px 0;" />
-          <label id="trainOwcLabel">Train Officers:</label>
-          <input type="number" id="trainOwcCount" min="1" value="1" />
-          <button id="addTrainOwcBtn">Add</button>
-          <small id="trainOwcHint" style="color:#888;font-size:11px;display:block;margin-top:3px;">
-            Remove individually via Remove Officer
-          </small>
-        </div>
-
-        <!-- SOS Timing -->
-        <div id="sosFields" style="display:none">
-          <label>Start (HH:MM)</label>
-          <input type="time" id="sosStart" />
-          <label>End (HH:MM)</label>
-          <input type="time" id="sosEnd" />
-          <label>Name <span class="optional">(optional)</span></label>
-          <input type="text" id="sosOfficerName" placeholder="e.g. John" />
-        </div>
-
-        <!-- OT Slot -->
-        <div id="otFields" style="display:none">
-          <label>OT Slot</label>
-          <select id="otSlot">
-            <option value="0600-1100">0600 – 1100</option>
-            <option value="1100-1600">1100 – 1600</option>
-            <option value="1600-2100">1600 – 2100</option>
-          </select>
-          <label>Name <span class="optional">(optional)</span></label>
-          <input type="text" id="otOfficerName" placeholder="e.g. Jane" />
-        </div>
-
-        <!-- RA Fields -->
-        <div id="raFields" style="display:none">
-          <label>Officer</label>
-          <select id="raOfficer"></select>
-          <label>Report After (HH:MM)</label>
-          <input type="time" id="raTime" />
-        </div>
-
-        <!-- RO Fields -->
-        <div id="roFields" style="display:none">
-          <label>Officer</label>
-          <select id="roOfficer"></select>
-          <label>Report Off (HH:MM)</label>
-          <input type="time" id="roTime" />
-        </div>
-
-        <!-- ACTION BUTTONS -->
-        <div class="action-buttons">
-          <button id="addOfficerBtn">Add Officers</button>
-          <button id="confirmRaRoBtn" style="display:none">Confirm</button>
-          <button id="removeOfficerBtn">Remove Officer</button>
-          <button id="editNamesBtn">Edit Names</button>
-          <button id="undoBtn">Undo</button>
-        </div>
-
-      </div>
-    </div>
-    <!-- ================= MANPOWER INPUT END ================= -->
-
-    <div class="table-container">
-      <table id="rosterTable"></table>
+    <!-- RA/RO sub-row — only shown when Main is active -->
+    <div id="raroRow" style="display:none;margin-bottom:8px;gap:8px;">
+      <button class="mp-type" data-type="ra">RA</button>
+      <button class="mp-type" data-type="ro">RO</button>
     </div>
 
-    <h3>Manning Summary</h3>
-    <div class="summary-controls">
-      <button id="copySummaryBtn">Copy Summary</button>
+    <div class="mp-controls">
+      <label>Number of Officers:</label>
+      <input type="number" id="officerCount" min="1" value="1" />
+
+      <div id="trainOwcFields" style="display:none">
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:8px 0;" />
+        <label id="trainOwcLabel">Train Officers:</label>
+        <input type="number" id="trainOwcCount" min="1" value="1" />
+        <button id="addTrainOwcBtn">Add</button>
+        <small id="trainOwcHint" style="color:#888;font-size:11px;display:block;margin-top:3px;">Remove individually via Remove Officer</small>
+      </div>
+
+      <div id="sosFields" style="display:none">
+        <label>Start (HH:MM)</label><input type="time" id="sosStart" />
+        <label>End (HH:MM)</label><input type="time" id="sosEnd" />
+        <label>Name <span class="optional">(optional)</span></label>
+        <input type="text" id="sosOfficerName" placeholder="e.g. John" />
+      </div>
+
+      <div id="otFields" style="display:none">
+        <label>OT Slot</label>
+        <select id="otSlot">
+          <option value="0600-1100">0600 – 1100</option>
+          <option value="1100-1600">1100 – 1600</option>
+          <option value="1600-2100">1600 – 2100</option>
+        </select>
+        <label>Name <span class="optional">(optional)</span></label>
+        <input type="text" id="otOfficerName" placeholder="e.g. Jane" />
+      </div>
+
+      <div id="raFields" style="display:none">
+        <label>Officer</label><select id="raOfficer"></select>
+        <label>Report After (HH:MM)</label><input type="time" id="raTime" />
+      </div>
+
+      <div id="roFields" style="display:none">
+        <label>Officer</label><select id="roOfficer"></select>
+        <label>Report Off (HH:MM)</label><input type="time" id="roTime" />
+      </div>
+
+      <div class="action-buttons">
+        <button id="addOfficerBtn">Add Officers</button>
+        <button id="confirmRaRoBtn" style="display:none;padding:6px 14px;background:#f57c00;border:none;color:white;border-radius:6px;cursor:pointer;font-weight:600;">Confirm</button>
+        <button id="removeOfficerBtn">Remove Officer</button>
+        <button id="editNamesBtn">Edit Names</button>
+        <button id="undoBtn">Undo</button>
+      </div>
     </div>
-    <pre id="manningSummary"></pre>
+  </div>
 
-    <!-- ================= ROSTER TABLES ================= -->
-    <h2>Roster</h2>
+  <div class="table-container">
+    <table id="rosterTable"></table>
+  </div>
 
-    <h3>Main Roster</h3>
-    <button id="copyMainRosterBtn">Copy Main Roster</button>
-    <table id="mainRosterTable">
-      <thead>
-        <tr>
-          <th>Officer</th>
-          <th>Counter / Break</th>
-          <th>Start</th>
-          <th>End</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <h3>Manning Summary</h3>
+  <div class="summary-controls">
+    <button id="copySummaryBtn">Copy Summary</button>
+  </div>
+  <pre id="manningSummary"></pre>
 
-    <h3>SOS Roster</h3>
-    <button id="copySOSRosterBtn">Copy SOS Roster</button>
-    <table id="sosRosterTable">
-      <thead>
-        <tr>
-          <th>Officer</th>
-          <th>Counter / Break</th>
-          <th>Start</th>
-          <th>End</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <h2>Roster</h2>
 
-    <h3>OT Roster</h3>
-    <button id="copyOTRosterBtn">Copy OT Roster</button>
-    <table id="otRosterTable">
-      <thead>
-        <tr>
-          <th>Officer</th>
-          <th>Counter / Break</th>
-          <th>Start</th>
-          <th>End</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  
-  
-  
-  
+  <h3>Main Roster</h3>
+  <button id="copyMainRosterBtn">Copy Main Roster</button>
+  <table id="mainRosterTable">
+    <thead><tr><th>Officer</th><th>Counter / Break</th><th>Start</th><th>End</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>SOS Roster</h3>
+  <button id="copySOSRosterBtn">Copy SOS Roster</button>
+  <table id="sosRosterTable">
+    <thead><tr><th>Officer</th><th>Counter / Break</th><th>Start</th><th>End</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>OT Roster</h3>
+  <button id="copyOTRosterBtn">Copy OT Roster</button>
+  <table id="otRosterTable">
+    <thead><tr><th>Officer</th><th>Counter / Break</th><th>Start</th><th>End</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script>
 /* ================= EXCEL MAIN TEMPLATE SYSTEM ================= */
@@ -1338,12 +1271,16 @@ function updateMainRoster() {
     const times = generateTimeSlots();
     const officerMap = {};
 
-    document.querySelectorAll('.counter-cell.active[data-type="main"]').forEach(cell => {
-        const officer = cell.dataset.officer;
+    document.querySelectorAll(".counter-cell.active").forEach(cell => {
+        const type = cell.dataset.type || "";
+        // Only show main officers and manually painted cells (no type)
+        if (type && type !== "main") return;
+        let officer = cell.dataset.officer;
+        // Manually painted cells have no officer — label them by counter
+        if (!officer) officer = `[${cell.dataset.counter}]`;
         const time = parseInt(cell.dataset.time);
         const zone = cell.dataset.zone;
         const counter = cell.dataset.counter;
-        if (!officer) return;
         if (!officerMap[officer]) officerMap[officer] = [];
         officerMap[officer].push({ time, zone, counter });
     });
@@ -1618,7 +1555,9 @@ function updateTrainOwcVisibility() {
     const el    = document.getElementById("trainOwcFields");
     const label = document.getElementById("trainOwcLabel");
     if (!el) return;
-    const show = currentShift === "night" && document.querySelector(".mp-type.active")?.dataset.type === "main";
+    const isMain = document.querySelector(".mp-type.active")?.dataset.type === "main";
+    // Show only on Car lane + night shift + main type (original behaviour)
+    const show = currentLane === "car" && currentShift === "night" && isMain;
     el.style.display = show ? "block" : "none";
     if (label) label.textContent = currentMode === "arrival" ? "Train Officers:" : "OWC Officers:";
 }
@@ -1757,27 +1696,45 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /* -------------------- Select Manpower Type -------------------- */
+    const raroRow        = document.getElementById("raroRow");
+    const confirmRaRoBtn = document.getElementById("confirmRaRoBtn");
+
+    function updateMpUI() {
+        const isRaRo = manpowerType === "ra" || manpowerType === "ro";
+        const isMain = manpowerType === "main";
+
+        sosFields.style.display = manpowerType === "sos" ? "block" : "none";
+        otFields.style.display  = manpowerType === "ot"  ? "block" : "none";
+        raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
+        roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
+
+        // RA/RO sub-row only visible when Main is selected
+        if (raroRow) raroRow.style.display = isMain ? "flex" : "none";
+
+        // Hide count input for RA/RO
+        document.getElementById("officerCount").style.display = isRaRo ? "none" : "";
+        const countLabel = document.querySelector("label[for='officerCount']");
+        if (countLabel) countLabel.style.display = isRaRo ? "none" : "";
+
+        // Swap Add Officers ↔ Confirm button
+        addBtn.style.display         = isRaRo ? "none" : "";
+        if (confirmRaRoBtn) confirmRaRoBtn.style.display = isRaRo ? "" : "none";
+
+        if (isRaRo) populateRARODropdowns();
+        updateTrainOwcVisibility();
+    }
+
     document.querySelectorAll(".mp-type").forEach(btn => {
         btn.addEventListener("click", () => {
             document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             manpowerType = btn.dataset.type;
-            sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-            otFields.style.display  = manpowerType === "ot"  ? "block" : "none";
-            raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
-            roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
-            // Hide officer count input for RA/RO — not needed
-            const countRow = document.getElementById("officerCount")?.closest("label")?.parentElement;
-            document.querySelector("label[for='officerCount'], #officerCount")?.closest(".mp-controls");
-            document.getElementById("officerCount").style.display =
-                (manpowerType === "ra" || manpowerType === "ro") ? "none" : "";
-            document.querySelector("label[for='officerCount']") &&
-                (document.querySelector("label[for='officerCount']").style.display =
-                    (manpowerType === "ra" || manpowerType === "ro") ? "none" : "");
-            if (manpowerType === "ra" || manpowerType === "ro") populateRARODropdowns();
-            updateTrainOwcVisibility();
+            updateMpUI();
         });
     });
+
+    // Initialise UI state on page load
+    updateMpUI();
 
     /* -------------------- Officer name suffix -------------------- */
     function sosSuffix() {
@@ -1839,7 +1796,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
         const sheetData = excelData[sheetName];
 
         if (!sheetData) {
@@ -1967,7 +1924,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!excelWorkbook) { alert("Excel template not loaded."); return; }
         if (currentShift !== "night") { alert("Train/OWC officers only apply to night shift."); return; }
 
-        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
         const sheetData = excelData[sheetName];
         if (!sheetData) { alert("No sheet found for " + sheetName); return; }
 
@@ -2419,7 +2376,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (type === "main") {
             // Cap = highest officer number in the template sheet
-            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const max = sheetData.reduce((m, row) => {
                 const n = parseInt(row.Officer);
@@ -2436,7 +2393,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (type === "trainowc") {
-            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const prefix = currentMode === "arrival" ? "TRAIN" : "OWC";
             const allLabels = [...new Set(
@@ -2577,21 +2534,25 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!checkCapacityBeforeAdd("main", count)) return;
             applyMainTemplate(count);
         }
-
-        if (manpowerType === "ra") {
-            const officerLabel = document.getElementById("raOfficer").value;
-            const raTimeRaw    = document.getElementById("raTime").value; // "HH:MM"
-            if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
-            applyRA(officerLabel, raTimeRaw.replace(":", ""));
-        }
-
-        if (manpowerType === "ro") {
-            const officerLabel = document.getElementById("roOfficer").value;
-            const roTimeRaw    = document.getElementById("roTime").value; // "HH:MM"
-            if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
-            applyRO(officerLabel, roTimeRaw.replace(":", ""));
-        }
     });
+
+    /* ── Confirm RA / RO button ─────────────────────────────────────────── */
+    if (confirmRaRoBtn) {
+        confirmRaRoBtn.addEventListener("click", () => {
+            if (manpowerType === "ra") {
+                const officerLabel = document.getElementById("raOfficer").value;
+                const raTimeRaw    = document.getElementById("raTime").value;
+                if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
+                applyRA(officerLabel, raTimeRaw.replace(":", ""));
+            }
+            if (manpowerType === "ro") {
+                const officerLabel = document.getElementById("roOfficer").value;
+                const roTimeRaw    = document.getElementById("roTime").value;
+                if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
+                applyRO(officerLabel, roTimeRaw.replace(":", ""));
+            }
+        });
+    }
 
     /* ==================== RA / RO ==================== */
 
