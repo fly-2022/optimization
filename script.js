@@ -1222,10 +1222,6 @@ function attachCounterContextMenus() {
     });
 }
 
-/* ---------------- INIT ---------------- */
-setLane("car");
-setMode("arrival");
-setShift("morning");
 
 /* ---------------- Excel Template Loading ---------------- */
 async function loadExcelTemplate() {
@@ -1251,6 +1247,11 @@ async function loadExcelTemplate() {
 
 /* ================= MANPOWER SYSTEM ================= */
 document.addEventListener("DOMContentLoaded", function () {
+    /* ---------------- INIT ---------------- */
+    setLane("car");
+    setMode("arrival");
+    setShift("morning");
+
     attachTableEvents();
     attachCounterContextMenus();
     loadExcelTemplate();
