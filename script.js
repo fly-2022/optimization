@@ -1332,10 +1332,12 @@ document.addEventListener("DOMContentLoaded", function () {
             document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             manpowerType = btn.dataset.type;
-            // If switching away from RA/RO back to main, ensure raroRow resets
             updateMpUI();
         });
     });
+
+    // Initialise UI state on page load
+    updateMpUI();
 
     /* -------------------- Officer name suffix -------------------- */
     function sosSuffix() {
