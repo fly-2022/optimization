@@ -1299,25 +1299,41 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /* -------------------- Select Manpower Type -------------------- */
+    const raroRow = document.getElementById("raroRow");
+    const confirmRaRoBtn = document.getElementById("confirmRaRoBtn");
+
+    function updateMpUI() {
+        const isRaRo = manpowerType === "ra" || manpowerType === "ro";
+        const isMain = manpowerType === "main";
+
+        sosFields.style.display = manpowerType === "sos" ? "block" : "none";
+        otFields.style.display = manpowerType === "ot" ? "block" : "none";
+        raFields.style.display = manpowerType === "ra" ? "block" : "none";
+        roFields.style.display = manpowerType === "ro" ? "block" : "none";
+
+        // RA/RO sub-row only visible when Main is selected
+        if (raroRow) raroRow.style.display = isMain ? "flex" : "none";
+
+        // Hide count input for RA/RO
+        document.getElementById("officerCount").style.display = isRaRo ? "none" : "";
+        const countLabel = document.querySelector("label[for='officerCount']");
+        if (countLabel) countLabel.style.display = isRaRo ? "none" : "";
+
+        // Swap Add Officers ↔ Confirm button
+        addBtn.style.display = isRaRo ? "none" : "";
+        if (confirmRaRoBtn) confirmRaRoBtn.style.display = isRaRo ? "" : "none";
+
+        if (isRaRo) populateRARODropdowns();
+        updateTrainOwcVisibility();
+    }
+
     document.querySelectorAll(".mp-type").forEach(btn => {
         btn.addEventListener("click", () => {
             document.querySelectorAll(".mp-type").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             manpowerType = btn.dataset.type;
-            sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-            otFields.style.display = manpowerType === "ot" ? "block" : "none";
-            raFields.style.display = manpowerType === "ra" ? "block" : "none";
-            roFields.style.display = manpowerType === "ro" ? "block" : "none";
-            // Hide officer count input for RA/RO — not needed
-            const countRow = document.getElementById("officerCount")?.closest("label")?.parentElement;
-            document.querySelector("label[for='officerCount'], #officerCount")?.closest(".mp-controls");
-            document.getElementById("officerCount").style.display =
-                (manpowerType === "ra" || manpowerType === "ro") ? "none" : "";
-            document.querySelector("label[for='officerCount']") &&
-                (document.querySelector("label[for='officerCount']").style.display =
-                    (manpowerType === "ra" || manpowerType === "ro") ? "none" : "");
-            if (manpowerType === "ra" || manpowerType === "ro") populateRARODropdowns();
-            updateTrainOwcVisibility();
+            // If switching away from RA/RO back to main, ensure raroRow resets
+            updateMpUI();
         });
     });
 
@@ -2119,21 +2135,25 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!checkCapacityBeforeAdd("main", count)) return;
             applyMainTemplate(count);
         }
-
-        if (manpowerType === "ra") {
-            const officerLabel = document.getElementById("raOfficer").value;
-            const raTimeRaw = document.getElementById("raTime").value; // "HH:MM"
-            if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
-            applyRA(officerLabel, raTimeRaw.replace(":", ""));
-        }
-
-        if (manpowerType === "ro") {
-            const officerLabel = document.getElementById("roOfficer").value;
-            const roTimeRaw = document.getElementById("roTime").value; // "HH:MM"
-            if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
-            applyRO(officerLabel, roTimeRaw.replace(":", ""));
-        }
     });
+
+    /* ── Confirm RA / RO button ─────────────────────────────────────────── */
+    if (confirmRaRoBtn) {
+        confirmRaRoBtn.addEventListener("click", () => {
+            if (manpowerType === "ra") {
+                const officerLabel = document.getElementById("raOfficer").value;
+                const raTimeRaw = document.getElementById("raTime").value;
+                if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
+                applyRA(officerLabel, raTimeRaw.replace(":", ""));
+            }
+            if (manpowerType === "ro") {
+                const officerLabel = document.getElementById("roOfficer").value;
+                const roTimeRaw = document.getElementById("roTime").value;
+                if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
+                applyRO(officerLabel, roTimeRaw.replace(":", ""));
+            }
+        });
+    }
 
     /* ==================== RA / RO ==================== */
 
