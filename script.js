@@ -1379,7 +1379,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
         const sheetData = excelData[sheetName];
 
         if (!sheetData) {
@@ -1507,7 +1507,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!excelWorkbook) { alert("Excel template not loaded."); return; }
         if (currentShift !== "night") { alert("Train/OWC officers only apply to night shift."); return; }
 
-        const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+        const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
         const sheetData = excelData[sheetName];
         if (!sheetData) { alert("No sheet found for " + sheetName); return; }
 
@@ -1959,7 +1959,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (type === "main") {
             // Cap = highest officer number in the template sheet
-            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const max = sheetData.reduce((m, row) => {
                 const n = parseInt(row.Officer);
@@ -1976,7 +1976,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (type === "trainowc") {
-            const sheetName = `${currentLane} ${currentMode} ${currentShift}`.toLowerCase();
+            const sheetName = (currentLane === "car" ? `${currentMode} ${currentShift}` : `${currentLane} ${currentMode} ${currentShift}`).toLowerCase();
             const sheetData = excelData[sheetName] || [];
             const prefix = currentMode === "arrival" ? "TRAIN" : "OWC";
             const allLabels = [...new Set(
