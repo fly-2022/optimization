@@ -43,6 +43,11 @@ const departureBtn = document.getElementById("departureBtn");
 const morningBtn = document.getElementById("morningBtn");
 const nightBtn = document.getElementById("nightBtn");
 
+function range(prefix, start, end) {
+    const arr = [];
+    for (let i = start; i <= end; i++) arr.push(prefix + i);
+    return arr;
+}
 
 const zones = {
     // ── CAR ──────────────────────────────────────────────────────────────────
