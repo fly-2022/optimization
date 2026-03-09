@@ -1158,7 +1158,9 @@ function updateTrainOwcVisibility() {
     const el = document.getElementById("trainOwcFields");
     const label = document.getElementById("trainOwcLabel");
     if (!el) return;
-    const show = currentShift === "night" && document.querySelector(".mp-type.active")?.dataset.type === "main";
+    const isMain = document.querySelector(".mp-type.active")?.dataset.type === "main";
+    // Show only on Car lane + night shift + main type (original behaviour)
+    const show = currentLane === "car" && currentShift === "night" && isMain;
     el.style.display = show ? "block" : "none";
     if (label) label.textContent = currentMode === "arrival" ? "Train Officers:" : "OWC Officers:";
 }
