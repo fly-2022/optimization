@@ -139,8 +139,21 @@ td {
     background: #f0f0f0;
     font-size: 10px;
 }
+td.counter-cell {
+    transition: background-color 0.12s ease, box-shadow 0.12s ease;
+    cursor: cell;
+    user-select: none;
+}
+td.counter-cell:not(.active):hover {
+    background-color: rgba(0, 0, 0, 0.07) !important;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+}
 td.counter-cell.active {
-    border: 2px solid black;
+    border: 2px solid rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+td.counter-cell.active:hover {
+    filter: brightness(0.9);
 }
 .subtotal-row td {
     background: #e8f5e9;
@@ -307,17 +320,13 @@ td.counter-cell.active {
       <button class="mp-type" data-type="sos">SOS</button>
       <button class="mp-type" data-type="ot">OT</button>
     </div>
-
-    <!-- RA/RO sub-row — shown when Main/RA/RO active -->
     <div id="raroRow" style="display:none;margin-bottom:8px;gap:8px;">
       <button class="mp-type" data-type="ra">RA</button>
       <button class="mp-type" data-type="ro">RO</button>
     </div>
-
     <div class="mp-controls">
       <label>Number of Officers:</label>
       <input type="number" id="officerCount" min="1" value="1" />
-
       <div id="trainOwcFields" style="display:none">
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:8px 0;" />
         <label id="trainOwcLabel">Train Officers:</label>
@@ -325,14 +334,12 @@ td.counter-cell.active {
         <button id="addTrainOwcBtn">Add</button>
         <small id="trainOwcHint" style="color:#888;font-size:11px;display:block;margin-top:3px;">Remove individually via Remove Officer</small>
       </div>
-
       <div id="sosFields" style="display:none">
         <label>Start (HH:MM)</label><input type="time" id="sosStart" />
         <label>End (HH:MM)</label><input type="time" id="sosEnd" />
         <label>Name <span class="optional">(optional)</span></label>
         <input type="text" id="sosOfficerName" placeholder="e.g. John" />
       </div>
-
       <div id="otFields" style="display:none">
         <label>OT Slot</label>
         <select id="otSlot">
@@ -343,17 +350,14 @@ td.counter-cell.active {
         <label>Name <span class="optional">(optional)</span></label>
         <input type="text" id="otOfficerName" placeholder="e.g. Jane" />
       </div>
-
       <div id="raFields" style="display:none">
         <label>Officer</label><select id="raOfficer"></select>
         <label>Report After (HH:MM)</label><input type="time" id="raTime" />
       </div>
-
       <div id="roFields" style="display:none">
         <label>Officer</label><select id="roOfficer"></select>
         <label>Report Off (HH:MM)</label><input type="time" id="roTime" />
       </div>
-
       <div class="action-buttons">
         <button id="addOfficerBtn">Add Officers</button>
         <button id="confirmRaRoBtn" style="display:none;padding:6px 14px;background:#f57c00;border:none;color:white;border-radius:6px;cursor:pointer;font-weight:600;">Confirm</button>
@@ -369,9 +373,7 @@ td.counter-cell.active {
   </div>
 
   <h3>Manning Summary</h3>
-  <div class="summary-controls">
-    <button id="copySummaryBtn">Copy Summary</button>
-  </div>
+  <div class="summary-controls"><button id="copySummaryBtn">Copy Summary</button></div>
   <pre id="manningSummary"></pre>
 
   <h2>Roster</h2>
@@ -381,14 +383,12 @@ td.counter-cell.active {
     <thead><tr><th>Officer</th><th>Counter / Break</th><th>Start</th><th>End</th></tr></thead>
     <tbody></tbody>
   </table>
-
   <h3>SOS Roster</h3>
   <button id="copySOSRosterBtn">Copy SOS Roster</button>
   <table id="sosRosterTable">
     <thead><tr><th>Officer</th><th>Counter / Break</th><th>Start</th><th>End</th></tr></thead>
     <tbody></tbody>
   </table>
-
   <h3>OT Roster</h3>
   <button id="copyOTRosterBtn">Copy OT Roster</button>
   <table id="otRosterTable">
