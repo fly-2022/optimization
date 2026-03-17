@@ -14,6 +14,11 @@ let sosGlobalCounter = 1;
 let historyStack = [];
 let _saveStateGlobal = null; // set by DOMContentLoaded, used by attachTableEvents
 
+// Cargo variation state
+let cargoWorkbooks = { arrival: null, departure: null };
+let cargoVariations = { arrival: [], departure: [] }; // list of sheet names
+let currentCargoVariation = null; // currently selected sheet name
+
 // Out-of-service counters: Set of "zoneName:counter" strings
 const oosCounters = new Set();
 
@@ -139,6 +144,17 @@ function generateTimeSlots() {
 
 /* ==================== renderTableOnce ==================== */
 function renderTableOnce() {
+    // Cargo lane uses its own dynamic renderer
+    if (currentLane === "cargo") {
+        const tabBar = document.getElementById("cargoVariationTabs");
+        if (tabBar) tabBar.style.display = "flex";
+        renderCargoGrid();
+        return;
+    }
+    // Hide cargo tab bar for non-cargo lanes
+    const tabBar = document.getElementById("cargoVariationTabs");
+    if (tabBar) tabBar.style.display = "none";
+
     table.innerHTML = "";
     const times = generateTimeSlots();
 
@@ -762,13 +778,27 @@ function restoreCellStates() {
     const key = `${currentLane}_${currentMode}_${currentShift}`;
     const state = cellStates[key] || {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
+        // Never touch break/closed cargo cells
+        if (cell.classList.contains("cargo-break") || cell.classList.contains("cargo-closed")) return;
+
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
-        if (state[id] && state[id].active) {
-            cell.classList.add("active");
-            cell.style.background = state[id].color;
-            cell.dataset.officer  = state[id].officer || "";
-            cell.dataset.type     = state[id].type    || "";
+        if (state[id]) {
+            // Saved state exists — restore it (may override Excel defaults)
+            if (state[id].active) {
+                cell.classList.add("active");
+                cell.style.background = state[id].color;
+                cell.dataset.officer  = state[id].officer || "";
+                cell.dataset.type     = state[id].type    || "";
+            } else {
+                cell.classList.remove("active");
+                cell.style.background = "";
+                cell.dataset.officer  = "";
+                cell.dataset.type     = "";
+            }
+        } else if (currentLane === "cargo") {
+            // No saved state for cargo cell — keep Excel-derived state as-is
         } else {
+            // Non-cargo, no saved state — clear
             cell.classList.remove("active");
             cell.style.background = "";
             cell.dataset.officer  = "";
@@ -1117,6 +1147,7 @@ function setLane(lane) {
     });
     oosCounters.clear();
     renderTableOnce();
+    if (lane === "cargo") renderCargoVariationTabs();
     restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
@@ -1145,6 +1176,7 @@ function setMode(mode) {
     dragMode = "add";
     oosCounters.clear();
     renderTableOnce();
+    if (currentLane === "cargo") renderCargoVariationTabs();
     restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
@@ -1188,6 +1220,7 @@ function setShift(shift) {
     dragMode = "add";
     oosCounters.clear();
     renderTableOnce();
+    if (currentLane === "cargo") renderCargoVariationTabs();
     restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
@@ -1235,22 +1268,233 @@ async function loadExcelTemplate() {
     try {
         const response = await fetch("ROSTER.xlsx");
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
         const arrayBuffer = await response.arrayBuffer();
         excelWorkbook = XLSX.read(arrayBuffer, { type: "array" });
-
         excelWorkbook.SheetNames.forEach(sheetName => {
             const sheet = excelWorkbook.Sheets[sheetName];
             const json = XLSX.utils.sheet_to_json(sheet);
             excelData[sheetName.toLowerCase()] = json;
         });
-
         console.log("Excel template loaded:", Object.keys(excelData));
     } catch (err) {
         console.error("Excel loading failed:", err);
         alert("Failed to load Excel. Check filename, location, and local server.");
     }
 }
+
+async function loadCargoExcels() {
+    const files = [
+        { key: "arrival_morning",   filename: "CARGO_ARRIVAL_MORNING.xlsx" },
+        { key: "arrival_night",     filename: "CARGO_ARRIVAL_NIGHT.xlsx" },
+        { key: "departure_morning", filename: "CARGO_DEPARTURE_MORNING.xlsx" },
+        { key: "departure_night",   filename: "CARGO_DEPARTURE_NIGHT.xlsx" }
+    ];
+    cargoWorkbooks  = {};
+    cargoVariations = {};
+    for (const { key, filename } of files) {
+        try {
+            const res = await fetch(filename);
+            if (!res.ok) { console.warn(`Cargo Excel not found: ${filename}`); continue; }
+            const buf = await res.arrayBuffer();
+            const wb  = XLSX.read(buf, { type: "array" });
+            cargoWorkbooks[key]  = wb;
+            cargoVariations[key] = wb.SheetNames.filter(n => n !== "List" && !n.startsWith("_"));
+            console.log(`Cargo ${key} variations:`, cargoVariations[key]);
+        } catch (err) {
+            console.warn(`Failed to load ${filename}:`, err);
+        }
+    }
+    if (currentLane === "cargo") renderCargoVariationTabs();
+}
+
+// ── Parse a cargo sheet into grid data ────────────────────────────────────────
+// Returns { counters: [{name, cells: ["DL1"|"#"|""]}, ...], times: ["HHMM",...] }
+function parseCargoSheet(sheetName) {
+    const key = `${currentMode}_${currentShift}`;
+    const wb = cargoWorkbooks[key];
+    if (!wb) return null;
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return null;
+
+    // Structure: Row 1 = shift label (col A) + time slots from col B onwards
+    //            Row 2 = "Lorry/Car-go" header (skip)
+    //            Rows 3+ = counter rows (col A = name, col B+ = cells)
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+    if (raw.length < 3) return null;
+
+    const timeRow = raw[0] || [];   // Row 1 (index 0)
+    const timeColStart = 1;         // col B = index 1
+
+    // Helper: convert various time formats to HHMM
+    function toHHMM(v) {
+        if (!v) return null;
+        const s = String(v).trim();
+        // "HH:MM:SS" or "H:MM:SS"
+        if (s.includes(":")) {
+            const parts = s.split(":");
+            return parts[0].padStart(2, "0") + parts[1].padStart(2, "0");
+        }
+        return null;
+    }
+
+    const times = [];
+    for (let c = timeColStart; c < timeRow.length; c++) {
+        const hhmm = toHHMM(timeRow[c]);
+        if (!hhmm) break;
+        times.push(hhmm);
+    }
+    if (!times.length) return null;
+
+    const counters = [];
+    const skipNames = new Set([
+        "Big","Small","Sub-total","Grand-total",
+        "Cover Breaks","Lorry/Car-go","Morning","Night",""
+    ]);
+
+    // Rows start at index 2 (row 3) — skip row 2 (Lorry/Car-go header)
+    for (let r = 2; r < raw.length; r++) {
+        const row = raw[r];
+        if (!row || !row[0]) continue;
+        const name = String(row[0]).trim();
+        if (skipNames.has(name)) continue;
+
+        const cells = [];
+        for (let c = timeColStart; c < timeColStart + times.length; c++) {
+            const v = row[c];
+            const s = v !== undefined && v !== null ? String(v).trim() : "";
+            if (s === "#") cells.push("#");
+            else if (s !== "") cells.push(s);
+            else cells.push("");
+        }
+        counters.push({ name, cells });
+    }
+
+    return { times, counters };
+}
+
+// ── Render variation tabs above grid when on Cargo lane ────────────────────────
+function renderCargoVariationTabs() {
+    let tabBar = document.getElementById("cargoVariationTabs");
+    if (!tabBar) return;
+
+    const key = `${currentMode}_${currentShift}`;
+    const variations = cargoVariations[key] || [];
+    if (!variations.length) {
+        tabBar.style.display = "none";
+        return;
+    }
+    tabBar.style.display = "flex";
+    tabBar.innerHTML = "";
+
+    // If current variation isn't valid for this mode, reset
+    if (!variations.includes(currentCargoVariation)) {
+        currentCargoVariation = variations[0];
+    }
+
+    variations.forEach(name => {
+        const btn = document.createElement("button");
+        btn.className = "cargo-var-btn" + (name === currentCargoVariation ? " active" : "");
+        btn.textContent = name;
+        btn.onclick = () => {
+            currentCargoVariation = name;
+            document.querySelectorAll(".cargo-var-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            renderCargoGrid();
+        };
+        tabBar.appendChild(btn);
+    });
+
+    renderCargoGrid();
+}
+
+// ── Render the cargo grid from selected variation ──────────────────────────────
+function renderCargoGrid() {
+    if (currentLane !== "cargo" || !currentCargoVariation) return;
+    const data = parseCargoSheet(currentCargoVariation);
+    if (!data) { table.innerHTML = "<tr><td>No data for this variation.</td></tr>"; return; }
+
+    table.innerHTML = "";
+
+    // Single zone for cargo
+    const zoneName = currentMode === "arrival" ? "Cargo" : "Cargo";
+
+    // Zone header
+    const zoneRow = document.createElement("tr");
+    const zoneCell = document.createElement("td");
+    zoneCell.colSpan = data.times.length + 1;
+    zoneCell.className = "zone-header";
+    zoneCell.innerText = `Cargo — ${currentCargoVariation}`;
+    zoneRow.appendChild(zoneCell);
+    table.appendChild(zoneRow);
+
+    // Time header
+    const timeRow = document.createElement("tr");
+    timeRow.className = "time-header";
+    timeRow.innerHTML = "<th></th>";
+    data.times.forEach(t => {
+        const th = document.createElement("th");
+        th.innerText = t;
+        timeRow.appendChild(th);
+    });
+    table.appendChild(timeRow);
+
+    // Counter rows
+    data.counters.forEach(({ name, cells }) => {
+        const row = document.createElement("tr");
+        const label = document.createElement("td");
+        label.innerText = name;
+        row.appendChild(label);
+
+        cells.forEach((cellVal, i) => {
+            const td = document.createElement("td");
+            td.dataset.zone    = zoneName;
+            td.dataset.counter = name;
+            td.dataset.time    = i;
+
+            if (cellVal === "#") {
+                // Break slot — grey, non-interactive
+                td.className = "counter-cell cargo-break";
+                td.title = "Break";
+            } else if (cellVal === "") {
+                // Closed — faint, non-interactive
+                td.className = "counter-cell cargo-closed";
+            } else {
+                // Active working slot — pre-populate with counter as officer
+                td.className = "counter-cell active";
+                td.dataset.officer = name;
+                td.dataset.type    = "main";
+                td.style.background = currentColor;
+            }
+            row.appendChild(td);
+        });
+
+        table.appendChild(row);
+    });
+
+    // Subtotal row
+    const subRow = document.createElement("tr");
+    subRow.className = "subtotal-row";
+    const subLabel = document.createElement("td");
+    subLabel.innerText = "Subtotal";
+    subRow.appendChild(subLabel);
+    data.times.forEach((_, i) => {
+        const td = document.createElement("td");
+        td.className = "subtotal-cell";
+        td.dataset.zone = zoneName;
+        td.dataset.time = i;
+        subRow.appendChild(td);
+    });
+    table.appendChild(subRow);
+
+    restoreCellStates();
+    attachCounterContextMenus();
+    updateAll();
+}
+
+// Override restoreCellStates for cargo: if no saved state exists for a cell,
+// keep the Excel-derived active state already set by renderCargoGrid.
+// The base restoreCellStates handles this correctly because it only overwrites
+// cells that have a saved entry — cells without a saved entry are left alone.
 
 /* ================= MANPOWER SYSTEM ================= */
 document.addEventListener("DOMContentLoaded", function () {
@@ -1262,6 +1506,7 @@ document.addEventListener("DOMContentLoaded", function () {
     attachTableEvents();
     attachCounterContextMenus();
     loadExcelTemplate();
+    loadCargoExcels();
 
     let manpowerType = "main";
 
