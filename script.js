@@ -1200,6 +1200,24 @@ function updateTrainOwcVisibility() {
     if (label) label.textContent = currentMode === "arrival" ? "Train Officers:" : "OWC Officers:";
 }
 
+function updateOTSlotOptions() {
+    const otSlotSelect = document.getElementById("otSlot");
+    if (!otSlotSelect) return;
+
+    if (currentShift === "morning") {
+        // Morning shift OT slots: 1100-1600, 1600-2100
+        otSlotSelect.innerHTML = `
+            <option value="1100-1600">1100 – 1600</option>
+            <option value="1600-2100">1600 – 2100</option>
+        `;
+    } else if (currentShift === "night") {
+        // Night shift OT slot: 0600-1100 (only one option)
+        otSlotSelect.innerHTML = `
+            <option value="0600-1100">0600 – 1100</option>
+        `;
+    }
+}
+
 function setShift(shift) {
     resetDragState();
     saveCellStates();
@@ -1226,6 +1244,10 @@ function setShift(shift) {
     isDragging = false;
     dragMode = "add";
     oosCounters.clear();
+    
+    // Update OT slot options based on shift
+    updateOTSlotOptions();
+    
     renderTableOnce();
     if (currentLane === "cargo") renderCargoVariationTabs();
     restoreCellStates();
