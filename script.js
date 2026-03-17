@@ -944,10 +944,13 @@ function updateMainRoster() {
                 records[i].counter !== currentCounter;
 
             if (isBreak) {
+                const counterLabel = currentLane === "cargo"
+                    ? currentCounter
+                    : `${currentZone} ${currentCounter}`;
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td>${officer}${firstRow ? raroBadge : ""}</td>
-                    <td>${currentZone} ${currentCounter}</td>
+                    <td>${counterLabel}</td>
                     <td>${formatTime(times[start])}</td>
                     <td>${formatTime(times[prev + 1] || times[prev])}</td>
                 `;
@@ -1413,6 +1416,37 @@ function renderCargoVariationTabs() {
     renderCargoGrid();
 }
 
+// ── Colour map matching Excel conditional formatting ──────────────────────────
+const CARGO_COLOURS = {
+    // Departure counters
+    "DL1": { bg: "#FFF2CC", text: "#000000" },
+    "DL2": { bg: "#FBE5D5", text: "#000000" },
+    "DL3": { bg: "#EDEDED", text: "#000000" },
+    "DL4": { bg: "#DEEBF6", text: "#000000" },
+    "DL5": { bg: "#FFFF00", text: "#000000" },
+    "DL6": { bg: "#3D4B5F", text: "#FFFFFF" },
+    // Arrival counters
+    "AL1": { bg: "#FFF2CC", text: "#000000" },
+    "AL2": { bg: "#FBE5D5", text: "#000000" },
+    "AL3": { bg: "#EDEDED", text: "#000000" },
+    "AL4": { bg: "#DEEBF6", text: "#000000" },
+    "AL5": { bg: "#FFFF00", text: "#000000" },
+    "AL6": { bg: "#3D4B5F", text: "#FFFFFF" },
+    // Cargo counters (same colours as DL/AL equivalents)
+    "D-Cargo 1": { bg: "#FFF2CC", text: "#000000" },
+    "D-Cargo 2": { bg: "#FBE5D5", text: "#000000" },
+    "D-Cargo 3": { bg: "#EDEDED", text: "#000000" },
+    "D-Cargo 4": { bg: "#DEEBF6", text: "#000000" },
+    "D-Cargo 5": { bg: "#FFFF00", text: "#000000" },
+    "D-Cargo 6": { bg: "#3D4B5F", text: "#FFFFFF" },
+    "A-Cargo 1": { bg: "#FFF2CC", text: "#000000" },
+    "A-Cargo 2": { bg: "#FBE5D5", text: "#000000" },
+    "A-Cargo 3": { bg: "#EDEDED", text: "#000000" },
+    "A-Cargo 4": { bg: "#DEEBF6", text: "#000000" },
+    "A-Cargo 5": { bg: "#FFFF00", text: "#000000" },
+    "A-Cargo 6": { bg: "#3D4B5F", text: "#FFFFFF" },
+};
+
 // ── Render the cargo grid from selected variation ──────────────────────────────
 function renderCargoGrid() {
     if (currentLane !== "cargo" || !currentCargoVariation) return;
@@ -1477,11 +1511,21 @@ function renderCargoGrid() {
                 td.className = "counter-cell cargo-closed";
             } else {
                 td.className = "counter-cell active";
-                // For checker rows, use the cell value (counter being covered) as officer
-                // For main counter rows, use the row name
-                td.dataset.officer = isChecker ? cellVal : name;
-                td.dataset.type    = "main";
-                td.style.background = currentColor;
+                // For checker rows: officer label = "Checker (DL1)" so it's
+                // distinct from the main DL1 counter in the roster
+                td.dataset.officer = isChecker
+                    ? `${name} (${cellVal})`
+                    : name;
+                td.dataset.type = "main";
+                // Apply Excel-matching colour based on cell value (the counter being worked/covered)
+                const colKey = isChecker ? cellVal : name;
+                const colour = CARGO_COLOURS[colKey];
+                if (colour) {
+                    td.style.background = colour.bg;
+                    td.style.color      = colour.text;
+                } else {
+                    td.style.background = currentColor;
+                }
             }
             row.appendChild(td);
         });
