@@ -1513,31 +1513,34 @@ function renderCargoGrid() {
             td.dataset.counter = name;
             td.dataset.time = i;
 
-            if (cellVal === "#") {
-                td.className = "counter-cell active cargo-break";
-                td.dataset.type = "break";
-                td.dataset.officer = name + " Break";
-                td.title = "Break";
-            } else if (cellVal === "") {
-                td.className = "counter-cell cargo-closed";
-            } else {
-                td.className = "counter-cell active";
-                // For checker rows: officer label = "Checker (DL1)" so it's
-                // distinct from the main DL1 counter in the roster
+            // All cargo cells behave like normal roster cells
+            td.className = "counter-cell";
+
+            if (cellVal !== "") {
+
+                td.classList.add("active");
+
+                // Checker rows still need unique officer labels
                 td.dataset.officer = isChecker
                     ? `${name} (${cellVal})`
                     : name;
+
                 td.dataset.type = "main";
-                // Apply Excel-matching colour based on cell value (the counter being worked/covered)
+
                 const colKey = isChecker ? cellVal : name;
                 const colour = CARGO_COLOURS[colKey];
+
                 if (colour) {
                     td.style.background = colour.bg;
                     td.style.color = colour.text;
                 } else {
                     td.style.background = currentColor;
                 }
+
+            } else {
+                td.dataset.type = "empty";
             }
+
             row.appendChild(td);
         });
 
