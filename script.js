@@ -1520,7 +1520,7 @@ function renderCargoGrid() {
 
                 td.classList.add("active");
 
-                // Checker rows still need unique officer labels
+                // checker rows keep unique officer labels
                 td.dataset.officer = isChecker
                     ? `${name} (${cellVal})`
                     : name;
@@ -1540,7 +1540,6 @@ function renderCargoGrid() {
             } else {
                 td.dataset.type = "empty";
             }
-
             row.appendChild(td);
         });
 
