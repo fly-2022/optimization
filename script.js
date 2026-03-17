@@ -1193,6 +1193,19 @@ function updateTrainOwcVisibility() {
     if (label) label.textContent = currentMode === "arrival" ? "Train Officers:" : "OWC Officers:";
 }
 
+function updateOTSlotDropdown() {
+    const sel = document.getElementById("otSlot");
+    if (!sel) return;
+    if (currentShift === "morning") {
+        sel.innerHTML = `
+            <option value="1100-1600">1100 – 1600</option>
+            <option value="1600-2100">1600 – 2100</option>`;
+    } else {
+        sel.innerHTML = `
+            <option value="0600-1100">0600 – 1100</option>`;
+    }
+}
+
 function setShift(shift) {
     resetDragState();
     saveCellStates();
@@ -1224,7 +1237,7 @@ function setShift(shift) {
     restoreCellStates();
     attachCounterContextMenus();
     updateTrainOwcVisibility();
-    if (typeof updateOTSlotDropdown === "function") updateOTSlotDropdown();
+    updateOTSlotDropdown();
 }
 
 arrivalBtn.onclick = () => setMode("arrival");
@@ -1888,19 +1901,6 @@ document.addEventListener("DOMContentLoaded", function () {
                    (otStart === "1600" && otEnd === "2100");
         } else {
             return (otStart === "0600" && otEnd === "1100");
-        }
-    }
-
-    function updateOTSlotDropdown() {
-        const sel = document.getElementById("otSlot");
-        if (!sel) return;
-        if (currentShift === "morning") {
-            sel.innerHTML = `
-                <option value="1100-1600">1100 – 1600</option>
-                <option value="1600-2100">1600 – 2100</option>`;
-        } else {
-            sel.innerHTML = `
-                <option value="0600-1100">0600 – 1100</option>`;
         }
     }
 
