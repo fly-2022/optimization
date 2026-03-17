@@ -346,13 +346,11 @@
         background: #cfd8dc !important;
         cursor: cell;
         pointer-events: auto;
-        opacity: 0.7;
       }
       td.counter-cell.cargo-closed {
         background: #eceff1 !important;
         cursor: cell;
         pointer-events: auto;
-        opacity: 0.35;
       }
       /* Cargo cover breaks separator */
       td.cargo-separator {
@@ -1577,12 +1575,7 @@
         const key = `${currentLane}_${currentMode}_${currentShift}`;
         const state = cellStates[key] || {};
         document.querySelectorAll(".counter-cell").forEach((cell) => {
-          // Never touch break/closed cargo cells
-          if (
-            cell.classList.contains("cargo-break") ||
-            cell.classList.contains("cargo-closed")
-          )
-            return;
+          // All cargo cells are now selectable (including break/closed)
 
           const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
           if (state[id]) {
