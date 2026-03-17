@@ -1350,14 +1350,20 @@ function parseCargoSheet(sheetName) {
         "Big","Small","Sub-total","Grand-total",
         "Cover Breaks","Lorry/Car-go","Morning","Night",""
     ]);
+    // Names that belong to the "Cover Breaks" section
+    const coverNames = new Set(["Checker","DLSC"]);
+    let inCoverSection = false;
 
     // Rows start at index 2 (row 3) — skip row 2 (Lorry/Car-go header)
     for (let r = 2; r < raw.length; r++) {
         const row = raw[r];
         if (!row || !row[0]) continue;
         const name = String(row[0]).trim();
+        // Detect entry into cover break section
+        if (name === "Cover Breaks") { inCoverSection = true; continue; }
         if (skipNames.has(name)) continue;
 
+        const isChecker = inCoverSection || coverNames.has(name);
         const cells = [];
         for (let c = timeColStart; c < timeColStart + times.length; c++) {
             const v = row[c];
@@ -1366,7 +1372,7 @@ function parseCargoSheet(sheetName) {
             else if (s !== "") cells.push(s);
             else cells.push("");
         }
-        counters.push({ name, cells });
+        counters.push({ name, cells, isChecker });
     }
 
     return { times, counters };
@@ -1439,7 +1445,20 @@ function renderCargoGrid() {
     table.appendChild(timeRow);
 
     // Counter rows
-    data.counters.forEach(({ name, cells }) => {
+    let separatorAdded = false;
+    data.counters.forEach(({ name, cells, isChecker }) => {
+        // Add separator row before first checker/cover-break row
+        if (isChecker && !separatorAdded) {
+            separatorAdded = true;
+            const sepRow = document.createElement("tr");
+            const sepCell = document.createElement("td");
+            sepCell.colSpan = data.times.length + 1;
+            sepCell.className = "cargo-separator";
+            sepCell.innerText = "Cover Breaks";
+            sepRow.appendChild(sepCell);
+            table.appendChild(sepRow);
+        }
+
         const row = document.createElement("tr");
         const label = document.createElement("td");
         label.innerText = name;
@@ -1452,16 +1471,15 @@ function renderCargoGrid() {
             td.dataset.time    = i;
 
             if (cellVal === "#") {
-                // Break slot — grey, non-interactive
                 td.className = "counter-cell cargo-break";
                 td.title = "Break";
             } else if (cellVal === "") {
-                // Closed — faint, non-interactive
                 td.className = "counter-cell cargo-closed";
             } else {
-                // Active working slot — pre-populate with counter as officer
                 td.className = "counter-cell active";
-                td.dataset.officer = name;
+                // For checker rows, use the cell value (counter being covered) as officer
+                // For main counter rows, use the row name
+                td.dataset.officer = isChecker ? cellVal : name;
                 td.dataset.type    = "main";
                 td.style.background = currentColor;
             }
