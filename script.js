@@ -783,7 +783,7 @@ function restoreCellStates() {
     const state = cellStates[key] || {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
         // Never touch break/closed cargo cells
-        if (cell.classList.contains("cargo-break") || cell.classList.contains("cargo-closed")) return;
+        // if (cell.classList.contains("cargo-break") || cell.classList.contains("cargo-closed")) return;
 
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
         if (state[id]) {
@@ -1516,16 +1516,16 @@ function renderCargoGrid() {
             // All cargo cells behave like normal roster cells
             td.className = "counter-cell";
 
+            // ALL cargo cells must behave like roster cells
+            td.dataset.type = "main";
+
             if (cellVal !== "") {
 
                 td.classList.add("active");
 
-                // checker rows keep unique officer labels
                 td.dataset.officer = isChecker
                     ? `${name} (${cellVal})`
                     : name;
-
-                td.dataset.type = "main";
 
                 const colKey = isChecker ? cellVal : name;
                 const colour = CARGO_COLOURS[colKey];
@@ -1533,12 +1533,8 @@ function renderCargoGrid() {
                 if (colour) {
                     td.style.background = colour.bg;
                     td.style.color = colour.text;
-                } else {
-                    td.style.background = currentColor;
                 }
 
-            } else {
-                td.dataset.type = "empty";
             }
             row.appendChild(td);
         });
