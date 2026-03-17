@@ -2435,14 +2435,24 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (manpowerType === "ot") {
+            console.log("[DEBUG] OT Add clicked - start");
             const slot = document.getElementById("otSlot").value;
+            console.log("[DEBUG] OT slot value:", slot);
             const [start, end] = slot.split("-").map(s => s.replace(":", ""));
+            console.log("[DEBUG] OT parsed start/end:", start, end);
             if (!isOTWithinShift(start, end)) {
+                console.log("[DEBUG] OT failed isOTWithinShift check");
                 alert(`OT ${start}-${end} is outside current shift (${currentShift}).`);
                 return;
             }
-            if (!checkCapacityBeforeAdd("ot", count, start, end)) return;
+            console.log("[DEBUG] OT passed isOTWithinShift check");
+            if (!checkCapacityBeforeAdd("ot", count, start, end)) {
+                console.log("[DEBUG] OT failed checkCapacityBeforeAdd");
+                return;
+            }
+            console.log("[DEBUG] OT about to call allocateOTOfficers with count:", count, "start:", start, "end:", end);
             allocateOTOfficers(count, start, end);
+            console.log("[DEBUG] OT allocateOTOfficers completed");
         }
 
         if (manpowerType === "main") {
