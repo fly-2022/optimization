@@ -765,7 +765,9 @@ function attachTableEvents() {
 /* ==================== Save / Restore Cell States ==================== */
 function saveCellStates() {
     if (!document.querySelector(".counter-cell")) return; // grid not built yet
-    const key = `${currentLane}_${currentMode}_${currentShift}`;
+    const key = currentLane === "cargo"
+        ? `${currentLane}_${currentMode}_${currentShift}_${currentCargoVariation}`
+        : `${currentLane}_${currentMode}_${currentShift}`;
     cellStates[key] = {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
@@ -779,7 +781,9 @@ function saveCellStates() {
 }
 
 function restoreCellStates() {
-    const key = `${currentLane}_${currentMode}_${currentShift}`;
+    const key = currentLane === "cargo"
+        ? `${currentLane}_${currentMode}_${currentShift}_${currentCargoVariation}`
+        : `${currentLane}_${currentMode}_${currentShift}`;
     const state = cellStates[key] || {};
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
@@ -1425,6 +1429,7 @@ function renderCargoVariationTabs() {
         btn.className = "cargo-var-btn" + (name === currentCargoVariation ? " active" : "");
         btn.textContent = name;
         btn.onclick = () => {
+            saveCellStates();
             currentCargoVariation = name;
             document.querySelectorAll(".cargo-var-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
