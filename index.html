@@ -3115,10 +3115,12 @@
               if (active < minMain) minMain = active;
             }
 
-            // If no main officers at all in zone, all OT officers may have breaks
-            maxGaps[z.name] = anyMain
-              ? Math.max(0, minMain + zoneQuota[z.name] - minReq)
-              : zoneQuota[z.name];
+            // Night shift OT: all officers may have breaks (handing over to next team)
+            // Morning shift: respect 50% floor rule
+            maxGaps[z.name] =
+              currentShift === "night" || !anyMain
+                ? zoneQuota[z.name]
+                : Math.max(0, minMain + zoneQuota[z.name] - minReq);
           });
 
           // ── Assign OT officers ───────────────────────────────────────────────
@@ -3154,7 +3156,7 @@
                 // Find a break slot that fits within this officer's window
                 for (let attempt = 0; attempt < numBreaks; attempt++) {
                   const bi = (breakIdx[z.name] + attempt) % numBreaks;
-                  if (BK[bi] > from && BKE[bi] < to) {
+                  if (BK[bi] > from && BKE[bi] <= to) {
                     fillBlock(z.name, counter, from, BK[bi], label);
                     fillBlock(z.name, counter, BKE[bi], to, label);
                     gapsUsed[z.name]++;
