@@ -953,7 +953,7 @@ function updateMainRoster() {
                     <td>${officer}${firstRow ? raroBadge : ""}</td>
                     <td>${counterLabel}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(rosterEndTime(times, prev))}</td>
+                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
                 `;
                 tbody.appendChild(row);
                 firstRow = false;
@@ -973,14 +973,6 @@ function updateMainRoster() {
 function formatTime(hhmm) {
     if (!hhmm) return "";
     return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
-}
-
-// Returns the display end time for a roster row.
-// times[prev+1] is the slot after the last filled slot — correct for mid-shift.
-// If that slot doesn't exist (end of grid), use the shift boundary.
-function rosterEndTime(times, prev) {
-    if (times[prev + 1]) return times[prev + 1];
-    return currentShift === "night" ? "1000" : "2200";
 }
 
 /* ==================== OT Roster Table ==================== */
@@ -1028,7 +1020,7 @@ function updateOTRosterTable() {
                     <td>${officer}</td>
                     <td>${currentZone} ${currentCounter}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(rosterEndTime(times, prev))}</td>
+                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
                 `;
                 tbody.appendChild(row);
 
@@ -1126,7 +1118,7 @@ function _renderSOSRoster(tbody, startTime, endTime) {
                     <td>${officer}</td>
                     <td>${currentZone} ${currentCounter}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(rosterEndTime(times, prev))}</td>
+                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
                 `;
                 tbody.appendChild(row);
                 if (i < records.length) {
