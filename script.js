@@ -953,7 +953,7 @@ function updateMainRoster() {
                     <td>${officer}${firstRow ? raroBadge : ""}</td>
                     <td>${counterLabel}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
+                    <td>${formatTime(rosterEndTime(times, prev))}</td>
                 `;
                 tbody.appendChild(row);
                 firstRow = false;
@@ -973,6 +973,11 @@ function updateMainRoster() {
 function formatTime(hhmm) {
     if (!hhmm) return "";
     return hhmm.slice(0, 2) + ":" + hhmm.slice(2);
+}
+
+function rosterEndTime(times, prev) {
+    if (times[prev + 1]) return times[prev + 1];
+    return currentShift === "night" ? "1000" : "2200";
 }
 
 /* ==================== OT Roster Table ==================== */
@@ -1020,7 +1025,7 @@ function updateOTRosterTable() {
                     <td>${officer}</td>
                     <td>${currentZone} ${currentCounter}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
+                    <td>${formatTime(rosterEndTime(times, prev))}</td>
                 `;
                 tbody.appendChild(row);
 
@@ -1118,7 +1123,7 @@ function _renderSOSRoster(tbody, startTime, endTime) {
                     <td>${officer}</td>
                     <td>${currentZone} ${currentCounter}</td>
                     <td>${formatTime(times[start])}</td>
-                    <td>${formatTime(times[prev + 1] || times[prev])}</td>
+                    <td>${formatTime(rosterEndTime(times, prev))}</td>
                 `;
                 tbody.appendChild(row);
                 if (i < records.length) {
@@ -1948,7 +1953,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "0600": [
                 { w1e: "0730", w2s: "0815" }, // A
                 { w1e: "0815", w2s: "0900" }, // B
-                { w1e: "0900", w2s: null }  // C
+                { w1e: "0900", w2s: "0945" }  // C — 0945 is last slot, handover to next team
             ],
             "1100": [
                 { w1e: "1230", w2s: "1315" }, // A
