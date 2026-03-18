@@ -1938,10 +1938,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
         if (endIndex === -1)   { alert("OT end time outside current shift."); return; }
 
-        const releaseSlots = 2; // 30 min (morning only — night OT hands over to next team)
-        const effectiveEnd = currentShift === "night"
-            ? endIndex
-            : Math.max(startIndex, endIndex - releaseSlots);
+        const releaseSlots = 2; // 30 min (morning only)
+        const effectiveEnd = currentShift === "night" ? endIndex : Math.max(startIndex, endIndex - releaseSlots);
 
         // Index beyond which breaks must not end (2100 for morning, 0900 for night)
         const breakCap = (() => {
