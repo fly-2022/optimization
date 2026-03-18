@@ -1346,7 +1346,7 @@ function parseCargoSheet(sheetName) {
     // Structure: Row 1 = shift label (col A) + time slots from col B onwards
     //            Row 2 = "Lorry/Car-go" header (skip)
     //            Rows 3+ = counter rows (col A = name, col B+ = cells)
-    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
     if (raw.length < 3) return null;
 
     const timeRow = raw[0] || [];   // Row 1 (index 0)
@@ -1354,7 +1354,14 @@ function parseCargoSheet(sheetName) {
 
     // Helper: convert various time formats to HHMM
     function toHHMM(v) {
-        if (!v) return null;
+        if (!v && v !== 0) return null;
+        // Raw numeric Excel time (fraction of day)
+        if (typeof v === 'number') {
+            const totalMins = Math.round(v * 24 * 60);
+            const hh = Math.floor(totalMins / 60) % 24;
+            const mm = totalMins % 60;
+            return String(hh).padStart(2, "0") + String(mm).padStart(2, "0");
+        }
         const s = String(v).trim();
         // "HH:MM:SS" or "H:MM:SS"
         if (s.includes(":")) {
@@ -1394,7 +1401,8 @@ function parseCargoSheet(sheetName) {
         const cells = [];
         for (let c = timeColStart; c < timeColStart + times.length; c++) {
             const v = row[c];
-            const s = v !== undefined && v !== null ? String(v).trim() : "";
+            // With raw:true, values are native types — convert to string, treat numbers as empty
+            const s = (v !== undefined && v !== null && typeof v === 'string') ? v.trim() : "";
             if (s === "#") cells.push("#");
             else if (s !== "") cells.push(s);
             else cells.push("");
@@ -1519,7 +1527,10 @@ function renderCargoGrid() {
                 td.dataset.officer = isChecker ? `${name} (${cellVal})` : name;
                 td.dataset.type = "main";
                 const colKey = isChecker ? cellVal : name;
-                const colour = CARGO_COLOURS[colKey];
+                // Normalise checker key: if plain number, prefix with AL/DL based on mode
+                const prefix = currentMode === "arrival" ? "AL" : "DL";
+                const normKey = (isChecker && /^\d+$/.test(colKey)) ? `${prefix}${colKey}` : colKey;
+                const colour = CARGO_COLOURS[normKey];
                 if (colour) {
                     td.style.background = colour.bg;
                     td.style.color = colour.text;
