@@ -791,7 +791,8 @@ function restoreCellStates() {
             // Saved state exists — restore it (may override Excel defaults)
             if (state[id].active) {
                 cell.classList.add("active");
-                cell.style.background = state[id].color;
+                // For cargo, don't restore background — renderCargoGrid sets it from CARGO_COLOURS
+                if (currentLane !== "cargo") cell.style.background = state[id].color;
                 cell.dataset.officer = state[id].officer || "";
                 cell.dataset.type = state[id].type || "";
             } else {
@@ -1385,7 +1386,7 @@ function parseCargoSheet(sheetName) {
         "Cover Breaks", "Lorry/Car-go", "Morning", "Night", ""
     ]);
     // Names that belong to the "Cover Breaks" section
-    const coverNames = new Set(["Checker", "DLSC"]);
+    const coverNames = new Set(["Checker", "Checker 1", "Checker 2", "DLSC"]);
     let inCoverSection = false;
 
     // Rows start at index 2 (row 3) — skip row 2 (Lorry/Car-go header)
