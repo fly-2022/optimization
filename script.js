@@ -4,7 +4,7 @@ let excelWorkbook = null;
 let excelData = {};
 let currentMode = "arrival";
 let currentShift = "morning";
-let currentLane  = "car";
+let currentLane = "car";
 let currentColor = "#4CAF50";
 let isDragging = false;
 let dragMode = "add";
@@ -29,9 +29,9 @@ function resetDragState() {
 
 // cellStates keyed by "lane_mode_shift"
 const cellStates = {};
-["car","bus","train","cargo","owc"].forEach(lane =>
-    ["arrival","departure"].forEach(mode =>
-        ["morning","night"].forEach(shift => {
+["car", "bus", "train", "cargo", "owc"].forEach(lane =>
+    ["arrival", "departure"].forEach(mode =>
+        ["morning", "night"].forEach(shift => {
             cellStates[`${lane}_${mode}_${shift}`] = {};
         })
     )
@@ -61,14 +61,14 @@ const zones = {
         { name: "Zone 2", counters: range("AC", 11, 20) },
         { name: "Zone 3", counters: range("AC", 21, 30) },
         { name: "Zone 4", counters: range("AC", 31, 40) },
-        { name: "BIKES",  counters: ["AM41", "AM43"] }
+        { name: "BIKES", counters: ["AM41", "AM43"] }
     ],
     car_departure: [
         { name: "Zone 1", counters: range("DC", 1, 8) },
         { name: "Zone 2", counters: range("DC", 9, 18) },
         { name: "Zone 3", counters: range("DC", 19, 28) },
         { name: "Zone 4", counters: range("DC", 29, 36) },
-        { name: "BIKES",  counters: ["DM37A", "DM37C"] }
+        { name: "BIKES", counters: ["DM37A", "DM37C"] }
     ],
 
     // ── BUS ───────────────────────────────────────────────────────────────────
@@ -95,10 +95,10 @@ const zones = {
     // ── CARGO ─────────────────────────────────────────────────────────────────
     // Single zone, AL/DL lanes and Cargo counters mixed together
     cargo_arrival: [
-        { name: "Cargo", counters: ["AL1","AL2","AL3","AL4","AL5","AL6","A-Cargo 1","A-Cargo 2","A-Cargo 3","A-Cargo 4","A-Cargo 5","A-Cargo 6"] }
+        { name: "Cargo", counters: ["AL1", "AL2", "AL3", "AL4", "AL5", "AL6", "A-Cargo 1", "A-Cargo 2", "A-Cargo 3", "A-Cargo 4", "A-Cargo 5", "A-Cargo 6"] }
     ],
     cargo_departure: [
-        { name: "Cargo", counters: ["DL1","DL2","DL3","DL4","DL5","DL6","D-Cargo 1","D-Cargo 2","D-Cargo 3","D-Cargo 4","D-Cargo 5","D-Cargo 6"] }
+        { name: "Cargo", counters: ["DL1", "DL2", "DL3", "DL4", "DL5", "DL6", "D-Cargo 1", "D-Cargo 2", "D-Cargo 3", "D-Cargo 4", "D-Cargo 5", "D-Cargo 6"] }
     ],
 
     // ── OWC ───────────────────────────────────────────────────────────────────
@@ -238,20 +238,20 @@ function applyOOSStyling() {
 
     document.querySelectorAll("#rosterTable tr").forEach(row => {
         if (row.classList.contains("zone-header") ||
-            row.classList.contains("time-header")  ||
-            row.classList.contains("subtotal-row")  ||
+            row.classList.contains("time-header") ||
+            row.classList.contains("subtotal-row") ||
             row.classList.contains("grandtotal-row")) return;
 
         const labelCell = row.cells?.[0];
-        const dataCell  = row.querySelector(".counter-cell");
+        const dataCell = row.querySelector(".counter-cell");
         if (!labelCell || !dataCell) return;
 
-        const zone    = dataCell.dataset.zone;
+        const zone = dataCell.dataset.zone;
         const counter = dataCell.dataset.counter;
-        const srcKey  = `${zone}:${counter}`;          // key used in swapHistory
+        const srcKey = `${zone}:${counter}`;          // key used in swapHistory
         const destKey = `${zone}||${counter}`;          // value stored in swapHistory
 
-        const isOOS     = oosCounters.has(oosKey(zone, counter));
+        const isOOS = oosCounters.has(oosKey(zone, counter));
         const isSwapSrc = swapHistory.has(srcKey);
         const isSwapDest = swapDest.has(destKey);
 
@@ -265,23 +265,23 @@ function applyOOSStyling() {
             labelCell.textContent += " ⚠";
         } else if (isSwapSrc) {
             // Show where this counter's officers went
-            const destRaw   = swapHistory.get(srcKey);
-            const sepIdx    = destRaw.indexOf("||");
-            const toZone    = destRaw.slice(0, sepIdx);
+            const destRaw = swapHistory.get(srcKey);
+            const sepIdx = destRaw.indexOf("||");
+            const toZone = destRaw.slice(0, sepIdx);
             const toCounter = destRaw.slice(sepIdx + 2);
-            const label     = toZone === zone ? toCounter : `${toCounter} (${toZone})`;
+            const label = toZone === zone ? toCounter : `${toCounter} (${toZone})`;
             labelCell.style.cssText = "background:#fff3e0;color:#e65100;font-weight:bold;cursor:help;";
-            labelCell.textContent  += ` ⇄ ${label}`;
+            labelCell.textContent += ` ⇄ ${label}`;
             labelCell.title = `Officers swapped to ${toCounter} in ${toZone}. Right-click to swap back.`;
         } else if (isSwapDest) {
             // Show where this counter received officers from
-            const srcRaw    = swapDest.get(destKey); // "fromZone:fromCounter"
+            const srcRaw = swapDest.get(destKey); // "fromZone:fromCounter"
             const lastColon = srcRaw.lastIndexOf(":");
-            const fromZone  = srcRaw.slice(0, lastColon);
+            const fromZone = srcRaw.slice(0, lastColon);
             const fromCounter = srcRaw.slice(lastColon + 1);
-            const label     = fromZone === zone ? fromCounter : `${fromCounter} (${fromZone})`;
+            const label = fromZone === zone ? fromCounter : `${fromCounter} (${fromZone})`;
             labelCell.style.cssText = "background:#e8f5e9;color:#2e7d32;font-weight:bold;cursor:help;";
-            labelCell.textContent  += ` ← ${label}`;
+            labelCell.textContent += ` ← ${label}`;
             labelCell.title = `Received officers from ${fromCounter} in ${fromZone}.`;
         } else {
             labelCell.style.cssText = "";
@@ -293,7 +293,7 @@ function applyOOSStyling() {
 function getFreeCandidates(zoneName, excludeCounter, fromIdx, toIdx) {
     const times = generateTimeSlots();
     const start = (fromIdx !== undefined) ? fromIdx : 0;
-    const end   = (toIdx   !== undefined) ? toIdx   : times.length;
+    const end = (toIdx !== undefined) ? toIdx : times.length;
 
     // Search ALL zones (including BIKES) across the current mode
     const results = [];
@@ -314,9 +314,9 @@ function getFreeCandidates(zoneName, excludeCounter, fromIdx, toIdx) {
     // Sort: same zone first, then by counter number desc
     results.sort((a, b) => {
         if (a.zone === zoneName && b.zone !== zoneName) return -1;
-        if (b.zone === zoneName && a.zone !== zoneName) return  1;
+        if (b.zone === zoneName && a.zone !== zoneName) return 1;
         if (a.zone !== b.zone) return a.zone.localeCompare(b.zone);
-        return (parseInt(b.counter.replace(/\D/g,""))||0) - (parseInt(a.counter.replace(/\D/g,""))||0);
+        return (parseInt(b.counter.replace(/\D/g, "")) || 0) - (parseInt(a.counter.replace(/\D/g, "")) || 0);
     });
 
     return results; // array of { zone, counter }
@@ -352,7 +352,7 @@ function markOOS(zoneName, counter) {
                 .forEach(cell => {
                     cell.classList.remove("active");
                     cell.dataset.officer = "";
-                    cell.dataset.type    = "";
+                    cell.dataset.type = "";
                 });
             // Move officers to target
             officerSlots.forEach((slots, label) => {
@@ -370,8 +370,8 @@ function markOOS(zoneName, counter) {
                         if (!c) return;
                         c.classList.add("active");
                         c.style.background = color;
-                        c.dataset.officer  = label;
-                        c.dataset.type     = type;
+                        c.dataset.officer = label;
+                        c.dataset.type = type;
                     });
                 }
             });
@@ -398,8 +398,7 @@ function markOOS(zoneName, counter) {
         byZone[zone].push(c);
     });
     const candidateOptions = Object.entries(byZone).map(([zone, ctrs]) =>
-        `<optgroup label="${zone}">${
-            ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
+        `<optgroup label="${zone}">${ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
         }</optgroup>`
     ).join("");
 
@@ -441,8 +440,8 @@ function markOOS(zoneName, counter) {
             doMarkOOS(tz, tc);
         };
     }
-    document.getElementById("_oosKeep").onclick   = () => { overlay.remove(); doMarkOOS(null, null); };
-    document.getElementById("_oosCancel").onclick  = () => overlay.remove();
+    document.getElementById("_oosKeep").onclick = () => { overlay.remove(); doMarkOOS(null, null); };
+    document.getElementById("_oosCancel").onclick = () => overlay.remove();
     overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
 }
 
@@ -463,7 +462,7 @@ function swapCounters(fromZone, fromCounter, toZone, toCounter, fromIdx, toIdx) 
     }
     const times = generateTimeSlots();
     const start = (fromIdx !== undefined) ? fromIdx : 0;
-    const end   = (toIdx   !== undefined) ? toIdx   : times.length;
+    const end = (toIdx !== undefined) ? toIdx : times.length;
 
     // Check target is free for the requested window
     for (let i = start; i < end; i++) {
@@ -482,13 +481,13 @@ function swapCounters(fromZone, fromCounter, toZone, toCounter, fromIdx, toIdx) 
         if (!fromCell || !toCell) continue;
         if (fromCell.classList.contains("active")) {
             toCell.classList.add("active");
-            toCell.style.background  = fromCell.style.background;
-            toCell.dataset.officer   = fromCell.dataset.officer;
-            toCell.dataset.type      = fromCell.dataset.type;
+            toCell.style.background = fromCell.style.background;
+            toCell.dataset.officer = fromCell.dataset.officer;
+            toCell.dataset.type = fromCell.dataset.type;
             fromCell.classList.remove("active");
             fromCell.style.background = "";
-            fromCell.dataset.officer  = "";
-            fromCell.dataset.type     = "";
+            fromCell.dataset.officer = "";
+            fromCell.dataset.type = "";
         }
     }
     swapHistory.set(`${fromZone}:${fromCounter}`, `${toZone}||${toCounter}`);
@@ -497,13 +496,13 @@ function swapCounters(fromZone, fromCounter, toZone, toCounter, fromIdx, toIdx) 
 }
 
 function swapBack(zoneName, fromCounter) {
-    const histKey  = `${zoneName}:${fromCounter}`;
+    const histKey = `${zoneName}:${fromCounter}`;
     const destFull = swapHistory.get(histKey);
     if (!destFull) return;
 
     // destFull format: "toZone||toCounter"
-    const sepIdx    = destFull.indexOf("||");
-    const toZone    = destFull.slice(0, sepIdx);
+    const sepIdx = destFull.indexOf("||");
+    const toZone = destFull.slice(0, sepIdx);
     const toCounter = destFull.slice(sepIdx + 2);
 
     if (oosCounters.has(oosKey(zoneName, fromCounter))) {
@@ -521,12 +520,12 @@ function swapBack(zoneName, fromCounter) {
         if (srcCell.classList.contains("active") && !dstCell.classList.contains("active")) {
             dstCell.classList.add("active");
             dstCell.style.background = srcCell.style.background;
-            dstCell.dataset.officer  = srcCell.dataset.officer;
-            dstCell.dataset.type     = srcCell.dataset.type;
+            dstCell.dataset.officer = srcCell.dataset.officer;
+            dstCell.dataset.type = srcCell.dataset.type;
             srcCell.classList.remove("active");
             srcCell.style.background = "";
-            srcCell.dataset.officer  = "";
-            srcCell.dataset.type     = "";
+            srcCell.dataset.officer = "";
+            srcCell.dataset.type = "";
             moved++;
         }
     });
@@ -545,34 +544,40 @@ function buildCounterContextMenu(zoneName, counter) {
     menu.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;
         border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.18);padding:4px 0;min-width:200px;font-size:13px;`;
 
-    const isOOS     = oosCounters.has(oosKey(zoneName, counter));
-    const histKey   = `${zoneName}:${counter}`;
+    const isOOS = oosCounters.has(oosKey(zoneName, counter));
+    const histKey = `${zoneName}:${counter}`;
     const isSwapSrc = swapHistory.has(histKey);
-    const destRaw   = isSwapSrc ? swapHistory.get(histKey) : null;
+    const destRaw = isSwapSrc ? swapHistory.get(histKey) : null;
     const destLabel = destRaw
-        ? (() => { const s = destRaw.indexOf("||"); const z = destRaw.slice(0,s); const c = destRaw.slice(s+2); return z === zoneName ? c : `${c} (${z})`; })()
+        ? (() => { const s = destRaw.indexOf("||"); const z = destRaw.slice(0, s); const c = destRaw.slice(s + 2); return z === zoneName ? c : `${c} (${z})`; })()
         : null;
 
     const items = [];
     if (isOOS) {
         items.push({ label: "✅ Clear Out of Service", action: () => clearOOS(zoneName, counter) });
     } else {
-        items.push({ label: "⚠️ Mark Out of Service", action: () => {
-            if (_saveStateGlobal) _saveStateGlobal();
-            markOOS(zoneName, counter);
-        }});
+        items.push({
+            label: "⚠️ Mark Out of Service", action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                markOOS(zoneName, counter);
+            }
+        });
     }
 
     if (isSwapSrc && destLabel) {
-        items.push({ label: `↩️ Swap Back from ${destLabel}`, action: () => {
-            if (_saveStateGlobal) _saveStateGlobal();
-            swapBack(zoneName, counter);
-        }});
+        items.push({
+            label: `↩️ Swap Back from ${destLabel}`, action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                swapBack(zoneName, counter);
+            }
+        });
     } else {
-        items.push({ label: "🔄 Swap Counter →", action: () => {
-            if (_saveStateGlobal) _saveStateGlobal();
-            showSwapDialog(zoneName, counter);
-        }});
+        items.push({
+            label: "🔄 Swap Counter →", action: () => {
+                if (_saveStateGlobal) _saveStateGlobal();
+                showSwapDialog(zoneName, counter);
+            }
+        });
     }
 
     items.forEach(({ label, action }) => {
@@ -600,8 +605,8 @@ function showSwapDialog(zoneName, fromCounter) {
         `.counter-cell.active[data-zone="${zoneName}"][data-counter="${fromCounter}"]`
     )].map(c => parseInt(c.dataset.time)).sort((a, b) => a - b);
 
-    const defaultFrom = activeTimes.length ? activeTimes[0]                          : 0;
-    const defaultTo   = activeTimes.length ? activeTimes[activeTimes.length - 1] + 1 : times.length;
+    const defaultFrom = activeTimes.length ? activeTimes[0] : 0;
+    const defaultTo = activeTimes.length ? activeTimes[activeTimes.length - 1] + 1 : times.length;
 
     const overlay = document.createElement("div");
     overlay.id = "_swapDialog";
@@ -650,14 +655,14 @@ function showSwapDialog(zoneName, fromCounter) {
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    const selFrom    = document.getElementById("_swapFrom");
-    const selTo      = document.getElementById("_swapTo");
-    const selTarget  = document.getElementById("_swapTarget");
+    const selFrom = document.getElementById("_swapFrom");
+    const selTo = document.getElementById("_swapTo");
+    const selTarget = document.getElementById("_swapTarget");
     const btnConfirm = document.getElementById("_swapConfirm");
-    const noteEl     = document.getElementById("_swapNote");
+    const noteEl = document.getElementById("_swapNote");
 
     selFrom.value = String(defaultFrom);
-    selTo.value   = String(defaultTo);
+    selTo.value = String(defaultTo);
 
     function refreshCandidates() {
         const fi = parseInt(selFrom.value);
@@ -690,8 +695,7 @@ function showSwapDialog(zoneName, fromCounter) {
             });
 
             selTarget.innerHTML = Object.entries(byZone).map(([zone, ctrs]) =>
-                `<optgroup label="${zone}">${
-                    ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
+                `<optgroup label="${zone}">${ctrs.map(c => `<option value="${zone}||${c}">${c}</option>`).join("")
                 }</optgroup>`
             ).join("");
 
@@ -702,14 +706,14 @@ function showSwapDialog(zoneName, fromCounter) {
     }
 
     selFrom.onchange = refreshCandidates;
-    selTo.onchange   = refreshCandidates;
+    selTo.onchange = refreshCandidates;
     refreshCandidates();
 
     document.getElementById("_swapCancel").onclick = () => overlay.remove();
     btnConfirm.onclick = () => {
         const val = selTarget.value;
-        const fi  = parseInt(selFrom.value);
-        const ti  = parseInt(selTo.value);
+        const fi = parseInt(selFrom.value);
+        const ti = parseInt(selTo.value);
         if (val && fi < ti) {
             const [toZone, toCounter] = val.split("||");
             swapCounters(zoneName, fromCounter, toZone, toCounter, fi, ti);
@@ -766,10 +770,10 @@ function saveCellStates() {
     document.querySelectorAll(".counter-cell").forEach(cell => {
         const id = `${cell.dataset.zone}_${cell.dataset.counter}_${cell.dataset.time}`;
         cellStates[key][id] = {
-            active:  cell.classList.contains("active"),
-            color:   cell.style.background,
+            active: cell.classList.contains("active"),
+            color: cell.style.background,
             officer: cell.dataset.officer || "",
-            type:    cell.dataset.type    || ""
+            type: cell.dataset.type || ""
         };
     });
 }
@@ -784,13 +788,13 @@ function restoreCellStates() {
             if (state[id].active) {
                 cell.classList.add("active");
                 cell.style.background = state[id].color;
-                cell.dataset.officer  = state[id].officer || "";
-                cell.dataset.type     = state[id].type    || "";
+                cell.dataset.officer = state[id].officer || "";
+                cell.dataset.type = state[id].type || "";
             } else {
                 cell.classList.remove("active");
                 cell.style.background = "";
-                cell.dataset.officer  = "";
-                cell.dataset.type     = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
             }
         } else if (currentLane === "cargo") {
             // No saved state for cargo cell — keep Excel-derived state as-is
@@ -798,8 +802,8 @@ function restoreCellStates() {
             // Non-cargo, no saved state — clear
             cell.classList.remove("active");
             cell.style.background = "";
-            cell.dataset.officer  = "";
-            cell.dataset.type     = "";
+            cell.dataset.officer = "";
+            cell.dataset.type = "";
         }
     });
     updateAll();
@@ -878,8 +882,8 @@ document.getElementById("copySummaryBtn").addEventListener("click", () => {
 });
 
 document.getElementById("copyMainRosterBtn")?.addEventListener("click", () => copyMainRoster());
-document.getElementById("copySOSRosterBtn")?.addEventListener("click",  () => copySOSRoster());
-document.getElementById("copyOTRosterBtn")?.addEventListener("click",   () => copyOTRoster());
+document.getElementById("copySOSRosterBtn")?.addEventListener("click", () => copySOSRoster());
+document.getElementById("copyOTRosterBtn")?.addEventListener("click", () => copyOTRoster());
 
 document.getElementById("clearGridBtn").addEventListener("click", () => {
     document.querySelectorAll(".counter-cell").forEach(c => {
@@ -1077,7 +1081,7 @@ function _renderSOSRoster(tbody, startTime, endTime) {
     tbody.innerHTML = "";
     const times = generateTimeSlots();
     const startIndex = times.findIndex(t => t === startTime);
-    const endIndex   = times.findIndex(t => t === endTime);
+    const endIndex = times.findIndex(t => t === endTime);
     if (startIndex === -1 || endIndex === -1) return;
 
     const officerMap = {};
@@ -1130,9 +1134,9 @@ function _renderSOSRoster(tbody, startTime, endTime) {
 
 /* ---------------- Mode & Shift Segmented Buttons ----------------- */
 const renderedTables = {};
-["car","bus","train","cargo","owc"].forEach(lane =>
-    ["arrival","departure"].forEach(mode =>
-        ["morning","night"].forEach(shift => {
+["car", "bus", "train", "cargo", "owc"].forEach(lane =>
+    ["arrival", "departure"].forEach(mode =>
+        ["morning", "night"].forEach(shift => {
             renderedTables[`${lane}_${mode}_${shift}`] = false;
         })
     )
@@ -1183,7 +1187,7 @@ function setMode(mode) {
 }
 
 function updateTrainOwcVisibility() {
-    const el    = document.getElementById("trainOwcFields");
+    const el = document.getElementById("trainOwcFields");
     const label = document.getElementById("trainOwcLabel");
     if (!el) return;
     const isMain = document.querySelector(".mp-type.active")?.dataset.type === "main";
@@ -1256,7 +1260,7 @@ function attachCounterContextMenus() {
         const dataCell = row.querySelector(".counter-cell");
         if (!firstCell || !dataCell) return;
         const zoneName = dataCell.dataset.zone;
-        const counter  = dataCell.dataset.counter;
+        const counter = dataCell.dataset.counter;
         if (!zoneName || !counter) return;
 
         firstCell.style.cursor = "context-menu";
@@ -1264,7 +1268,7 @@ function attachCounterContextMenus() {
             e.preventDefault();
             const menu = buildCounterContextMenu(zoneName, counter);
             menu.style.left = e.clientX + "px";
-            menu.style.top  = e.clientY + "px";
+            menu.style.top = e.clientY + "px";
             // Close on any outside click
             setTimeout(() => {
                 document.addEventListener("click", function close() {
@@ -1298,20 +1302,20 @@ async function loadExcelTemplate() {
 
 async function loadCargoExcels() {
     const files = [
-        { key: "arrival_morning",   filename: "CARGO_ARRIVAL_MORNING.xlsx" },
-        { key: "arrival_night",     filename: "CARGO_ARRIVAL_NIGHT.xlsx" },
+        { key: "arrival_morning", filename: "CARGO_ARRIVAL_MORNING.xlsx" },
+        { key: "arrival_night", filename: "CARGO_ARRIVAL_NIGHT.xlsx" },
         { key: "departure_morning", filename: "CARGO_DEPARTURE_MORNING.xlsx" },
-        { key: "departure_night",   filename: "CARGO_DEPARTURE_NIGHT.xlsx" }
+        { key: "departure_night", filename: "CARGO_DEPARTURE_NIGHT.xlsx" }
     ];
-    cargoWorkbooks  = {};
+    cargoWorkbooks = {};
     cargoVariations = {};
     for (const { key, filename } of files) {
         try {
             const res = await fetch(filename);
             if (!res.ok) { console.warn(`Cargo Excel not found: ${filename}`); continue; }
             const buf = await res.arrayBuffer();
-            const wb  = XLSX.read(buf, { type: "array" });
-            cargoWorkbooks[key]  = wb;
+            const wb = XLSX.read(buf, { type: "array" });
+            cargoWorkbooks[key] = wb;
             cargoVariations[key] = wb.SheetNames.filter(n => n !== "List" && !n.startsWith("_"));
             console.log(`Cargo ${key} variations:`, cargoVariations[key]);
         } catch (err) {
@@ -1361,11 +1365,11 @@ function parseCargoSheet(sheetName) {
 
     const counters = [];
     const skipNames = new Set([
-        "Big","Small","Sub-total","Grand-total",
-        "Cover Breaks","Lorry/Car-go","Morning","Night",""
+        "Big", "Small", "Sub-total", "Grand-total",
+        "Cover Breaks", "Lorry/Car-go", "Morning", "Night", ""
     ]);
     // Names that belong to the "Cover Breaks" section
-    const coverNames = new Set(["Checker","DLSC"]);
+    const coverNames = new Set(["Checker", "DLSC"]);
     let inCoverSection = false;
 
     // Rows start at index 2 (row 3) — skip row 2 (Lorry/Car-go header)
@@ -1496,9 +1500,9 @@ function renderCargoGrid() {
 
         cells.forEach((cellVal, i) => {
             const td = document.createElement("td");
-            td.dataset.zone    = zoneName;
+            td.dataset.zone = zoneName;
             td.dataset.counter = name;
-            td.dataset.time    = i;
+            td.dataset.time = i;
 
             if (cellVal !== "#" && cellVal !== "") {
                 td.className = "counter-cell active";
@@ -1508,7 +1512,7 @@ function renderCargoGrid() {
                 const colour = CARGO_COLOURS[colKey];
                 if (colour) {
                     td.style.background = colour.bg;
-                    td.style.color      = colour.text;
+                    td.style.color = colour.text;
                 } else {
                     td.style.background = currentColor;
                 }
@@ -1561,12 +1565,12 @@ document.addEventListener("DOMContentLoaded", function () {
     let manpowerType = "main";
 
     const sosFields = document.getElementById("sosFields");
-    const otFields  = document.getElementById("otFields");
-    const raFields  = document.getElementById("raFields");
-    const roFields  = document.getElementById("roFields");
-    const addBtn    = document.getElementById("addOfficerBtn");
+    const otFields = document.getElementById("otFields");
+    const raFields = document.getElementById("raFields");
+    const roFields = document.getElementById("roFields");
+    const addBtn = document.getElementById("addOfficerBtn");
     const removeBtn = document.getElementById("removeOfficerBtn");
-    const undoBtn   = document.getElementById("undoBtn");
+    const undoBtn = document.getElementById("undoBtn");
 
     if (!addBtn || !removeBtn || !undoBtn) {
         console.error("Manpower buttons not found in HTML.");
@@ -1578,7 +1582,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const officers = [...new Set(
             [...document.querySelectorAll('.counter-cell.active[data-type="main"]')]
                 .map(c => c.dataset.officer).filter(Boolean)
-        )].sort((a, b) => (parseInt(a)||0) - (parseInt(b)||0));
+        )].sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
 
         ["raOfficer", "roOfficer"].forEach(id => {
             const sel = document.getElementById(id);
@@ -1590,7 +1594,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /* -------------------- Select Manpower Type -------------------- */
-    const raroRow        = document.getElementById("raroRow");
+    const raroRow = document.getElementById("raroRow");
     const confirmRaRoBtn = document.getElementById("confirmRaRoBtn");
 
     function updateMpUI() {
@@ -1598,9 +1602,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const isMain = manpowerType === "main";
 
         sosFields.style.display = manpowerType === "sos" ? "block" : "none";
-        otFields.style.display  = manpowerType === "ot"  ? "block" : "none";
-        raFields.style.display  = manpowerType === "ra"  ? "block" : "none";
-        roFields.style.display  = manpowerType === "ro"  ? "block" : "none";
+        otFields.style.display = manpowerType === "ot" ? "block" : "none";
+        raFields.style.display = manpowerType === "ra" ? "block" : "none";
+        roFields.style.display = manpowerType === "ro" ? "block" : "none";
 
         // RA/RO sub-row always visible when Main or RA/RO is active
         if (raroRow) raroRow.style.display = (isMain || isRaRo) ? "flex" : "none";
@@ -1648,13 +1652,13 @@ document.addEventListener("DOMContentLoaded", function () {
         const state = [];
         document.querySelectorAll(".counter-cell").forEach(cell => {
             state.push({
-                zone:    cell.dataset.zone,
+                zone: cell.dataset.zone,
                 counter: cell.dataset.counter,
-                time:    cell.dataset.time,
-                active:  cell.classList.contains("active"),
-                color:   cell.style.background,
+                time: cell.dataset.time,
+                active: cell.classList.contains("active"),
+                color: cell.style.background,
                 officer: cell.dataset.officer || "",
-                type:    cell.dataset.type    || ""
+                type: cell.dataset.type || ""
             });
         });
         historyStack.push(state);
@@ -1665,20 +1669,20 @@ document.addEventListener("DOMContentLoaded", function () {
     function restoreState(state) {
         document.querySelectorAll(".counter-cell").forEach(cell => {
             const found = state.find(s =>
-                s.zone    === cell.dataset.zone &&
+                s.zone === cell.dataset.zone &&
                 s.counter === cell.dataset.counter &&
-                s.time    === cell.dataset.time
+                s.time === cell.dataset.time
             );
             if (found && found.active) {
                 cell.classList.add("active");
                 cell.style.background = found.color;
-                cell.dataset.officer  = found.officer;
-                cell.dataset.type     = found.type;
+                cell.dataset.officer = found.officer;
+                cell.dataset.type = found.type;
             } else {
                 cell.classList.remove("active");
                 cell.style.background = "";
-                cell.dataset.officer  = "";
-                cell.dataset.type     = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
             }
         });
         updateAll();
@@ -1872,10 +1876,10 @@ document.addEventListener("DOMContentLoaded", function () {
             officerRows.forEach(row => {
                 const counter = row.Counter;
                 const start = normalizeExcelTime(row.Start);
-                const end   = normalizeExcelTime(row.End);
+                const end = normalizeExcelTime(row.End);
 
                 let startIndex = times.findIndex(t => t === start);
-                let endIndex   = times.findIndex(t => t === end);
+                let endIndex = times.findIndex(t => t === end);
 
                 if (endIndex === -1 && end === "1000") endIndex = times.length;
                 if (startIndex === -1 || endIndex === -1) return;
@@ -1884,9 +1888,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     [...document.querySelectorAll(`.counter-cell[data-time="${t}"]`)].forEach(cell => {
                         if (cell.parentElement.firstChild.innerText === counter) {
                             cell.classList.add("active");
-                            cell.style.background   = TRAIN_OWC_COLOR;
-                            cell.dataset.officer    = label;
-                            cell.dataset.type       = "main"; // same roster table as main
+                            cell.style.background = TRAIN_OWC_COLOR;
+                            cell.dataset.officer = label;
+                            cell.dataset.type = "main"; // same roster table as main
                         }
                     });
                 }
@@ -1898,7 +1902,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function isOTWithinShift(otStart, otEnd) {
         if (currentShift === "morning") {
             return (otStart === "1100" && otEnd === "1600") ||
-                   (otStart === "1600" && otEnd === "2100");
+                (otStart === "1600" && otEnd === "2100");
         } else {
             return (otStart === "0600" && otEnd === "1100");
         }
@@ -1926,9 +1930,9 @@ document.addEventListener("DOMContentLoaded", function () {
     function allocateOTOfficers(count, otStart, otEnd) {
         const times = generateTimeSlots();
 
-        const shiftEndTime  = currentShift === "morning" ? "2200" : "1000";
+        const shiftEndTime = currentShift === "morning" ? "2200" : "1000";
         const otBoundaryEnd = currentShift === "morning" ? "2200" : "1100"; // last valid OT end time
-        const breakCapTime  = currentShift === "morning" ? "2100" : "0900";
+        const breakCapTime = currentShift === "morning" ? "2100" : "0900";
 
         let startIndex = times.findIndex(t => t === otStart);
         // For night 0600-1100: 1100 is past the grid end, treat as times.length
@@ -1936,10 +1940,12 @@ document.addEventListener("DOMContentLoaded", function () {
             ? times.length
             : times.findIndex(t => t === otEnd);
         if (startIndex === -1) { alert("OT start time outside current shift."); return; }
-        if (endIndex === -1)   { alert("OT end time outside current shift."); return; }
+        if (endIndex === -1) { alert("OT end time outside current shift."); return; }
 
-        const releaseSlots = 2; // 30 min
-        const effectiveEnd = Math.max(startIndex, endIndex - releaseSlots);
+        const releaseSlots = 2; // 30 min (morning only — night OT hands over to next team)
+        const effectiveEnd = currentShift === "night"
+            ? endIndex
+            : Math.max(startIndex, endIndex - releaseSlots);
 
         // Index beyond which breaks must not end (2100 for morning, 0900 for night)
         const breakCap = (() => {
@@ -1955,7 +1961,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Break points: 3 staggered 45-min breaks across the OT window
         const breakSlots = 3;
-        const BK  = [90, 135, 180].map(m => {
+        const BK = [90, 135, 180].map(m => {
             const idx = times.findIndex(t => t === addMins(otStart, m));
             return idx === -1 ? effectiveEnd : idx;
         });
@@ -1982,8 +1988,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!c || c.classList.contains("active")) continue;
                 c.classList.add("active");
                 c.style.background = currentColor;
-                c.dataset.officer  = label;
-                c.dataset.type     = "ot";
+                c.dataset.officer = label;
+                c.dataset.type = "ot";
             }
         }
         // Get all contiguous free sub-windows for a counter within the OT window
@@ -2049,7 +2055,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // ── Compute zone quotas (balanced) ───────────────────────────────────
         const n = nonBikeZones.length;
         const base = Math.floor(count / n);
-        const rem  = count % n;
+        const rem = count % n;
 
         // Cap quota by available fill slots per zone
         const queueMap = {};
@@ -2086,7 +2092,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Count minimum active (main) officers in the break window
             let minMain = z.counters.length;
             const gapWinStart = numBreaks > 0 ? BK[0] : startIndex;
-            const gapWinEnd   = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
+            const gapWinEnd = numBreaks > 0 ? BKE[numBreaks - 1] : startIndex;
             let anyMain = false;
             for (let t = gapWinStart; t < gapWinEnd; t++) {
                 const active = document.querySelectorAll(
@@ -2131,8 +2137,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     for (let attempt = 0; attempt < numBreaks; attempt++) {
                         const bi = (breakIdx[z.name] + attempt) % numBreaks;
                         if (BK[bi] > from && BKE[bi] < to) {
-                            fillBlock(z.name, counter, from,    BK[bi],  label);
-                            fillBlock(z.name, counter, BKE[bi], to,      label);
+                            fillBlock(z.name, counter, from, BK[bi], label);
+                            fillBlock(z.name, counter, BKE[bi], to, label);
                             gapsUsed[z.name]++;
                             breakIdx[z.name] = (bi + 1) % numBreaks;
                             broke = true;
@@ -2159,7 +2165,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const shiftEndTime = currentShift === "morning" ? "2200" : "1000";
 
         let startIndex = times.findIndex(t => t === sosStart);
-        let endIndex   = sosEnd === shiftEndTime ? times.length : times.findIndex(t => t === sosEnd);
+        let endIndex = sosEnd === shiftEndTime ? times.length : times.findIndex(t => t === sosEnd);
 
         if (startIndex === -1 || endIndex === -1) {
             alert("Invalid SOS timing.");
@@ -2359,8 +2365,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         el.textContent = message;
         el.style.background = isError ? "#ffebee" : "#fff8e1";
-        el.style.color       = isError ? "#c62828" : "#e65100";
-        el.style.border      = isError ? "1px solid #ef9a9a" : "1px solid #ffcc80";
+        el.style.color = isError ? "#c62828" : "#e65100";
+        el.style.border = isError ? "1px solid #ef9a9a" : "1px solid #ffcc80";
         clearTimeout(el._hideTimer);
         el._hideTimer = setTimeout(() => { if (el.parentNode) el.textContent = ""; el.style.border = "none"; }, 5000);
     }
@@ -2398,14 +2404,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (manpowerType === "sos") {
             const start = document.getElementById("sosStart").value.replace(":", "");
-            const end   = document.getElementById("sosEnd").value.replace(":", "");
+            const end = document.getElementById("sosEnd").value.replace(":", "");
 
             const times = generateTimeSlots();
             const shiftEndTime = currentShift === "morning" ? "2200" : "1000";
 
             // Allow the shift-end boundary time even though it has no rendered column
             const startIdx = times.findIndex(t => t === start);
-            const endIdx   = end === shiftEndTime ? times.length : times.findIndex(t => t === end);
+            const endIdx = end === shiftEndTime ? times.length : times.findIndex(t => t === end);
 
             if (startIdx === -1 || endIdx === -1) {
                 alert("SOS time range outside current shift grid.");
@@ -2438,13 +2444,13 @@ document.addEventListener("DOMContentLoaded", function () {
         confirmRaRoBtn.addEventListener("click", () => {
             if (manpowerType === "ra") {
                 const officerLabel = document.getElementById("raOfficer").value;
-                const raTimeRaw    = document.getElementById("raTime").value;
+                const raTimeRaw = document.getElementById("raTime").value;
                 if (!officerLabel || !raTimeRaw) { alert("Select an officer and enter RA time."); return; }
                 applyRA(officerLabel, raTimeRaw.replace(":", ""));
             }
             if (manpowerType === "ro") {
                 const officerLabel = document.getElementById("roOfficer").value;
-                const roTimeRaw    = document.getElementById("roTime").value;
+                const roTimeRaw = document.getElementById("roTime").value;
                 if (!officerLabel || !roTimeRaw) { alert("Select an officer and enter RO time."); return; }
                 applyRO(officerLabel, roTimeRaw.replace(":", ""));
             }
@@ -2548,7 +2554,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const bIsNum = !isNaN(bNum) && String(bNum) === b.split(" ")[0];
             if (aIsNum && bIsNum) return aNum - bNum;
             if (aIsNum) return -1;
-            if (bIsNum) return  1;
+            if (bIsNum) return 1;
             return a.localeCompare(b);
         });
 
@@ -2575,12 +2581,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <select id="_removeSelect" multiple size="8"
                     style="width:100%;box-sizing:border-box;border:1px solid #ccc;border-radius:6px;font-size:13px;padding:4px;line-height:1.6;margin-bottom:12px;">
                     ${labels.map(l => {
-                        const type = labelMap[l];
-                        const badge = type === "main"
-                            ? (l.toUpperCase().startsWith("TRAIN") ? "🚂" : l.toUpperCase().startsWith("OWC") ? "🎓" : "🟠")
-                            : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
-                        return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
-                    }).join("")}
+            const type = labelMap[l];
+            const badge = type === "main"
+                ? (l.toUpperCase().startsWith("TRAIN") ? "🚂" : l.toUpperCase().startsWith("OWC") ? "🎓" : "🟠")
+                : type === "ot" ? "🟣" : type === "sos" ? "🔵" : "⚪";
+            return `<option value="${l}">${badge} ${displayLabel(l)}</option>`;
+        }).join("")}
                 </select>
 
                 <div style="border-top:1px solid #eee;padding-top:12px;margin-bottom:12px;">
@@ -2622,9 +2628,9 @@ document.addEventListener("DOMContentLoaded", function () {
         document.body.appendChild(overlay);
         const searchEl = overlay.querySelector("#_removeSearch");
         const selectEl = overlay.querySelector("#_removeSelect");
-        const fromEl   = overlay.querySelector("#_removeFrom");
-        const toEl     = overlay.querySelector("#_removeTo");
-        const noteEl   = overlay.querySelector("#_removeRangeNote");
+        const fromEl = overlay.querySelector("#_removeFrom");
+        const toEl = overlay.querySelector("#_removeTo");
+        const noteEl = overlay.querySelector("#_removeRangeNote");
         searchEl.focus();
 
         function updateNote() {
@@ -2638,14 +2644,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 noteEl.style.color = "#c62828";
             } else {
                 const fromLabel = fi === -1 ? "start" : times[fi];
-                const toLabel   = ti === -1 ? "end"   : times[ti];
+                const toLabel = ti === -1 ? "end" : times[ti];
                 noteEl.textContent = `Removing ${fromLabel} → ${toLabel} only`;
                 noteEl.style.color = "#2e7d32";
             }
         }
 
         fromEl.onchange = updateNote;
-        toEl.onchange   = updateNote;
+        toEl.onchange = updateNote;
 
         // Live filter
         searchEl.addEventListener("input", () => {
@@ -2682,8 +2688,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (ti !== -1 && t >= ti) return;
                 cell.classList.remove("active");
                 cell.style.background = "";
-                cell.dataset.officer  = "";
-                cell.dataset.type     = "";
+                cell.dataset.officer = "";
+                cell.dataset.type = "";
             });
             updateAll();
             close();
@@ -2701,7 +2707,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Collect all OT and SOS officers (main identified by number, not name)
         const labelMap = {}; // base label → { type, currentLabel }
         document.querySelectorAll(".counter-cell.active").forEach(c => {
-            const lbl  = c.dataset.officer;
+            const lbl = c.dataset.officer;
             const type = c.dataset.type;
             if (!lbl || type === "main") return;
             if (!labelMap[lbl]) labelMap[lbl] = { type, currentLabel: lbl };
@@ -2714,18 +2720,18 @@ document.addEventListener("DOMContentLoaded", function () {
         entries.sort((a, b) => {
             const aBase = a.currentLabel.split(" | ")[0];
             const bBase = b.currentLabel.split(" | ")[0];
-            const aIsOT  = aBase.startsWith("OT"),  bIsOT  = bBase.startsWith("OT");
+            const aIsOT = aBase.startsWith("OT"), bIsOT = bBase.startsWith("OT");
             const aIsSOS = aBase.startsWith("SOS"), bIsSOS = bBase.startsWith("SOS");
             if (aIsSOS && !bIsSOS) return -1;
             if (!aIsSOS && bIsSOS) return 1;
-            return parseInt(aBase.replace(/\D/g,""))||0 - parseInt(bBase.replace(/\D/g,""))||0;
+            return parseInt(aBase.replace(/\D/g, "")) || 0 - parseInt(bBase.replace(/\D/g, "")) || 0;
         });
 
         const overlay = document.createElement("div");
         overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
 
         const rows = entries.map(e => {
-            const base  = e.currentLabel.split(" | ")[0];
+            const base = e.currentLabel.split(" | ")[0];
             const existing = e.currentLabel.includes(" | ") ? e.currentLabel.split(" | ").slice(1).join(" | ") : "";
             const badge = e.type === "ot" ? "🟣" : "🔵";
             return `
@@ -2772,8 +2778,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const renameMap = {};
             overlay.querySelectorAll("tbody tr").forEach(row => {
                 const oldLabel = row.dataset.old;
-                const base     = oldLabel.split(" | ")[0];
-                const name     = row.querySelector("input").value.trim();
+                const base = oldLabel.split(" | ")[0];
+                const name = row.querySelector("input").value.trim();
                 const newLabel = name ? `${base} | ${name}` : base;
                 if (newLabel !== oldLabel) renameMap[oldLabel] = newLabel;
             });
@@ -2810,8 +2816,8 @@ function getEmptyCellsBackFirst(zoneName, timeIndex) {
 }
 
 function copyMainRoster() { copyTable("mainRosterTable", "copyMainRosterBtn"); }
-function copySOSRoster()  { copyTable("sosRosterTable",  "copySOSRosterBtn");  }
-function copyOTRoster()   { copyTable("otRosterTable",   "copyOTRosterBtn");   }
+function copySOSRoster() { copyTable("sosRosterTable", "copySOSRosterBtn"); }
+function copyOTRoster() { copyTable("otRosterTable", "copyOTRosterBtn"); }
 
 function copyTable(tableId, btnId) {
     const table = document.getElementById(tableId);
