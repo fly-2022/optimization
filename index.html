@@ -3147,9 +3147,7 @@
               // Can we give this officer a break?
               // Conditions: window is long enough, gap budget available, break fits inside window
               const canBreak =
-                !isPartial &&
-                gapsUsed[z.name] < maxGaps[z.name] &&
-                numBreaks > 0;
+                gapsUsed[z.name] < maxGaps[z.name] && numBreaks > 0;
 
               let broke = false;
               if (canBreak) {
